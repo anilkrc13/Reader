@@ -1,0 +1,13 @@
+# Machine-local state, regenerated on first run
+.mdview-token
+preferences.json
+
+# Local Claude Code settings
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+
+# macOS
+.DS_Store
