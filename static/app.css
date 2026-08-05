@@ -465,6 +465,14 @@ html[data-mode=split] .prose{padding:28px 34px 28vh;font-size:calc(var(--fs-body
   font-family:var(--font-mono);font-size:var(--fs-code);background:var(--panel-hi);
   padding:.16em .38em;border-radius:5px;border:1px solid var(--border-soft);
 }
+/* code inside a link: in light themes the neutral chip sat too heavily under
+   saturated accent text, so the pair read as one loud block. A whisper of the
+   accent over the paper is lighter and matches the text it carries. Dark
+   themes keep the plain chip -- accent text is softer there and reads well. */
+html[data-theme=light] .prose a code{
+  background:color-mix(in srgb,var(--accent) 7%,var(--paper));
+  border-color:color-mix(in srgb,var(--accent) 20%,transparent);
+}
 .prose pre{
   margin:1.3em 0;padding:15px 17px;overflow:auto;background:var(--panel);
   border:1px solid var(--border);border-radius:var(--radius);line-height:1.65;
