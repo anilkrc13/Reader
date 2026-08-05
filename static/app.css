@@ -59,6 +59,7 @@
   --code-wrap:pre;
   --accent:#d97757;
   --accent-fill:#d97757;   /* accent adjusted until text can reach 4.5:1 on it */
+  --accent-text:#a85c44;   /* accent adjusted until it reads at 4.5:1 on paper */
   --accent-on:#ffffff;
 }
 
@@ -108,7 +109,7 @@ html[data-theme=dark][data-paper-dark=black]{
 
 /* ----------------------------------------------------------- code colours */
 :root{
-  --c-comment:var(--text-3); --c-key:var(--accent); --c-str:#788c5d;
+  --c-comment:var(--text-3); --c-key:var(--accent-text); --c-str:#788c5d;
   --c-num:#6a9bcc; --c-fn:#6a9bcc; --c-title:var(--text);
 }
 html[data-theme=dark]{--c-str:#9db47c;--c-num:#8ab4dd;--c-fn:#8ab4dd}
@@ -451,8 +452,8 @@ html[data-mode=split] .prose{padding:28px 34px 28vh;font-size:calc(var(--fs-body
 .prose h4{font-size:1em}
 .prose h5,.prose h6{font-size:.92em;color:var(--text-2)}
 .prose p{margin:0 0 var(--para-gap)}
-.prose a{color:var(--accent);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--accent) 35%,transparent)}
-.prose a:hover{border-bottom-color:var(--accent)}
+.prose a{color:var(--accent-text);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--accent-text) 35%,transparent)}
+.prose a:hover{border-bottom-color:var(--accent-text)}
 .prose strong{font-weight:700}
 .prose ul,.prose ol{margin:0 0 var(--para-gap);padding-left:1.4em}
 .prose li{margin:.32em 0}
@@ -701,7 +702,7 @@ select.control:hover{border-color:var(--text-3)}
   content:"";position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;
   background:var(--raised);box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform var(--speed);
 }
-.switch[aria-checked=true]{background:var(--accent);border-color:var(--accent)}
+.switch[aria-checked=true]{background:var(--accent-fill);border-color:var(--accent-fill)}
 .switch[aria-checked=true]::after{transform:translateX(17px);background:#fff}
 
 .specimen{
