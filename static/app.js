@@ -1776,7 +1776,6 @@ $("btn-save").onclick = saveFile;
 $("btn-refresh").onclick = refresh;
 $("btn-theme").onclick = cycleTheme;
 $("btn-full").onclick = toggleFullscreen;
-$("btn-hide").onclick = () => toggleSidebar(true);
 /* One control, and it toggles: pin the panel open, or put it away. A peek shows
    the panel without clearing S.hidden, so toggleSidebar's own read of the pinned
    state is the right one -- clicking mid-peek pins, it does not hide. */
