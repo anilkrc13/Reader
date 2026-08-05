@@ -320,6 +320,20 @@ function fillFor(accent) {
   return fill;
 }
 
+/* The same 4.5:1 standard for the accent AS text -- links, code keywords --
+   judged against the paper it actually sits on, and nudged toward whichever
+   pole that paper contrasts with until it clears. Dark papers pass untouched;
+   light papers deepen the accent a step or two. */
+function textFor(accent, paper) {
+  const pl = luminance(paper);
+  const pole = contrastRatio(pl, 0) >= contrastRatio(pl, 1) ? "#000000" : "#ffffff";
+  let text = accent;
+  for (let i = 0; i < 12 && contrastRatio(luminance(text), pl) < 4.5; i++) {
+    text = mixHex(text, pole, 0.12);
+  }
+  return text;
+}
+
 const mq = window.matchMedia("(prefers-color-scheme: dark)");
 const resolvedTheme = () => (S.theme === "auto" ? (mq.matches ? "dark" : "light") : S.theme);
 
@@ -345,6 +359,11 @@ function applySettings() {
   const fill = fillFor(accent);
   st.setProperty("--accent-fill", fill);
   st.setProperty("--accent-on", readableOn(fill));
+  /* the paper follows theme and paper choice in the stylesheet, so read it
+     back (the data- attributes above are already set) rather than duplicate it */
+  const paper = getComputedStyle(root).getPropertyValue("--paper").trim();
+  st.setProperty("--accent-text",
+                 textFor(accent, /^#[0-9a-f]{6}$/i.test(paper) ? paper : "#faf9f5"));
 
   const body = fontStack(BODY_FONTS, S.bodyFont);
   st.setProperty("--font-body", body);
