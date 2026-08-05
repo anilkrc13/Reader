@@ -19,6 +19,7 @@ const el = {
   previewpane: $("previewpane"),
   docname: $("docname"), dirty: $("dirty"), toast: $("toast"),
   save: $("btn-save"), footnote: $("footnote"),
+  back: $("btn-back"), fwd: $("btn-fwd"),
   dragbar: $("dragbar"), diskbar: $("diskbar"), diskmsg: null,
   recents: $("recentlist"), recentsCount: $("recents-count"),
   recentsToggle: $("recents-toggle"),
@@ -60,11 +61,9 @@ const NUMERIC = new Set(["fontSize", "lineHeight", "measure", "paraGap", "codeSc
                          "editorSize", "tabSize", "recentCount", "watchMs", "width"]);
 
 /* Line width is a percentage of the reading pane, so it follows the window
-   instead of pinning prose to one pixel width. `cap` is a readability ceiling:
-   a percentage alone would stretch a line past 200 characters on a wide
-   display, and the cap is in `ch` so it tracks the reading font's own size.
-   At `max` the setting means "fill the pane" and the cap is lifted. */
-const MEASURE = {min: 40, max: 100, step: 5, cap: "90ch"};
+   instead of pinning prose to one pixel width. No readability ceiling: the
+   percentage is the percentage, and how wide is the reader's call. */
+const MEASURE = {min: 30, max: 100, step: 5};
 const LEGACY_MEASURE = {min: 520, max: 1240};   // the pixel range used before 2.0
 
 const ACCENTS = {
@@ -110,7 +109,41 @@ const state = {
   root: null, file: null, saved: "",
   expanded: new Set(), children: new Map(),
   dirty: false, polling: false, diskSeen: null, lastFocus: null,
+  /* documents visited this session, and where we are in that trail. Deliberately
+     not persisted: like a browser window, closing it forgets the trail. */
+  trail: [], trailAt: -1,
 };
+
+const TRAIL_MAX = 100;
+
+/* Record a document the user navigated to. Anything ahead of the current
+   position is dropped, so opening a document after going back replaces the
+   forward trail rather than branching -- the behaviour a browser has. */
+function trailPush(path) {
+  if (state.trail[state.trailAt] === path) return;      // re-opening the same doc
+  state.trail.splice(state.trailAt + 1);
+  state.trail.push(path);
+  if (state.trail.length > TRAIL_MAX) state.trail.shift();
+  state.trailAt = state.trail.length - 1;
+  syncTrailButtons();
+}
+
+function syncTrailButtons() {
+  el.back.disabled = state.trailAt <= 0;
+  el.fwd.disabled = state.trailAt < 0 || state.trailAt >= state.trail.length - 1;
+}
+
+async function trailGo(delta) {
+  const next = state.trailAt + delta;
+  if (next < 0 || next >= state.trail.length) return;
+  /* Move only if the document actually opens. A file deleted since it was
+     visited, or a discard prompt the user cancels, would otherwise leave the
+     position pointing somewhere the reader is not. */
+  if (await openFile(state.trail[next], {record: false})) {
+    state.trailAt = next;
+    syncTrailButtons();
+  }
+}
 
 /* Before 2.0 the line width was a pixel value from a 520-1240 slider, so any
    stored number above 100 is one of those and is mapped onto the percentage
@@ -218,9 +251,7 @@ function applySettings() {
 
   st.setProperty("--fs-body", S.fontSize + "px");
   st.setProperty("--lh-body", String(S.lineHeight));
-  const fullWidth = S.measure >= MEASURE.max;
-  st.setProperty("--measure", fullWidth ? "100%" : S.measure + "%");
-  st.setProperty("--measure-max", fullWidth ? "100%" : MEASURE.cap);
+  st.setProperty("--measure", S.measure + "%");
   st.setProperty("--para-gap", S.paraGap + "em");
   st.setProperty("--fs-code", S.codeScale + "em");
   st.setProperty("--fs-editor", S.editorSize + "px");
@@ -469,14 +500,17 @@ function hideDiskBar() {
   el.diskmsg.textContent = "This file changed on disk while you were editing.";
 }
 
-async function openFile(path, {keepScroll = false, silent = false} = {}) {
-  if (!silent && state.dirty && !confirm("Discard unsaved changes?")) return;
+/* Returns the opened path, or null if nothing was opened -- the trail relies on
+   knowing the difference. `record` is false for reloads of the current document
+   and for trail navigation itself, neither of which is a new visit. */
+async function openFile(path, {keepScroll = false, silent = false, record = true} = {}) {
+  if (!silent && state.dirty && !confirm("Discard unsaved changes?")) return null;
   const kind = kindOf(path);
 
   if (kind === "pdf") {
     let info;
     try { info = await api("/api/stat", {query: {path}}); }
-    catch (err) { toast(err.message, true); return; }
+    catch (err) { toast(err.message, true); return null; }
     state.file = {path, kind: "pdf",
                   name: path.split("/").pop(),
                   dir: path.split("/").slice(0, -1).join("/") || "/",
@@ -496,7 +530,8 @@ async function openFile(path, {keepScroll = false, silent = false} = {}) {
     markActive();
     restartWatch();
     if (!silent) revealInTree(path);
-    return;
+    if (record) trailPush(state.file.path);
+    return state.file.path;
   }
 
   const pRatio = keepScroll ? scrollRatio(el.previewpane) : 0;
@@ -505,7 +540,7 @@ async function openFile(path, {keepScroll = false, silent = false} = {}) {
 
   let data;
   try { data = await api("/api/file", {query: {path}}); }
-  catch (err) { toast(err.message, true); return; }
+  catch (err) { toast(err.message, true); return null; }
 
   clearPDF();
   root.dataset.doc = kind;
@@ -529,6 +564,8 @@ async function openFile(path, {keepScroll = false, silent = false} = {}) {
   markActive();
   restartWatch();
   if (!silent) revealInTree(data.path);
+  if (record) trailPush(data.path);
+  return data.path;
 }
 
 async function saveFile() {
@@ -569,7 +606,7 @@ async function refresh() {
   if (!state.file) { await refreshTree(); return; }
   if (state.dirty && !confirm("Reload from disk and discard unsaved changes?")) return;
   setDirty(false);
-  await openFile(state.file.path, {keepScroll: true, silent: true});
+  await openFile(state.file.path, {keepScroll: true, silent: true, record: false});
   await refreshTree();
   toast("Reloaded");
 }
@@ -611,7 +648,7 @@ async function pollOpenFile() {
       el.diskbar.hidden = false;
       return;
     }
-    await openFile(state.file.path, {keepScroll: true, silent: true});
+    await openFile(state.file.path, {keepScroll: true, silent: true, record: false});
     if (S.watchToast) toast("Refreshed from disk");
   } catch (err) {
     if (/no such/i.test(err.message)) {
@@ -632,7 +669,7 @@ document.addEventListener("visibilitychange", () => {
 $("disk-reload").onclick = async () => {
   setDirty(false);
   hideDiskBar();
-  await openFile(state.file.path, {keepScroll: true, silent: true});
+  await openFile(state.file.path, {keepScroll: true, silent: true, record: false});
   toast("Reloaded from disk");
 };
 $("disk-keep").onclick = hideDiskBar;
@@ -1564,12 +1601,39 @@ $("btn-hide").onclick = () => toggleSidebar(true);
 $("btn-show").onclick = () => toggleSidebar(false);
 $("btn-side").onclick = () => { setValue("side", S.side === "left" ? "right" : "left"); };
 
+el.back.addEventListener("click", () => trailGo(-1));
+el.fwd.addEventListener("click", () => trailGo(1));
+
+/* Is the user typing, or working inside a dialog? Bare arrow keys belong to the
+   caret and to native controls in those cases, so the trail must not claim them. */
+function editingText() {
+  const a = document.activeElement;
+  if (!a || a === document.body) return false;
+  return a.isContentEditable || /^(input|textarea|select)$/i.test(a.tagName);
+}
+
+function overlayOpen() {
+  return !el.menu.hidden || renamerOpen() || confirmOpen() || settingsOpen();
+}
+
 document.addEventListener("keydown", (ev) => {
   if (ev.key === "Escape" && !el.menu.hidden) { ev.preventDefault(); closeMenu(); return; }
   if (ev.key === "Escape" && renamerOpen()) { ev.preventDefault(); closeRenamer(); return; }
   if (ev.key === "Escape" && confirmOpen()) { ev.preventDefault(); closeConfirm(); return; }
   if (ev.key === "Escape" && settingsOpen()) { ev.preventDefault(); closeSettings(); return; }
   const meta = ev.metaKey || ev.ctrlKey;
+
+  /* Back and forward. Bare arrows while reading; they are left alone when the
+     caret owns them or a dialog is up. ⌘[ and ⌘] work everywhere, including in
+     the editor -- unlike ⌘←/⌘→, which macOS uses for start and end of line. */
+  const arrow = ev.key === "ArrowLeft" ? -1 : ev.key === "ArrowRight" ? 1 : 0;
+  if (arrow && !meta && !ev.altKey && !ev.shiftKey && !editingText() && !overlayOpen()) {
+    ev.preventDefault(); trailGo(arrow); return;
+  }
+  if (meta && (ev.key === "[" || ev.key === "]") && !overlayOpen()) {
+    ev.preventDefault(); trailGo(ev.key === "[" ? -1 : 1); return;
+  }
+
   if (!meta) return;
   const k = ev.key.toLowerCase();
   if (k === ",") { ev.preventDefault(); settingsOpen() ? closeSettings() : openSettings(); }

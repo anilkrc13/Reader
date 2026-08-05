@@ -100,6 +100,13 @@
         <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2"/><path d="M8 3.5v13"/></svg>
       </button>
 
+      <button class="icon-btn" id="btn-back" title="Back (← or ⌘[)" aria-label="Back" disabled>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11.6 4.8 6.4 10l5.2 5.2"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-fwd" title="Forward (→ or ⌘])" aria-label="Forward" disabled>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8.4 4.8 13.6 10l-5.2 5.2"/></svg>
+      </button>
+
       <div class="doc-title">
         <span id="docname">No document open</span>
         <span class="dot" id="dirty" title="Unsaved changes" hidden></span>
@@ -373,7 +380,7 @@
             <div class="set-row">
               <div class="set-label"><b>Line width</b><span>Around 65–75 characters per line is the comfortable range.</span></div>
               <div class="set-control"><div class="slider">
-                <input type="range" data-set="measure" min="40" max="100" step="5" aria-label="Line width">
+                <input type="range" data-set="measure" min="30" max="100" step="5" aria-label="Line width">
                 <span class="val" data-val="measure"></span></div></div>
             </div>
             <div class="set-row">
