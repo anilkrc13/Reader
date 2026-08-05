@@ -133,11 +133,11 @@ html[data-side=right] #dragbar{order:2}
 html[data-side=right] #main{order:1}
 html[data-sidebar=hidden] #dragbar{display:none}
 
-/* The reveal button is the one control for the panel, so it stays put and stays
-   clickable: hovering it floats the panel out, clicking it pins the panel open,
-   clicking again puts it away. It must therefore sit above the panel, which
-   slides over this corner of the toolbar when it floats out. */
-#btn-show{position:relative;z-index:31}
+/* The toolbar's reveal button shows only while the panel is hidden: hovering it
+   peeks the panel out, clicking it pins the panel open. Once the panel is on
+   screen its own corner button (#btn-panel, same glyph, same corner) takes
+   over, so the control reads as one button that the panel slides beneath. */
+html:not([data-sidebar=hidden]) #btn-show{display:none}
 
 /* Hidden panel: it slides off-canvas but stays live, and the reveal button
    floats it back over the page on hover. */
@@ -153,6 +153,9 @@ html[data-sidebar=hidden].peek #sidebar{transform:none;visibility:visible}
 /* the reveal button lives on whichever edge the panel belongs to */
 html[data-side=right] #btn-show{order:99;margin-left:4px}
 html[data-side=right] #btn-show svg{transform:scaleX(-1)}
+/* mirrored for a right-docked panel: its corner is its right edge */
+html[data-side=right] #btn-panel{order:99}
+html[data-side=right] #btn-panel svg{transform:scaleX(-1)}
 
 button,input,select,textarea{font:inherit;color:inherit}
 button{background:none;border:0;cursor:pointer}
@@ -188,7 +191,7 @@ button{background:none;border:0;cursor:pointer}
   background:var(--panel);border-right:1px solid var(--border);
   display:flex;flex-direction:column;overflow:hidden;
 }
-.side-head{display:flex;align-items:center;gap:6px;padding:11px 10px 9px 16px}
+.side-head{display:flex;align-items:center;gap:8px;padding:8px 10px}
 .side-title{font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);flex:1}
 
 /* pinned folders and recently opened files share one visual language */

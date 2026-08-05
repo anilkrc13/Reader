@@ -32,10 +32,14 @@
   <!-- =========================================================== sidebar -->
   <aside id="sidebar" aria-label="File browser">
     <div class="side-head">
-      <!-- No controls here: the toolbar's panel button is the one place that
-           shows, hides, and peeks the panel. A second copy of the same glyph
-           sitting right beside it read as a bug. Which edge the panel sits on
-           is a setting (Appearance > File panel side). -->
+      <!-- One glyph, two homes: while the panel is on screen the control lives
+           here, in its corner; while the panel is hidden the toolbar shows its
+           twin (#btn-show) in the same corner of the window. Only one is ever
+           visible, so the button appears to stay put as the panel comes and
+           goes. Which edge the panel sits on is a setting, not a button. -->
+      <button class="icon-btn" id="btn-panel" title="Hide panel (⌘\)" aria-label="Hide panel">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2"/><path d="M8 3.5v13"/></svg>
+      </button>
       <span class="side-title">Files</span>
     </div>
 
