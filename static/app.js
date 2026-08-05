@@ -287,11 +287,37 @@ function luminance(hex) {
   });
   return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
 }
+const contrastRatio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+
 function readableOn(hex) {
   const bg = luminance(hex);
-  const ratio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
-  return ratio(bg, luminance("#141413")) >= ratio(bg, luminance("#ffffff"))
+  return contrastRatio(bg, luminance("#141413")) >= contrastRatio(bg, luminance("#ffffff"))
     ? "#141413" : "#ffffff";
+}
+
+function mixHex(hex, other, w) {
+  const a = parseInt(hex.slice(1), 16), b = parseInt(other.slice(1), 16);
+  return "#" + [16, 8, 0].map((sh) =>
+    Math.round(((a >> sh) & 255) * (1 - w) + ((b >> sh) & 255) * w)
+      .toString(16).padStart(2, "0")).join("");
+}
+
+/* The standard for text on an accent surface is WCAG AA: the better of ink or
+   white must reach 4.5:1. The palette's accents were tuned as text colours,
+   and a mid-luminance one (the light green) offers ~4.3:1 to both -- a coin
+   flip where neither is comfortable. Rather than pick the least-bad text,
+   nudge the SURFACE toward whichever pole helps until the ratio is met; the
+   raw accent stays itself wherever it acts as text or a thin line. */
+function fillFor(accent) {
+  let fill = accent;
+  for (let i = 0; i < 10; i++) {
+    const bg = luminance(fill);
+    const best = Math.max(contrastRatio(bg, luminance("#141413")),
+                          contrastRatio(bg, luminance("#ffffff")));
+    if (best >= 4.5) break;
+    fill = mixHex(fill, bg > 0.18 ? "#000000" : "#ffffff", 0.12);
+  }
+  return fill;
 }
 
 const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -316,7 +342,9 @@ function applySettings() {
 
   const accent = (ACCENTS[S.accent] || ACCENTS.clay)[dark ? "dark" : "light"];
   st.setProperty("--accent", accent);
-  st.setProperty("--accent-on", readableOn(accent));
+  const fill = fillFor(accent);
+  st.setProperty("--accent-fill", fill);
+  st.setProperty("--accent-on", readableOn(fill));
 
   const body = fontStack(BODY_FONTS, S.bodyFont);
   st.setProperty("--font-body", body);
