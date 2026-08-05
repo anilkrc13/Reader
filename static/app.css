@@ -132,14 +132,15 @@ html[data-side=right] #sidebar{order:3;border-right:0;border-left:1px solid var(
 html[data-side=right] #dragbar{order:2}
 html[data-side=right] #main{order:1}
 html[data-sidebar=hidden] #dragbar{display:none}
-html:not([data-sidebar=hidden]) #btn-show{display:none}
-html:not([data-sidebar=hidden]) #peekzone{display:none}
 
-/* Hidden panel: it slides off-canvas but stays live, and a thin strip along
-   that edge (or the reveal button) floats it back over the page on hover. */
-#peekzone{position:fixed;top:0;bottom:0;width:14px;z-index:29}
-html[data-side=left] #peekzone{left:0}
-html[data-side=right] #peekzone{right:0}
+/* The reveal button is the one control for the panel, so it stays put and stays
+   clickable: hovering it floats the panel out, clicking it pins the panel open,
+   clicking again puts it away. It must therefore sit above the panel, which
+   slides over this corner of the toolbar when it floats out. */
+#btn-show{position:relative;z-index:31}
+
+/* Hidden panel: it slides off-canvas but stays live, and the reveal button
+   floats it back over the page on hover. */
 html[data-sidebar=hidden] #sidebar{
   position:fixed;top:0;bottom:0;z-index:30;width:var(--sidebar-w);
   box-shadow:var(--shadow-lg);
