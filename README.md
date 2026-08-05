@@ -92,7 +92,7 @@ document's folder, and relative links to other markdown files open in the app.
 ## Notes on how it works
 
 - The server binds to `127.0.0.1` only, on port 8737. Requests must carry a
-  session cookie set from a secret stored in `.mdview-token` (readable only by
+  session cookie set from a secret stored in `.reader-token` (readable only by
   you), the `Host` header must be a loopback name, and cross-origin API calls
   are refused — so nothing on your network, and no website you happen to have
   open, can reach your files through it.

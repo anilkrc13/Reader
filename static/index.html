@@ -535,9 +535,11 @@
                open with editing and saving; CSV renders as tables; PDF uses your
                browser's own viewer. It runs from a single folder on your Mac, uses only
                the Python standard library, and never reaches the network.</p>
-            <p>The server listens on <code>127.0.0.1</code> at a random port and every request
-               carries a token generated at launch, so nothing else on your machine or network
-               can read your files through it. Rendered HTML is sanitised, and saves are atomic.</p>
+            <p>The server listens on <code>127.0.0.1</code> only, at a fixed port (8737, or the
+               next free one if that is taken), and every request carries a secret token kept
+               beside the app, so the address stays bookmarkable and nothing else on your
+               machine or network can read your files through it. Rendered HTML is sanitised,
+               and saves are atomic.</p>
             <p>Bundled offline: <b>marked</b> (markdown), <b>DOMPurify</b> (sanitising),
                <b>highlight.js</b> (code), and the <b>Poppins</b>, <b>Lora</b>, <b>Inter</b>,
                <b>Source Serif 4</b> and <b>JetBrains Mono</b> typefaces. Licences are in the

@@ -1,4 +1,6 @@
 # Machine-local state, regenerated on first run
+.reader-token
+# pre-2.0 name, may still exist on older installs
 .mdview-token
 preferences.json
 
