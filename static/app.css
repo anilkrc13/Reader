@@ -58,6 +58,7 @@
   --tab-size:2;
   --code-wrap:pre;
   --accent:#d97757;
+  --accent-fill:#d97757;   /* accent adjusted until text can reach 4.5:1 on it */
   --accent-on:#ffffff;
 }
 
@@ -176,7 +177,7 @@ button{background:none;border:0;cursor:pointer}
 .icon-btn:hover:not(:disabled){background:var(--panel-hi);border-color:var(--text-3)}
 .icon-btn:active:not(:disabled){transform:translateY(.5px)}
 .icon-btn:disabled{opacity:.35;cursor:default;background:transparent;box-shadow:none}
-.icon-btn.accent{background:var(--accent);border-color:var(--accent);color:var(--accent-on)}
+.icon-btn.accent{background:var(--accent-fill);border-color:var(--accent-fill);color:var(--accent-on)}
 .icon-btn.accent:hover:not(:disabled){filter:brightness(1.06);border-color:var(--accent)}
 /* nothing to save: fall back to a quiet outline rather than a live-looking button */
 .icon-btn.accent:disabled{background:transparent;border-color:var(--border);color:var(--text)}
@@ -214,7 +215,7 @@ html[data-recents=off] #recents{display:none}
   background:var(--raised);border:1px solid var(--border);box-shadow:0 1px 1px rgba(0,0,0,.04);
   transition:background var(--speed),color var(--speed),border-color var(--speed);
 }
-.icon-mini:hover{background:var(--accent);border-color:var(--accent);color:var(--accent-on)}
+.icon-mini:hover{background:var(--accent-fill);border-color:var(--accent-fill);color:var(--accent-on)}
 .icon-mini svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;
   stroke-linecap:round;stroke-linejoin:round}
 
@@ -226,7 +227,9 @@ html[data-recents=off] #recents{display:none}
 .sec .row{gap:7px}
 .sec .sub{font-size:11px;color:var(--text-3);margin-left:auto;padding-left:8px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:45%;flex:none}
-.sec .row.active .sub{color:var(--accent-on);opacity:.85}
+/* full accent-on, no opacity: the ratio is engineered to be exactly enough,
+   and diluting it re-creates the unreadable sub this standard exists to fix */
+.sec .row.active .sub{color:var(--accent-on)}
 .sec .row.current{color:var(--text);font-weight:600}
 .sec .row.current .fi{color:var(--accent);opacity:1}
 .sec-empty{padding:5px 8px 2px;font-size:12px;color:var(--text-3);font-style:italic;line-height:1.4}
@@ -275,7 +278,7 @@ html[data-recents=off] #recents{display:none}
   line-height:1.35;transition:background var(--speed),color var(--speed);
 }
 .row:hover{background:var(--panel-hi);color:var(--text)}
-.row.active{background:var(--accent);color:var(--accent-on);font-weight:500}
+.row.active{background:var(--accent-fill);color:var(--accent-on);font-weight:500}
 /* files Reader cannot render: listed for orientation, dimmed to say so */
 .row.unsupported{color:var(--text-3)}
 .row.unsupported .fi{opacity:.5}
@@ -372,7 +375,7 @@ html[data-full=on] #btn-full .ic-exit{display:block}
   border:1px solid var(--border);background:var(--raised);transition:all var(--speed);
 }
 .mini-btn:hover{border-color:var(--text-3)}
-.mini-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-on)}
+.mini-btn.primary{background:var(--accent-fill);border-color:var(--accent-fill);color:var(--accent-on)}
 
 /* ------------------------------------------------------------------ panes */
 #panes{flex:1;display:flex;min-height:0}
@@ -428,7 +431,7 @@ html[data-doc=pdf] #previewpane{overflow:hidden}
   background:var(--text);color:var(--paper);font-size:12.5px;font-weight:500;
   padding:8px 15px;border-radius:999px;box-shadow:var(--shadow);max-width:70vw;
 }
-#toast.err{background:var(--accent);color:var(--accent-on)}
+#toast.err{background:var(--accent-fill);color:var(--accent-on)}
 
 /* ------------------------------------------------------------------ prose */
 .prose{
@@ -548,7 +551,7 @@ html[data-theme=light] .prose a code{
 .btn:hover{border-color:var(--text-3)}
 .btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
 .btn.danger:hover{filter:brightness(1.07);border-color:var(--danger)}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-on)}
+.btn.primary{background:var(--accent-fill);border-color:var(--accent-fill);color:var(--accent-on)}
 .btn.primary:hover{filter:brightness(1.06);border-color:var(--accent)}
 .btn:disabled{opacity:.5;cursor:default}
 
@@ -583,7 +586,7 @@ html[data-theme=light] .prose a code{
   transition:background var(--speed),color var(--speed);
 }
 #fmtbar button:hover{background:var(--panel-hi)}
-#fmtbar button:active{background:var(--accent);color:var(--accent-on)}
+#fmtbar button:active{background:var(--accent-fill);color:var(--accent-on)}
 #fmtbar .fmt-b{font-weight:800}
 #fmtbar .fmt-i{font-style:italic;font-family:var(--font-body)}
 #fmtbar .fmt-u{text-decoration:underline}
@@ -621,7 +624,7 @@ html[data-theme=light] .prose a code{
   transition:background var(--speed),color var(--speed);
 }
 .cat:hover{background:var(--panel-hi);color:var(--text)}
-.cat[aria-selected=true]{background:var(--accent);color:var(--accent-on)}
+.cat[aria-selected=true]{background:var(--accent-fill);color:var(--accent-on)}
 .cat svg{width:17px;height:17px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;
   stroke-linecap:round;stroke-linejoin:round}
 .rail-foot{margin-top:auto;padding:10px 4px 0;border-top:1px solid var(--border)}
