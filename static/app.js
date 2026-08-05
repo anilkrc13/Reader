@@ -420,12 +420,12 @@ function listifyCells(scope) {
       if (last && last.bullet === bullet) last.lines.push(line);
       else runs.push({bullet, lines: [line]});
     }
-    /* A bullet character is unambiguous. A lone dash is more often prose
-       ("- 5 degrees below zero"), so it needs company before it counts. */
-    for (const run of runs) {
-      if (run.bullet && run.lines.length < 2 &&
-          !run.lines.every((s) => EXPLICIT_BULLET.test(s))) run.bullet = false;
-    }
+    /* A bullet character is unambiguous. A lone dash is only ambiguous when it
+       is the entire cell ("- 5 degrees below zero"); standing next to anything
+       else -- a lead-in sentence, or other bullets -- it is a bullet like its
+       neighbours, so only a cell that is nothing but one dashed line is prose. */
+    const only = runs.length === 1 && runs[0].lines.length === 1 ? runs[0] : null;
+    if (only && !EXPLICIT_BULLET.test(only.lines[0])) only.bullet = false;
     if (!runs.some((r) => r.bullet)) return;
 
     /* Re-sanitise every fragment: they were split out of sanitised HTML with a
