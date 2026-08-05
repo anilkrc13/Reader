@@ -309,6 +309,7 @@ function applySettings() {
   root.dataset.side = S.side;
   root.dataset.mode = S.mode;
   root.dataset.sidebar = S.hidden ? "hidden" : "shown";
+  syncPanelButtons();
   root.dataset.wordcount = S.wordCount ? "on" : "off";
   root.dataset.glass = S.glass ? "on" : "off";
   root.dataset.recents = S.recentCount > 0 ? "on" : "off";
@@ -1493,13 +1494,22 @@ function setMode(mode) {
   hideFmtBar();
   if (mode !== "preview") setTimeout(() => el.editor.focus(), 0);
 }
+/* The corner button reads differently by state: the toolbar one only ever
+   reveals; the panel's own one hides when pinned, pins when only peeking. */
+function syncPanelButtons() {
+  const set = (id, label) => {
+    $(id).title = label;
+    $(id).setAttribute("aria-label", label);
+  };
+  set("btn-show", "Show panel (⌘\\)");
+  set("btn-panel", S.hidden ? "Pin panel open" : "Hide panel (⌘\\)");
+}
+
 function toggleSidebar(force) {
   S.hidden = force !== undefined ? force : !S.hidden;
   root.dataset.sidebar = S.hidden ? "hidden" : "shown";
   root.classList.remove("peek");
-  const label = (S.hidden ? "Show" : "Hide") + " panel (⌘\\)";
-  $("btn-show").title = label;
-  $("btn-show").setAttribute("aria-label", label);
+  syncPanelButtons();
   savePrefs();
 }
 function cycleTheme() {
@@ -1776,10 +1786,12 @@ $("btn-save").onclick = saveFile;
 $("btn-refresh").onclick = refresh;
 $("btn-theme").onclick = cycleTheme;
 $("btn-full").onclick = toggleFullscreen;
-/* One control, and it toggles: pin the panel open, or put it away. A peek shows
-   the panel without clearing S.hidden, so toggleSidebar's own read of the pinned
-   state is the right one -- clicking mid-peek pins, it does not hide. */
+/* One control in two homes, and both toggle. A peek shows the panel without
+   clearing S.hidden, so toggleSidebar's own read of the pinned state is the
+   right one -- clicking the panel's corner button mid-peek pins, it does not
+   hide; clicking it while pinned puts the panel away. */
 $("btn-show").onclick = () => toggleSidebar();
+$("btn-panel").onclick = () => toggleSidebar();
 
 el.back.addEventListener("click", () => trailGo(-1));
 el.fwd.addEventListener("click", () => trailGo(1));
