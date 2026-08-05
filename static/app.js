@@ -45,7 +45,7 @@ const DEFAULTS = {
   editorFont: "mono", editorSize: 13.5, tabSize: 2,
   spellcheck: false, syncScroll: true, wordCount: true,
   /* files and watching */
-  recentCount: 10, autoRefresh: true, watchMs: 2000, watchToast: true,
+  recentCount: 10, autoSave: true, autoRefresh: true, watchMs: 2000, watchToast: true,
   showAllDirs: false, glass: false,
 };
 
@@ -705,21 +705,56 @@ async function openFile(path, {keepScroll = false, silent = false, record = true
   return data.path;
 }
 
-async function saveFile() {
+/* Automatic saving waits for a pause rather than saving per keystroke, so a
+   burst of typing is one write and the file on disk is never a half-typed word.
+   A save can also be asked for at any moment, and then this pending one is
+   redundant -- saveFile cancels it. */
+const AUTOSAVE_PAUSE_MS = 1200;
+let autosaveTimer = null;
+
+function cancelAutosave() {
+  clearTimeout(autosaveTimer);
+  autosaveTimer = null;
+}
+
+function scheduleAutosave() {
+  cancelAutosave();
+  if (!S.autoSave || !state.file || !state.dirty) return;
+  autosaveTimer = setTimeout(() => {
+    autosaveTimer = null;
+    saveFile({auto: true});
+  }, AUTOSAVE_PAUSE_MS);
+}
+
+/* `auto` marks a save the reader did not ask for: it stays quiet on success and
+   never raises a dialog, because an automatic save must not interrupt. */
+async function saveFile({auto = false} = {}) {
   if (!state.file || !state.dirty) return;
+  cancelAutosave();                    // whatever was pending, this covers it
+  const text = el.editor.value;
   try {
     const res = await api("/api/save", {
       method: "POST",
-      body: {path: state.file.path, text: el.editor.value, mtime: state.file.mtime},
+      body: {path: state.file.path, text, mtime: state.file.mtime},
     });
     state.file.mtime = res.mtime;
     state.diskSeen = res.mtime;
-    state.saved = el.editor.value;
-    setDirty(false);
+    state.saved = text;
+    /* Keystrokes may have landed while the request was in flight; those are
+       still unsaved, so compare against the text that was actually written. */
+    setDirty(el.editor.value !== text);
+    if (state.dirty) scheduleAutosave();
     hideDiskBar();
-    toast("Saved");
+    if (!auto) toast("Saved");
   } catch (err) {
     if (/changed on disk/i.test(err.message)) {
+      /* The file moved under us. An automatic save says so in the disk bar and
+         leaves the choice alone -- overwriting on a timer is not its call. */
+      if (auto) {
+        el.diskmsg.textContent = "This file changed on disk, so your edits are not being saved automatically.";
+        el.diskbar.hidden = false;
+        return;
+      }
       if (confirm("This file changed on disk since you opened it.\n\nOverwrite it with your version?")) {
         const res = await api("/api/save", {
           method: "POST", body: {path: state.file.path, text: el.editor.value},
@@ -1719,9 +1754,11 @@ el.preview.addEventListener("click", (ev) => {
 });
 
 el.editor.addEventListener("input", () => {
-  setDirty(el.editor.value !== state.saved);
+  const dirty = el.editor.value !== state.saved;
+  setDirty(dirty);
   scheduleRender();
   historyNoteTyping();
+  if (dirty) scheduleAutosave();
 });
 el.editor.addEventListener("keydown", (ev) => {
   if (ev.key !== "Tab" || ev.metaKey || ev.ctrlKey || ev.altKey) return;
