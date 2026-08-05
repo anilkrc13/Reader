@@ -405,24 +405,50 @@ const EXPLICIT_BULLET = /^[•‣▪·]/;
 
 function listifyCells(scope) {
   scope.querySelectorAll("td,th").forEach((cell) => {
-    const items = cell.innerHTML.split(/<br\s*\/?>/i)
+    const lines = cell.innerHTML.split(/<br\s*\/?>/i)
       .map((s) => s.trim())
       .filter(Boolean);
-    if (!items.length || !items.every((s) => CELL_BULLET.test(s))) return;
-    /* A bullet character is unambiguous. A lone dash is more often prose
-       ("- 5 degrees"), so a dash needs a second line before it counts. */
-    if (items.length < 2 && !items.every((s) => EXPLICIT_BULLET.test(s))) return;
+    if (!lines.length || !lines.some((s) => CELL_BULLET.test(s))) return;
 
-    const ul = document.createElement("ul");
-    ul.className = "cell-list";
-    for (const item of items) {
-      const li = document.createElement("li");
-      /* Re-sanitise: the fragments were split out of sanitised HTML by regex,
-         and reassembling them should not be what reintroduces markup. */
-      li.innerHTML = DOMPurify.sanitize(item.replace(CELL_BULLET, ""));
-      ul.appendChild(li);
+    /* Group neighbouring lines by whether they are bulleted. A cell commonly
+       introduces its list with a sentence, and that sentence has to stay a
+       sentence -- requiring every line to be bulleted skipped the whole cell. */
+    const runs = [];
+    for (const line of lines) {
+      const bullet = CELL_BULLET.test(line);
+      const last = runs[runs.length - 1];
+      if (last && last.bullet === bullet) last.lines.push(line);
+      else runs.push({bullet, lines: [line]});
     }
-    cell.replaceChildren(ul);
+    /* A bullet character is unambiguous. A lone dash is more often prose
+       ("- 5 degrees below zero"), so it needs company before it counts. */
+    for (const run of runs) {
+      if (run.bullet && run.lines.length < 2 &&
+          !run.lines.every((s) => EXPLICIT_BULLET.test(s))) run.bullet = false;
+    }
+    if (!runs.some((r) => r.bullet)) return;
+
+    /* Re-sanitise every fragment: they were split out of sanitised HTML with a
+       regex, and reassembling them should not be what reintroduces markup. */
+    const out = document.createDocumentFragment();
+    for (const run of runs) {
+      if (!run.bullet) {
+        const text = document.createElement("div");
+        text.className = "cell-text";
+        text.innerHTML = DOMPurify.sanitize(run.lines.join("<br>"));
+        out.appendChild(text);
+        continue;
+      }
+      const ul = document.createElement("ul");
+      ul.className = "cell-list";
+      for (const line of run.lines) {
+        const li = document.createElement("li");
+        li.innerHTML = DOMPurify.sanitize(line.replace(CELL_BULLET, ""));
+        ul.appendChild(li);
+      }
+      out.appendChild(ul);
+    }
+    cell.replaceChildren(out);
   });
 }
 
