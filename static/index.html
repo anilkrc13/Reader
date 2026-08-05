@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-themepref="auto" data-side="left" data-mode="preview"
+      data-sidebar="shown" data-empty="yes" data-full="off" data-code="brand" data-wordcount="on">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Reader</title>
+<link rel="icon" href="/static/icon.svg">
+<script>
+/* Apply saved appearance before first paint so there is no flash. */
+(function(){try{
+  var p=JSON.parse(localStorage.getItem("mdview.v2")||localStorage.getItem("mdview.v1")||"{}"),
+      r=document.documentElement,t=p.theme||"auto";
+  r.dataset.themepref=t;
+  r.dataset.theme=t==="auto"?(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):t;
+  if(p.side)r.dataset.side=p.side;
+  if(p.mode)r.dataset.mode=p.mode;
+  if(p.paper)r.dataset.paper=p.paper;
+  if(p.paperDark)r.dataset.paperDark=p.paperDark;
+  if(p.codeTheme)r.dataset.code=p.codeTheme;
+  r.dataset.sidebar=p.hidden?"hidden":"shown";
+  if(p.width)r.style.setProperty("--sidebar-w",p.width+"px");
+}catch(e){}})();
+</script>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- =========================================================== sidebar -->
+  <aside id="sidebar" aria-label="File browser">
+    <div class="side-head">
+      <span class="side-title">Files</span>
+      <div class="side-head-actions">
+        <button class="icon-btn" id="btn-side" title="Move panel to the other side" aria-label="Move panel to the other side">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2"/><path d="M8 3.5v13"/><path d="M4.6 7h1.8M4.6 10h1.8"/></svg>
+        </button>
+        <button class="icon-btn" id="btn-hide" title="Hide panel (⌘\)" aria-label="Hide panel">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12 5 7 10l5 5"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- pinned folders ---------------------------------------------------- -->
+    <div class="sec" id="pinned">
+      <div class="sec-bar">
+        <button class="sec-head" id="pinned-toggle" aria-expanded="true">
+          <svg class="caret open" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"/></svg>
+          <span>Pinned</span>
+        </button>
+        <button class="icon-mini" id="btn-pin" title="Pin the folder you are browsing" aria-label="Pin the current folder">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.2v9.6M3.2 8h9.6"/></svg>
+        </button>
+      </div>
+      <ul id="pinnedlist"></ul>
+    </div>
+
+    <!-- recently opened ------------------------------------------------- -->
+    <div class="sec" id="recents">
+      <div class="sec-bar">
+        <button class="sec-head" id="recents-toggle" aria-expanded="true">
+          <svg class="caret open" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"/></svg>
+          <span>Recent</span>
+          <span class="count" id="recents-count"></span>
+        </button>
+      </div>
+      <ul id="recentlist"></ul>
+    </div>
+
+    <!-- where you are: a friendly folder name, not a filesystem path -->
+    <div class="loc">
+      <button class="icon-mini" id="btn-up" title="Up to the enclosing folder" aria-label="Up to the enclosing folder">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 12.8V3.6M4.2 7.2 8 3.4l3.8 3.8"/></svg>
+      </button>
+      <button class="loc-name" id="loc-name" title="" aria-haspopup="menu" aria-label="Current folder">
+        <svg class="loc-folder" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.8 4.2A1.2 1.2 0 0 1 3 3h2.9l1.4 1.7h5.7A1.2 1.2 0 0 1 14.2 6v6a1.2 1.2 0 0 1-1.2 1.2H3A1.2 1.2 0 0 1 1.8 12z"/></svg>
+        <span class="nm" id="loc-label"></span>
+        <svg class="loc-caret" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 6.5 8 10l3.5-3.5"/></svg>
+      </button>
+    </div>
+
+    <div class="tree-wrap">
+      <ul class="tree" id="tree" role="tree"></ul>
+    </div>
+
+    <div class="side-foot">
+      <span class="foot-note" id="footnote"></span>
+    </div>
+  </aside>
+
+  <div id="dragbar" role="separator" aria-orientation="vertical" tabindex="-1"></div>
+  <div id="peekzone" aria-hidden="true"></div>
+
+  <!-- ============================================================== main -->
+  <main id="main">
+    <header id="toolbar">
+      <button class="icon-btn" id="btn-show" title="Show panel (⌘\)" aria-label="Show panel">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2"/><path d="M8 3.5v13"/></svg>
+      </button>
+
+      <div class="doc-title">
+        <span id="docname">No document open</span>
+        <span class="dot" id="dirty" title="Unsaved changes" hidden></span>
+      </div>
+      <span class="live" id="livetag" title="Watching this file for changes on disk">Live</span>
+
+      <div class="spacer"></div>
+
+      <div class="segmented" role="group" aria-label="View mode">
+        <button data-mode="preview" class="seg" title="Preview (⌘E)">Preview</button>
+        <button data-mode="split" class="seg" title="Split view">Split</button>
+        <button data-mode="edit" class="seg" title="Edit (⌘E)">Edit</button>
+      </div>
+
+      <span class="tool-sep"></span>
+
+      <button class="icon-btn accent" id="btn-save" title="Save (⌘S)" aria-label="Save" disabled>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.8v9.4"/><path d="M6.2 8.6 10 12.4l3.8-3.8"/><path d="M3.6 13.4v2.2a1.2 1.2 0 0 0 1.2 1.2h10.4a1.2 1.2 0 0 0 1.2-1.2v-2.2"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-refresh" title="Reload from disk (⌘R)" aria-label="Reload from disk">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.6 10a6.6 6.6 0 1 1-2-4.7"/><path d="M16.8 3.4v4h-4"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-theme" title="Appearance: match system" aria-label="Switch theme">
+        <svg class="ic-auto" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="6.4"/><path d="M10 3.6v12.8" class="fillhalf"/></svg>
+        <svg class="ic-light" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.9"/><path d="M10 1.4v2.1M10 16.5v2.1M1.4 10h2.1M16.5 10h2.1M3.9 3.9l1.5 1.5M14.6 14.6l1.5 1.5M16.1 3.9l-1.5 1.5M5.4 14.6l-1.5 1.5"/></svg>
+        <svg class="ic-dark" viewBox="0 0 20 20" aria-hidden="true"><path d="M16.6 12A7 7 0 0 1 8 3.4 7 7 0 1 0 16.6 12z"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-full" title="Full screen (⌃⌘F)" aria-label="Full screen">
+        <svg class="ic-enter" viewBox="0 0 20 20" aria-hidden="true"><path d="M7.4 2.8H2.8v4.6M12.6 2.8h4.6v4.6M12.6 17.2h4.6v-4.6M7.4 17.2H2.8v-4.6"/></svg>
+        <svg class="ic-exit" viewBox="0 0 20 20" aria-hidden="true"><path d="M2.8 7.4h4.6V2.8M17.2 7.4h-4.6V2.8M17.2 12.6h-4.6v4.6M2.8 12.6h4.6v4.6"/></svg>
+      </button>
+
+      <span class="tool-sep"></span>
+
+      <button class="icon-btn" id="btn-settings" title="Settings (⌘,)" aria-label="Settings">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="2.6"/><path d="M15.9 12.2a1.3 1.3 0 0 0 .26 1.44l.05.05a1.6 1.6 0 1 1-2.26 2.26l-.05-.05a1.3 1.3 0 0 0-1.44-.26 1.3 1.3 0 0 0-.79 1.19v.13a1.6 1.6 0 0 1-3.2 0v-.07a1.3 1.3 0 0 0-.85-1.19 1.3 1.3 0 0 0-1.44.26l-.05.05a1.6 1.6 0 1 1-2.26-2.26l.05-.05a1.3 1.3 0 0 0 .26-1.44 1.3 1.3 0 0 0-1.19-.79H2.8a1.6 1.6 0 0 1 0-3.2h.07a1.3 1.3 0 0 0 1.19-.85 1.3 1.3 0 0 0-.26-1.44l-.05-.05A1.6 1.6 0 1 1 6.01 3.7l.05.05a1.3 1.3 0 0 0 1.44.26h.06a1.3 1.3 0 0 0 .79-1.19V2.8a1.6 1.6 0 0 1 3.2 0v.07a1.3 1.3 0 0 0 .79 1.19 1.3 1.3 0 0 0 1.44-.26l.05-.05a1.6 1.6 0 1 1 2.26 2.26l-.05.05a1.3 1.3 0 0 0-.26 1.44v.06a1.3 1.3 0 0 0 1.19.79h.13a1.6 1.6 0 0 1 0 3.2h-.07a1.3 1.3 0 0 0-1.19.79z"/></svg>
+      </button>
+    </header>
+
+    <div id="diskbar" hidden>
+      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 6.6v4.2"/><circle cx="10" cy="13.8" r=".6" fill="currentColor" stroke="none"/><path d="M8.7 3.2 1.9 15a1.5 1.5 0 0 0 1.3 2.2h13.6a1.5 1.5 0 0 0 1.3-2.2L11.3 3.2a1.5 1.5 0 0 0-2.6 0z"/></svg>
+      <span class="grow">This file changed on disk while you were editing.</span>
+      <button class="mini-btn" id="disk-keep">Keep mine</button>
+      <button class="mini-btn primary" id="disk-reload">Reload from disk</button>
+    </div>
+
+    <div id="panes">
+      <section id="editorpane">
+        <textarea id="editor" spellcheck="false" wrap="soft"
+                  placeholder="Nothing open yet — pick a file from the panel." aria-label="Document source"></textarea>
+      </section>
+      <div id="gutter"></div>
+      <section id="previewpane">
+        <article id="preview" class="prose"></article>
+      </section>
+    </div>
+
+    <div id="empty">
+      <div class="empty-inner">
+        <svg viewBox="0 0 20 20" aria-hidden="true" class="empty-mark"><path d="M4 2.8h7.6L16 7.2v10a.8.8 0 0 1-.8.8H4a.8.8 0 0 1-.8-.8V3.6a.8.8 0 0 1 .8-.8z"/><path d="M11.4 2.9v4.4h4.4M6.6 11h6.8M6.6 13.8h4.4"/></svg>
+        <h1>Reader</h1>
+        <p>Choose a document in the panel — markdown, code, CSV or PDF.</p>
+      </div>
+    </div>
+
+    <div id="toast" role="status" aria-live="polite" hidden></div>
+  </main>
+</div>
+
+<!-- ========================================================= row actions -->
+<div id="ctxmenu" role="menu" hidden></div>
+
+<!-- ============================================================= rename -->
+<div id="renamer" class="scrim" hidden>
+  <div class="dialog-sm" role="dialog" aria-modal="true" aria-labelledby="rn-title">
+    <div class="cf-mark neutral" aria-hidden="true">
+      <svg viewBox="0 0 20 20"><path d="M13.4 3.4 16.6 6.6 7.2 16H4v-3.2z"/><path d="M11.6 5.2 14.8 8.4"/></svg>
+    </div>
+    <h3 id="rn-title">Rename</h3>
+    <p class="cf-body" id="rn-body"></p>
+    <input id="rn-input" class="dlg-input" type="text" spellcheck="false" autocomplete="off"
+           aria-label="New name">
+    <p class="cf-note" id="rn-note">Leave the extension off and the current one is kept.</p>
+    <div class="cf-actions">
+      <button class="btn" id="rn-cancel">Cancel</button>
+      <button class="btn primary" id="rn-ok">Rename</button>
+    </div>
+  </div>
+</div>
+
+<!-- =================================================== delete confirmation -->
+<div id="confirm" class="scrim" hidden>
+  <div class="dialog-sm" role="alertdialog" aria-modal="true"
+       aria-labelledby="cf-title" aria-describedby="cf-body">
+    <div class="cf-mark" aria-hidden="true">
+      <svg viewBox="0 0 20 20"><path d="M3.6 5.4h12.8M8.1 5.4V3.9a.9.9 0 0 1 .9-.9h2a.9.9 0 0 1 .9.9v1.5"/><path d="M5.2 5.4 6 15.6a1.2 1.2 0 0 0 1.2 1.1h5.6a1.2 1.2 0 0 0 1.2-1.1l.8-10.2"/><path d="M8.6 8.6v4.8M11.4 8.6v4.8"/></svg>
+    </div>
+    <h3 id="cf-title">Move to Trash?</h3>
+    <p id="cf-body" class="cf-body"></p>
+    <p class="cf-path" id="cf-path"></p>
+    <p class="cf-note" id="cf-note">It goes to the macOS Trash, so you can put it back from Finder.</p>
+    <div class="cf-actions">
+      <button class="btn" id="cf-cancel">Cancel</button>
+      <button class="btn danger" id="cf-ok">Move to Trash</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================== settings -->
+<div id="scrim" class="scrim" hidden>
+  <div id="settings" role="dialog" aria-modal="true" aria-labelledby="set-heading">
+
+    <nav class="set-rail" role="tablist" aria-orientation="vertical">
+      <h2 id="set-heading">Settings</h2>
+
+      <button class="cat" role="tab" data-cat="appearance" aria-selected="true">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.2"/><path d="M10 2.8a7.2 7.2 0 0 0 0 14.4 3 3 0 0 0 0-6 3 3 0 0 1 0-6 7.2 7.2 0 0 0 0-2.4z" fill="currentColor" stroke="none" opacity=".28"/><circle cx="12.8" cy="7.4" r=".9"/></svg>
+        Appearance
+      </button>
+      <button class="cat" role="tab" data-cat="reading" aria-selected="false">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.4h4.2A2.8 2.8 0 0 1 10 7.2v9a2.2 2.2 0 0 0-2.2-2.2H3z"/><path d="M17 4.4h-4.2A2.8 2.8 0 0 0 10 7.2v9a2.2 2.2 0 0 1 2.2-2.2H17z"/></svg>
+        Reading
+      </button>
+      <button class="cat" role="tab" data-cat="code" aria-selected="false">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.8 6.4 3.2 10l3.6 3.6M13.2 6.4 16.8 10l-3.6 3.6M11.4 4.6l-2.8 10.8"/></svg>
+        Code
+      </button>
+      <button class="cat" role="tab" data-cat="editor" aria-selected="false">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M13.4 3.4 16.6 6.6 7.2 16H4v-3.2z"/><path d="M11.6 5.2 14.8 8.4"/></svg>
+        Editor
+      </button>
+      <button class="cat" role="tab" data-cat="files" aria-selected="false">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.6 5.4A1.4 1.4 0 0 1 4 4h3.4l1.7 2h6.9A1.4 1.4 0 0 1 17.4 7.4v7.2A1.4 1.4 0 0 1 16 16H4a1.4 1.4 0 0 1-1.4-1.4z"/><path d="M10 8.8v2.6l1.8 1"/></svg>
+        Files &amp; watching
+      </button>
+      <button class="cat" role="tab" data-cat="keys" aria-selected="false">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.2" y="5" width="15.6" height="10" rx="2"/><path d="M5.6 8.2h.01M8.4 8.2h.01M11.2 8.2h.01M14 8.2h.01M5.6 11.6h8.8"/></svg>
+        Shortcuts
+      </button>
+      <button class="cat" role="tab" data-cat="about" aria-selected="false">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.4"/><path d="M10 9v4.4"/><circle cx="10" cy="6.5" r=".7" fill="currentColor" stroke="none"/></svg>
+        About
+      </button>
+
+      <div class="rail-foot">
+        <button class="text-btn" id="btn-reset">Reset all to defaults</button>
+      </div>
+    </nav>
+
+    <div class="set-body">
+      <div class="set-head">
+        <h3 id="set-title">Appearance</h3>
+        <button class="icon-btn plain" id="set-close" title="Close (Esc)" aria-label="Close settings">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.4 5.4l9.2 9.2M14.6 5.4l-9.2 9.2"/></svg>
+        </button>
+      </div>
+
+      <div class="set-scroll">
+
+        <!-- ---------------------------------------------------- appearance -->
+        <section class="panel" data-panel="appearance">
+          <div class="group">
+            <p class="group-title">Theme</p>
+            <div class="set-row">
+              <div class="set-label"><b>Colour scheme</b><span>Match system follows macOS Appearance automatically.</span></div>
+              <div class="set-control">
+                <div class="pills" data-set="theme">
+                  <button class="pill" data-value="auto"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5"/><path d="M8 3v10" stroke-width="5" stroke-linecap="butt" opacity=".5"/></svg>System</button>
+                  <button class="pill" data-value="light"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.1"/><path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3.1 3.1l1.1 1.1M11.8 11.8l1.1 1.1M12.9 3.1l-1.1 1.1M4.2 11.8l-1.1 1.1"/></svg>Light</button>
+                  <button class="pill" data-value="dark"><svg viewBox="0 0 16 16"><path d="M13.2 9.6A5.6 5.6 0 0 1 6.4 2.8a5.6 5.6 0 1 0 6.8 6.8z"/></svg>Dark</button>
+                </div>
+              </div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Accent colour</b><span>Links, highlights and the active file. Anthropic brand accents.</span></div>
+              <div class="set-control"><div class="swatches" data-set="accent" id="accent-swatches"></div></div>
+            </div>
+          </div>
+
+          <div class="group">
+            <p class="group-title">Page tone</p>
+            <div class="set-row">
+              <div class="set-label"><b>Light mode paper</b><span>Sepia is easiest on the eyes for long reading sessions.</span></div>
+              <div class="set-control">
+                <div class="pills" data-set="paper">
+                  <button class="pill" data-value="cream">Cream</button>
+                  <button class="pill" data-value="white">White</button>
+                  <button class="pill" data-value="sepia">Sepia</button>
+                  <button class="pill" data-value="grey">Grey</button>
+                </div>
+              </div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Dark mode surface</b><span>True black suits OLED displays; charcoal is softer.</span></div>
+              <div class="set-control">
+                <div class="pills" data-set="paperDark">
+                  <button class="pill" data-value="ink">Ink</button>
+                  <button class="pill" data-value="charcoal">Charcoal</button>
+                  <button class="pill" data-value="black">Black</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="group">
+            <p class="group-title">Layout</p>
+            <div class="set-row">
+              <div class="set-label"><b>Translucent panel</b><span>The file panel turns to frosted glass over the page — most visible when it floats over a document.</span></div>
+              <div class="set-control"><button class="switch" role="switch" data-set="glass" aria-checked="false" aria-label="Translucent panel"></button></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>File panel side</b><span>Which edge the file browser sits on.</span></div>
+              <div class="set-control">
+                <div class="pills" data-set="side">
+                  <button class="pill" data-value="left">Left</button>
+                  <button class="pill" data-value="right">Right</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ------------------------------------------------------- reading -->
+        <section class="panel" data-panel="reading" hidden>
+          <div class="group">
+            <div class="set-row stack">
+              <div class="specimen" aria-hidden="true">
+                <p class="sp-h">The quick brown fox</p>
+                <p class="sp-p">Jumps over the lazy dog. Reading settings apply live to the document behind this dialog.</p>
+                <p class="sp-c"><b>const</b> greeting = <i>"hello"</i>;</p>
+              </div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Reading preset</b><span>Sets size, spacing and width in one go. Tune anything below afterwards.</span></div>
+              <div class="set-control">
+                <div class="pills" data-preset>
+                  <button class="pill" data-value="compact">Compact</button>
+                  <button class="pill" data-value="comfortable">Comfortable</button>
+                  <button class="pill" data-value="focus">Focus</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="group">
+            <p class="group-title">Typeface</p>
+            <div class="set-row">
+              <div class="set-label"><b>Body text</b><span>Serif faces read more comfortably in long documents.</span></div>
+              <div class="set-control"><select class="control" data-set="bodyFont" id="sel-body"></select></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Headings</b><span>Poppins is the Anthropic heading face.</span></div>
+              <div class="set-control"><select class="control" data-set="headFont" id="sel-head"></select></div>
+            </div>
+          </div>
+
+          <div class="group">
+            <p class="group-title">Rhythm</p>
+            <div class="set-row">
+              <div class="set-label"><b>Text size</b></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="fontSize" min="13" max="26" step="0.5" aria-label="Text size">
+                <span class="val" data-val="fontSize"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Line height</b></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="lineHeight" min="1.3" max="2.2" step="0.05" aria-label="Line height">
+                <span class="val" data-val="lineHeight"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Line width</b><span>Around 65–75 characters per line is the comfortable range.</span></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="measure" min="520" max="1240" step="20" aria-label="Line width">
+                <span class="val" data-val="measure"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Paragraph spacing</b></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="paraGap" min="0.5" max="2.2" step="0.05" aria-label="Paragraph spacing">
+                <span class="val" data-val="paraGap"></span></div></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ---------------------------------------------------------- code -->
+        <section class="panel" data-panel="code" hidden>
+          <div class="group">
+            <div class="set-row">
+              <div class="set-label"><b>Highlight palette</b><span>Brand keeps code in the Anthropic accents; muted removes colour entirely.</span></div>
+              <div class="set-control">
+                <div class="pills" data-set="codeTheme">
+                  <button class="pill" data-value="brand">Brand</button>
+                  <button class="pill" data-value="muted">Muted</button>
+                  <button class="pill" data-value="vivid">Vivid</button>
+                </div>
+              </div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Monospace face</b><span>Used for code blocks, inline code and the editor.</span></div>
+              <div class="set-control"><select class="control" data-set="monoFont" id="sel-mono"></select></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Code size</b><span>Relative to the body text size.</span></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="codeScale" min="0.7" max="1.05" step="0.01" aria-label="Code size">
+                <span class="val" data-val="codeScale"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Wrap long lines</b><span>Off scrolls code blocks sideways instead of wrapping.</span></div>
+              <div class="set-control"><button class="switch" role="switch" data-set="codeWrap" aria-checked="false" aria-label="Wrap long lines"></button></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- -------------------------------------------------------- editor -->
+        <section class="panel" data-panel="editor" hidden>
+          <div class="group">
+            <div class="set-row">
+              <div class="set-label"><b>Editor typeface</b><span>Monospace keeps markdown tables aligned.</span></div>
+              <div class="set-control">
+                <div class="pills" data-set="editorFont">
+                  <button class="pill" data-value="mono">Monospace</button>
+                  <button class="pill" data-value="body">Match body</button>
+                </div>
+              </div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Editor size</b></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="editorSize" min="11" max="22" step="0.5" aria-label="Editor size">
+                <span class="val" data-val="editorSize"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Tab width</b><span>How far the Tab key indents.</span></div>
+              <div class="set-control">
+                <div class="pills" data-set="tabSize">
+                  <button class="pill" data-value="2">2 spaces</button>
+                  <button class="pill" data-value="4">4 spaces</button>
+                </div>
+              </div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Spell check</b><span>Uses the macOS dictionary while you type.</span></div>
+              <div class="set-control"><button class="switch" role="switch" data-set="spellcheck" aria-checked="false" aria-label="Spell check"></button></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Synchronise scrolling</b><span>In split view, scrolling one side moves the other.</span></div>
+              <div class="set-control"><button class="switch" role="switch" data-set="syncScroll" aria-checked="true" aria-label="Synchronise scrolling"></button></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Show word count</b><span>In the bottom corner of the file panel.</span></div>
+              <div class="set-control"><button class="switch" role="switch" data-set="wordCount" aria-checked="true" aria-label="Show word count"></button></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ------------------------------------------------ files/watching -->
+        <section class="panel" data-panel="files" hidden>
+          <div class="group">
+            <p class="group-title">Recently opened</p>
+            <div class="set-row">
+              <div class="set-label"><b>Recent files list</b><span>Shown at the top of the file panel for one-click access.</span></div>
+              <div class="set-control"><select class="control" data-set="recentCount">
+                <option value="0">Hidden</option><option value="5">Last 5</option>
+                <option value="10">Last 10</option><option value="20">Last 20</option>
+              </select></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Clear the list</b><span>Forgets every file you have opened so far.</span></div>
+              <div class="set-control"><button class="mini-btn" id="btn-clear-recents">Clear recent files</button></div>
+            </div>
+          </div>
+
+          <div class="group">
+            <p class="group-title">The file tree</p>
+            <div class="set-row">
+              <div class="set-label"><b>Show folders with no documents</b><span>Off by default, so the tree only offers folders that hold a markdown file somewhere inside. Turn it on to browse everything.</span></div>
+              <div class="set-control"><button class="switch" role="switch" data-set="showAllDirs" aria-checked="false" aria-label="Show folders with no documents"></button></div>
+            </div>
+          </div>
+
+          <div class="group">
+            <p class="group-title">Pinned folders</p>
+            <div class="set-row">
+              <div class="set-label"><b>Pinning</b><span>Use <b>+</b> beside “Pinned” in the file panel to pin the folder you are browsing, and the × on a pinned row to remove it. Pin as many as you like.</span></div>
+              <div class="set-control"><button class="mini-btn" id="btn-reset-pins">Restore defaults</button></div>
+            </div>
+          </div>
+
+          <div class="group">
+            <p class="group-title">Watching the open document</p>
+            <div class="set-row">
+              <div class="set-label"><b>Auto-refresh on change</b><span>When the file you are reading is rewritten on disk, reload it automatically. Only the open document is watched, and never while you have unsaved edits.</span></div>
+              <div class="set-control"><button class="switch" role="switch" data-set="autoRefresh" aria-checked="true" aria-label="Auto-refresh on change"></button></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Check every</b><span>How often to look for a change.</span></div>
+              <div class="set-control"><select class="control" data-set="watchMs">
+                <option value="1000">1 second</option><option value="2000">2 seconds</option>
+                <option value="5000">5 seconds</option><option value="15000">15 seconds</option>
+              </select></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Announce refreshes</b><span>Briefly confirm at the bottom of the window when a reload happens.</span></div>
+              <div class="set-control"><button class="switch" role="switch" data-set="watchToast" aria-checked="true" aria-label="Announce refreshes"></button></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ----------------------------------------------------- shortcuts -->
+        <section class="panel" data-panel="keys" hidden>
+          <div class="group">
+            <table class="keys">
+              <tbody>
+                <tr><td>Save</td><td><kbd class="k">⌘S</kbd></td></tr>
+                <tr><td>Reload from disk</td><td><kbd class="k">⌘R</kbd></td></tr>
+                <tr><td>Toggle preview and edit</td><td><kbd class="k">⌘E</kbd></td></tr>
+                <tr><td>Show or hide the file panel</td><td><kbd class="k">⌘\</kbd></td></tr>
+                <tr><td>Settings</td><td><kbd class="k">⌘,</kbd></td></tr>
+                <tr><td>Full screen</td><td><kbd class="k">⌃⌘F</kbd></td></tr>
+                <tr><td>Close settings / leave full screen</td><td><kbd class="k">Esc</kbd></td></tr>
+                <tr><td>Indent in the editor</td><td><kbd class="k">Tab</kbd></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- --------------------------------------------------------- about -->
+        <section class="panel about" data-panel="about" hidden>
+          <div class="group">
+            <p><b>Reader</b> — a self-contained local document reader. Markdown and code
+               open with editing and saving; CSV renders as tables; PDF uses your
+               browser's own viewer. It runs from a single folder on your Mac, uses only
+               the Python standard library, and never reaches the network.</p>
+            <p>The server listens on <code>127.0.0.1</code> at a random port and every request
+               carries a token generated at launch, so nothing else on your machine or network
+               can read your files through it. Rendered HTML is sanitised, and saves are atomic.</p>
+            <p>Bundled offline: <b>marked</b> (markdown), <b>DOMPurify</b> (sanitising),
+               <b>highlight.js</b> (code), and the <b>Poppins</b>, <b>Lora</b>, <b>Inter</b>,
+               <b>Source Serif 4</b> and <b>JetBrains Mono</b> typefaces. Licences are in the
+               <code>licenses</code> folder next to the app.</p>
+            <p id="about-where"></p>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/marked.min.js"></script>
+<script src="/static/purify.min.js"></script>
+<script src="/static/highlight.min.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
