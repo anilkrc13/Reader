@@ -52,7 +52,6 @@
   --fs-body:16.5px;
   --lh-body:1.75;
   --measure:65%;
-  --measure-max:90ch;
   --para-gap:1.1em;
   --fs-code:.82em;
   --fs-editor:13.5px;
@@ -417,7 +416,7 @@ html[data-doc=pdf] #previewpane{overflow:hidden}
 
 /* ------------------------------------------------------------------ prose */
 .prose{
-  max-width:min(var(--measure),var(--measure-max),100%);margin:0 auto;padding:40px 44px 28vh;
+  max-width:min(var(--measure),100%);margin:0 auto;padding:40px 44px 28vh;
   font-family:var(--font-body);font-size:var(--fs-body);line-height:var(--lh-body);
   color:var(--text);word-wrap:break-word;
 }
