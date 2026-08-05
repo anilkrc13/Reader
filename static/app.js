@@ -19,7 +19,7 @@ const el = {
   previewpane: $("previewpane"),
   docname: $("docname"), dirty: $("dirty"), toast: $("toast"),
   save: $("btn-save"), footnote: $("footnote"),
-  back: $("btn-back"), fwd: $("btn-fwd"),
+  back: $("btn-back"), fwd: $("btn-fwd"), fmtbar: $("fmtbar"),
   dragbar: $("dragbar"), diskbar: $("diskbar"), diskmsg: null,
   recents: $("recentlist"), recentsCount: $("recents-count"),
   recentsToggle: $("recents-toggle"),
@@ -386,9 +386,44 @@ function render(text) {
   el.preview.querySelectorAll("pre code").forEach((block) => {
     try { hljs.highlightElement(block); } catch (_) {}
   });
+  listifyCells(el.preview);
 
   const words = (text.replace(/`{3}[\s\S]*?`{3}/g, " ").match(/\S+/g) || []).length;
   el.footnote.textContent = state.file ? `${words.toLocaleString()} words` : "";
+}
+
+/* A markdown table row is one line, so a real list cannot be written inside a
+   cell. Authors fake one with <br> and a bullet character, which renders as
+   plain lines: no bullet glyph for - or *, no hanging indent, and a wrapped
+   line falls back under the marker instead of aligning with the text. This
+   turns such a cell back into a real list so it gets all three.
+
+   Only the display is changed. The markdown on disk is untouched, so the file
+   still reads the same way in any other tool. */
+const CELL_BULLET = /^(?:[•‣▪·]|[-*+](?=\s))\s*/;
+const EXPLICIT_BULLET = /^[•‣▪·]/;
+
+function listifyCells(scope) {
+  scope.querySelectorAll("td,th").forEach((cell) => {
+    const items = cell.innerHTML.split(/<br\s*\/?>/i)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!items.length || !items.every((s) => CELL_BULLET.test(s))) return;
+    /* A bullet character is unambiguous. A lone dash is more often prose
+       ("- 5 degrees"), so a dash needs a second line before it counts. */
+    if (items.length < 2 && !items.every((s) => EXPLICIT_BULLET.test(s))) return;
+
+    const ul = document.createElement("ul");
+    ul.className = "cell-list";
+    for (const item of items) {
+      const li = document.createElement("li");
+      /* Re-sanitise: the fragments were split out of sanitised HTML by regex,
+         and reassembling them should not be what reintroduces markup. */
+      li.innerHTML = DOMPurify.sanitize(item.replace(CELL_BULLET, ""));
+      ul.appendChild(li);
+    }
+    cell.replaceChildren(ul);
+  });
 }
 
 function renderCode(text) {
@@ -492,7 +527,7 @@ function setDirty(on) {
   state.dirty = on;
   el.dirty.hidden = !on;
   el.save.disabled = !on;
-  document.title = (on ? "• " : "") + (state.file ? state.file.name : "Markdown Viewer");
+  document.title = (on ? "• " : "") + (state.file ? state.file.name : "Reader");
 }
 
 function hideDiskBar() {
@@ -1318,6 +1353,7 @@ function setMode(mode) {
   S.mode = mode;
   root.dataset.mode = mode;
   savePrefs();
+  hideFmtBar();
   if (mode !== "preview") setTimeout(() => el.editor.focus(), 0);
 }
 function toggleSidebar(force) {
@@ -1599,7 +1635,6 @@ $("btn-theme").onclick = cycleTheme;
 $("btn-full").onclick = toggleFullscreen;
 $("btn-hide").onclick = () => toggleSidebar(true);
 $("btn-show").onclick = () => toggleSidebar(false);
-$("btn-side").onclick = () => { setValue("side", S.side === "left" ? "right" : "left"); };
 
 el.back.addEventListener("click", () => trailGo(-1));
 el.fwd.addEventListener("click", () => trailGo(1));
@@ -1617,6 +1652,7 @@ function overlayOpen() {
 }
 
 document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape" && !el.fmtbar.hidden) { ev.preventDefault(); hideFmtBar(); return; }
   if (ev.key === "Escape" && !el.menu.hidden) { ev.preventDefault(); closeMenu(); return; }
   if (ev.key === "Escape" && renamerOpen()) { ev.preventDefault(); closeRenamer(); return; }
   if (ev.key === "Escape" && confirmOpen()) { ev.preventDefault(); closeConfirm(); return; }
@@ -1636,6 +1672,15 @@ document.addEventListener("keydown", (ev) => {
 
   if (!meta) return;
   const k = ev.key.toLowerCase();
+
+  /* ⌘B/I/U format a preview selection. Only claimed when there is one to
+     format, so the browser keeps these keys the rest of the time. */
+  if ("biu".includes(k) && quickEditable() && previewSelection()) {
+    ev.preventDefault();
+    applyInline(k === "b" ? "bold" : k === "i" ? "italic" : "underline");
+    return;
+  }
+
   if (k === ",") { ev.preventDefault(); settingsOpen() ? closeSettings() : openSettings(); }
   else if (k === "s") { ev.preventDefault(); saveFile(); }
   else if (k === "r" && !ev.shiftKey) { ev.preventDefault(); refresh(); }
@@ -1643,6 +1688,189 @@ document.addEventListener("keydown", (ev) => {
   else if (k === "\\") { ev.preventDefault(); toggleSidebar(); }
   else if (k === "f" && ev.ctrlKey && ev.metaKey) { ev.preventDefault(); toggleFullscreen(); }
 });
+
+/* ==========================================================================
+   Quick edit -- format a selection in the preview
+   ==========================================================================
+
+   The preview is rendered output, and marked gives us no map back to the
+   markdown that produced it. So a selection is located in the source by its
+   plain text and its occurrence number within the preview.
+
+   That is only trustworthy when the text occurs the same number of times in
+   the preview and in the source. It will not when the source spells it with
+   markup the preview has consumed (**word**), or repeats it somewhere the
+   preview does not show (a link target, a code fence). In those cases the
+   edit is refused and the reader is pointed at Edit mode: quietly formatting
+   the wrong copy would corrupt the document, and it would corrupt it
+   somewhere the reader is not looking. */
+
+const INLINE_FMT = {
+  bold:      {open: "**",  close: "**"},
+  italic:    {open: "*",   close: "*"},
+  code:      {open: "`",   close: "`"},
+  strike:    {open: "~~",  close: "~~"},
+  underline: {open: "<u>", close: "</u>"},
+};
+
+const BLOCK_TAGS = "h1,h2,h3,h4,h5,h6,p,li,blockquote,td,th";
+const HEADING_MARK = /^(\s{0,3})#{1,6}[ \t]+/;
+
+/* Non-overlapping occurrence count, matching how the nth match is found below. */
+function countOf(haystack, needle) {
+  if (!needle) return 0;
+  let n = 0, from = 0;
+  for (;;) {
+    const at = haystack.indexOf(needle, from);
+    if (at < 0) return n;
+    n++;
+    from = at + needle.length;
+  }
+}
+
+function nthIndexOf(haystack, needle, n) {
+  let at = -1, from = 0;
+  for (let i = 0; i <= n; i++) {
+    at = haystack.indexOf(needle, from);
+    if (at < 0) return -1;
+    from = at + needle.length;
+  }
+  return at;
+}
+
+/* Quick edit only makes sense on markdown being previewed: code and CSV are
+   rendered from something that is not markdown, and Edit mode has a real caret. */
+const quickEditable = () =>
+  !!state.file && state.file.kind === "md" && root.dataset.mode !== "edit";
+
+function previewSelection() {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
+  const range = sel.getRangeAt(0);
+  if (!el.preview.contains(range.commonAncestorContainer)) return null;
+  const text = sel.toString();
+  if (!text.trim()) return null;
+  /* How many identical strings sit before this one, so the same string later in
+     the document is not the one we rewrite. */
+  const before = document.createRange();
+  before.setStart(el.preview, 0);
+  before.setEnd(range.startContainer, range.startOffset);
+  return {text, range, nth: countOf(before.toString(), text)};
+}
+
+function blockOf(range) {
+  let node = range.commonAncestorContainer;
+  if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+  return node && node.closest ? node.closest(BLOCK_TAGS) : null;
+}
+
+function commitQuickEdit(next) {
+  el.editor.value = next;
+  setDirty(true);
+  render(next);
+  hideFmtBar();
+  const sel = window.getSelection();
+  if (sel) sel.removeAllRanges();
+}
+
+const USE_EDIT_MODE = " Use Edit mode for this one.";
+
+function applyInline(kind) {
+  const spec = INLINE_FMT[kind];
+  const info = previewSelection();
+  if (!spec || !info) return;
+
+  const src = el.editor.value;
+  const inSource = countOf(src, info.text);
+  if (!inSource) {
+    return toast("That text is not in the source as written — the markdown behind it differs." + USE_EDIT_MODE, true);
+  }
+  if (inSource !== countOf(el.preview.textContent, info.text)) {
+    return toast("That text appears a different number of times in the source, so the right copy is ambiguous." + USE_EDIT_MODE, true);
+  }
+  const at = nthIndexOf(src, info.text, info.nth);
+  if (at < 0) {
+    return toast("Could not place that selection in the source." + USE_EDIT_MODE, true);
+  }
+
+  const end = at + info.text.length;
+  const {open, close} = spec;
+  /* Already wrapped in exactly this markup? Then the button removes it. */
+  const wrapped = src.slice(at - open.length, at) === open &&
+                  src.slice(end, end + close.length) === close;
+  const next = wrapped
+    ? src.slice(0, at - open.length) + info.text + src.slice(end + close.length)
+    : src.slice(0, at) + open + info.text + close + src.slice(end);
+  commitQuickEdit(next);
+}
+
+/* Headings are a property of the whole line, so this rewrites the line's prefix
+   rather than wrapping the selection. level 0 clears the heading. */
+function applyBlock(level) {
+  const info = previewSelection();
+  if (!info) return;
+  const block = blockOf(info.range);
+  if (!block) return;
+
+  const want = block.textContent.trim();
+  const lines = el.editor.value.split("\n");
+  const hits = [];
+  lines.forEach((line, i) => {
+    if (line.replace(HEADING_MARK, "").trim() === want) hits.push(i);
+  });
+
+  if (!hits.length) {
+    return toast("That block does not sit on one line of the source." + USE_EDIT_MODE, true);
+  }
+  if (hits.length > 1) {
+    return toast("More than one line in the source matches that block." + USE_EDIT_MODE, true);
+  }
+
+  const i = hits[0];
+  const indent = (lines[i].match(HEADING_MARK) || ["", ""])[1];
+  const bare = lines[i].replace(HEADING_MARK, "");
+  lines[i] = level ? indent + "#".repeat(level) + " " + bare : indent + bare;
+  commitQuickEdit(lines.join("\n"));
+}
+
+function hideFmtBar() { el.fmtbar.hidden = true; }
+
+function showFmtBar() {
+  if (!quickEditable()) return hideFmtBar();
+  const info = previewSelection();
+  if (!info) return hideFmtBar();
+  const r = info.range.getBoundingClientRect();
+  if (!r.width && !r.height) return hideFmtBar();
+
+  el.fmtbar.hidden = false;                       // measure only once visible
+  const bar = el.fmtbar.getBoundingClientRect();
+  const pad = 8;
+  const left = Math.max(pad, Math.min(r.left + r.width / 2 - bar.width / 2,
+                                      window.innerWidth - bar.width - pad));
+  const above = r.top - bar.height - pad;
+  el.fmtbar.style.left = left + "px";
+  el.fmtbar.style.top = (above < pad ? r.bottom + pad : above) + "px";
+}
+
+let fmtTimer = null;
+document.addEventListener("selectionchange", () => {
+  clearTimeout(fmtTimer);
+  fmtTimer = setTimeout(showFmtBar, 90);          // wait for the drag to settle
+});
+
+/* Keep the selection alive: focusing a button would collapse it. */
+el.fmtbar.addEventListener("mousedown", (ev) => ev.preventDefault());
+el.fmtbar.addEventListener("click", (ev) => {
+  const b = ev.target.closest("button[data-fmt]");
+  if (!b) return;
+  const v = b.dataset.fmt;
+  if (v === "body") applyBlock(0);
+  else if (/^h[1-6]$/.test(v)) applyBlock(Number(v.slice(1)));
+  else applyInline(v);
+});
+
+el.previewpane.addEventListener("scroll", hideFmtBar, {passive: true});
+window.addEventListener("resize", hideFmtBar);
 
 /* like the Claude app: with the panel hidden, resting on that edge (or the
    reveal button) floats it back over the page until the pointer leaves */

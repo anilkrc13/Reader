@@ -191,7 +191,6 @@ button{background:none;border:0;cursor:pointer}
 .side-head{display:flex;align-items:center;gap:6px;padding:11px 10px 9px 16px}
 .side-title{font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);flex:1}
 .side-head-actions{display:flex;gap:5px}
-html[data-side=right] #btn-side svg{transform:scaleX(-1)}
 
 /* pinned folders and recently opened files share one visual language */
 .sec{padding:0 8px 8px;flex:none;border-bottom:1px solid var(--border)}
@@ -463,6 +462,11 @@ html[data-mode=split] .prose{padding:28px 34px 28vh;font-size:calc(var(--fs-body
   font-family:var(--ui);display:block;overflow-x:auto}
 .prose th,.prose td{border:1px solid var(--border);padding:8px 12px;text-align:left;vertical-align:top}
 .prose th{background:var(--panel);font-weight:600}
+/* bullets faked with <br> inside a cell, rebuilt as a real list (listifyCells):
+   marker outside the text column so a wrapped line stays aligned */
+.prose ul.cell-list{margin:0;padding-left:1.15em;list-style:disc outside}
+.prose ul.cell-list>li{margin:0 0 .3em;padding-left:0}
+.prose ul.cell-list>li:last-child{margin-bottom:0}
 .prose kbd{font-family:var(--font-mono);font-size:.8em;padding:.15em .45em;border-radius:5px;
   border:1px solid var(--border);border-bottom-width:2px;background:var(--panel)}
 .prose sup a{border:0}
@@ -537,6 +541,28 @@ html[data-mode=split] .prose{padding:28px 34px 28vh;font-size:calc(var(--fs-body
   box-shadow:var(--shadow-lg);animation:rise .14s cubic-bezier(.2,.7,.3,1);
 }
 #ctxmenu[hidden]{display:none}
+
+/* ------------------------------------------------- quick edit format bar */
+#fmtbar{
+  position:fixed;z-index:140;display:flex;align-items:center;gap:2px;padding:4px;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  box-shadow:var(--shadow-lg);animation:rise .12s cubic-bezier(.2,.7,.3,1);
+  font-family:var(--ui);
+}
+#fmtbar[hidden]{display:none}
+#fmtbar button{
+  min-width:28px;height:28px;padding:0 6px;border-radius:7px;
+  font-size:12.5px;font-weight:600;color:var(--text);
+  transition:background var(--speed),color var(--speed);
+}
+#fmtbar button:hover{background:var(--panel-hi)}
+#fmtbar button:active{background:var(--accent);color:var(--accent-on)}
+#fmtbar .fmt-b{font-weight:800}
+#fmtbar .fmt-i{font-style:italic;font-family:var(--font-body)}
+#fmtbar .fmt-u{text-decoration:underline}
+#fmtbar .fmt-s{text-decoration:line-through}
+#fmtbar .fmt-c{font-family:var(--font-mono);font-size:11px}
+#fmtbar .fmt-sep{width:1px;height:18px;margin:0 3px;background:var(--border)}
 .menu-item{
   display:flex;align-items:center;gap:10px;width:100%;text-align:left;
   padding:7.5px 10px;border-radius:8px;font-size:13px;font-weight:500;color:var(--text);
