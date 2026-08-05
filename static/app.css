@@ -305,16 +305,17 @@ html[data-wordcount=off] .foot-note{visibility:hidden}
    it blurs the real text passing beneath it as before. */
 html[data-glass=on] body{
   background:
-    radial-gradient(56% 44% at 0% 0%,color-mix(in srgb,var(--accent) 30%,transparent),transparent 70%),
-    radial-gradient(50% 42% at 100% 10%,color-mix(in srgb,var(--accent) 16%,transparent),transparent 70%),
-    radial-gradient(60% 46% at 10% 100%,color-mix(in srgb,var(--accent) 20%,transparent),transparent 70%),
+    linear-gradient(180deg,
+      color-mix(in srgb,var(--accent) 18%,transparent),
+      color-mix(in srgb,var(--accent) 7%,transparent) 45%,
+      color-mix(in srgb,var(--accent) 13%,transparent)),
     var(--paper);
 }
 html[data-glass=on] #main{background:var(--paper)}
 html[data-glass=on] #sidebar{
-  background:color-mix(in srgb,var(--panel) 45%,transparent);
-  backdrop-filter:blur(24px) saturate(1.15);
-  -webkit-backdrop-filter:blur(24px) saturate(1.15);
+  background:color-mix(in srgb,var(--panel) 42%,transparent);
+  backdrop-filter:blur(28px) saturate(1.3);
+  -webkit-backdrop-filter:blur(28px) saturate(1.3);
 }
 html[data-glass=on] #sidebar .root-chip,html[data-glass=on] #pathbar{background:transparent}
 html[data-glass=on][data-sidebar=hidden] #sidebar{
@@ -386,6 +387,19 @@ html[data-full=on] #btn-full .ic-exit{display:block}
 html[data-mode=preview] #editorpane,html[data-mode=preview] #gutter{display:none}
 html[data-mode=edit] #previewpane,html[data-mode=edit] #gutter{display:none}
 html[data-mode=edit] #editorpane{background:var(--paper)}
+
+/* Split mode: source and page read as different materials. The editor sits
+   flat on the recessed workspace tone while the rendered page floats as a
+   paper card -- so the eye knows at a glance which side is the document.
+   Both tones come from the palette, so every paper and dark surface keeps
+   the distinction without hard-coding a colour. */
+html[data-mode=split] #panes{background:var(--panel);padding:13px;gap:13px}
+html[data-mode=split] #editorpane{background:transparent}
+html[data-mode=split] #previewpane{
+  background:var(--paper);border:1px solid var(--border);
+  border-radius:calc(var(--radius) + 2px);box-shadow:var(--shadow);
+}
+html[data-mode=split] #gutter{display:none}
 html[data-empty=yes] #panes{display:none}
 html:not([data-empty=yes]) #empty{display:none}
 
