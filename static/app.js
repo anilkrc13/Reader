@@ -112,9 +112,25 @@ const state = {
   /* documents visited this session, and where we are in that trail. Deliberately
      not persisted: like a browser window, closing it forgets the trail. */
   trail: [], trailAt: -1,
+  /* undo history for the open document, reset when a different one is opened */
+  past: [], pastAt: -1,
 };
 
 const TRAIL_MAX = 100;
+
+/* Undo history for the document text.
+
+   The editor is a plain textarea and has its own native undo, but assigning
+   .value in script wipes that stack -- and every quick edit from the preview
+   does exactly that. Worse, the textarea cannot even be focused in preview
+   mode (it is display:none), so the native stack cannot be reached from where
+   quick edits are made. So the document owns its history here instead, and one
+   stack covers typing, quick edits, and every mode.
+
+   Typing is folded into one entry per pause rather than one per keystroke,
+   which is what makes undo land on a word or a phrase instead of a letter. */
+const HISTORY_MAX = 200;
+const TYPING_PAUSE_MS = 400;
 
 /* Record a document the user navigated to. Anything ahead of the current
    position is dropped, so opening a document after going back replaces the
@@ -126,6 +142,65 @@ function trailPush(path) {
   if (state.trail.length > TRAIL_MAX) state.trail.shift();
   state.trailAt = state.trail.length - 1;
   syncTrailButtons();
+}
+
+/* --- undo history ------------------------------------------------------- */
+
+let typingPause = null;
+
+const historyShot = () => ({
+  text: el.editor.value,
+  start: el.editor.selectionStart,
+  end: el.editor.selectionEnd,
+});
+
+/* A fresh document starts its own history, with the text on disk as the state
+   there is nothing to undo past. */
+function historyReset() {
+  clearTimeout(typingPause);
+  typingPause = null;
+  state.past = [historyShot()];
+  state.pastAt = 0;
+}
+
+function historyPush() {
+  const shot = historyShot();
+  const here = state.past[state.pastAt];
+  /* The caret moving is not an edit, but it is worth remembering where it was. */
+  if (here && here.text === shot.text) { state.past[state.pastAt] = shot; return; }
+  state.past.splice(state.pastAt + 1);         // redoing past this point is gone
+  state.past.push(shot);
+  if (state.past.length > HISTORY_MAX) state.past.shift();
+  state.pastAt = state.past.length - 1;
+}
+
+/* Typing is one entry per pause. Anything that needs the history to be current
+   right now -- an undo, or an edit arriving from somewhere else -- settles the
+   pending keystrokes first, or they would be skipped straight over. */
+function historyNoteTyping() {
+  clearTimeout(typingPause);
+  typingPause = setTimeout(() => { typingPause = null; historyPush(); }, TYPING_PAUSE_MS);
+}
+
+function historySettle() {
+  if (!typingPause) return;
+  clearTimeout(typingPause);
+  typingPause = null;
+  historyPush();
+}
+
+function historyGo(delta) {
+  if (!state.file || state.file.kind === "pdf") return;
+  historySettle();
+  const to = state.pastAt + delta;
+  if (to < 0 || to >= state.past.length) return;
+  state.pastAt = to;
+  const shot = state.past[to];
+  el.editor.value = shot.text;
+  setDirty(shot.text !== state.saved);         // undoing back to disk is clean again
+  render(shot.text);
+  hideFmtBar();
+  try { el.editor.setSelectionRange(shot.start, shot.end); } catch (_) {}
 }
 
 function syncTrailButtons() {
@@ -611,6 +686,7 @@ async function openFile(path, {keepScroll = false, silent = false, record = true
   el.editor.value = data.text;
   el.docname.textContent = data.name;
   root.dataset.empty = "no";
+  historyReset();                 // a different document, a different history
   setDirty(false);
   hideDiskBar();
   render(data.text);
@@ -1645,6 +1721,7 @@ el.preview.addEventListener("click", (ev) => {
 el.editor.addEventListener("input", () => {
   setDirty(el.editor.value !== state.saved);
   scheduleRender();
+  historyNoteTyping();
 });
 el.editor.addEventListener("keydown", (ev) => {
   if (ev.key !== "Tab" || ev.metaKey || ev.ctrlKey || ev.altKey) return;
@@ -1710,6 +1787,16 @@ document.addEventListener("keydown", (ev) => {
   if ("biu".includes(k) && quickEditable() && previewSelection()) {
     ev.preventDefault();
     applyInline(k === "b" ? "bold" : k === "i" ? "italic" : "underline");
+    return;
+  }
+
+  /* Undo and redo, in any mode -- a quick edit made in the preview is undone by
+     the same key as a keystroke in the editor. Left alone while a rename box or
+     a settings field has the caret, where undo belongs to that field. */
+  const ownField = editingText() && document.activeElement !== el.editor;
+  if ((k === "z" || k === "y") && !ownField && !overlayOpen()) {
+    ev.preventDefault();         // our stack owns undo; the native one is stale
+    historyGo(k === "y" || ev.shiftKey ? 1 : -1);
     return;
   }
 
@@ -1797,9 +1884,11 @@ function blockOf(range) {
 }
 
 function commitQuickEdit(next) {
+  historySettle();                // fold pending keystrokes in before this lands
   el.editor.value = next;
   setDirty(true);
   render(next);
+  historyPush();
   hideFmtBar();
   const sel = window.getSelection();
   if (sel) sel.removeAllRanges();
