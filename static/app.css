@@ -306,16 +306,16 @@ html[data-wordcount=off] .foot-note{visibility:hidden}
 html[data-glass=on] body{
   background:
     linear-gradient(180deg,
-      color-mix(in srgb,var(--accent) 18%,transparent),
-      color-mix(in srgb,var(--accent) 7%,transparent) 45%,
-      color-mix(in srgb,var(--accent) 13%,transparent)),
+      color-mix(in srgb,var(--text) 16%,transparent),
+      color-mix(in srgb,var(--text) 3%,transparent) 45%,
+      color-mix(in srgb,var(--text) 8%,transparent)),
     var(--paper);
 }
 html[data-glass=on] #main{background:var(--paper)}
 html[data-glass=on] #sidebar{
-  background:color-mix(in srgb,var(--panel) 42%,transparent);
-  backdrop-filter:blur(28px) saturate(1.3);
-  -webkit-backdrop-filter:blur(28px) saturate(1.3);
+  background:color-mix(in srgb,var(--panel) 30%,transparent);
+  backdrop-filter:blur(28px) saturate(1.15);
+  -webkit-backdrop-filter:blur(28px) saturate(1.15);
 }
 html[data-glass=on] #sidebar .root-chip,html[data-glass=on] #pathbar{background:transparent}
 html[data-glass=on][data-sidebar=hidden] #sidebar{
@@ -388,16 +388,17 @@ html[data-mode=preview] #editorpane,html[data-mode=preview] #gutter{display:none
 html[data-mode=edit] #previewpane,html[data-mode=edit] #gutter{display:none}
 html[data-mode=edit] #editorpane{background:var(--paper)}
 
-/* Split mode: source and page read as different materials. The editor sits
-   flat on the recessed workspace tone while the rendered page floats as a
-   paper card -- so the eye knows at a glance which side is the document.
-   Both tones come from the palette, so every paper and dark surface keeps
-   the distinction without hard-coding a colour. */
-html[data-mode=split] #panes{background:var(--panel);padding:13px;gap:13px}
+/* Split mode: source and page read as different materials. The toolbar and
+   the editor form one continuous recessed surface (--panel), and the rendered
+   page is the only paper on screen -- a full-height sheet that meets the top
+   and bottom edges, set off by a hairline and a soft shadow. Both tones come
+   from the palette, so every paper and dark surface keeps the distinction
+   without hard-coding a colour. */
+html[data-mode=split] #toolbar{background:var(--panel-hi)}
+html[data-mode=split] #panes{background:var(--panel-hi)}
 html[data-mode=split] #editorpane{background:transparent}
 html[data-mode=split] #previewpane{
-  background:var(--paper);border:1px solid var(--border);
-  border-radius:calc(var(--radius) + 2px);box-shadow:var(--shadow);
+  background:var(--paper);border-left:1px solid var(--border);box-shadow:var(--shadow);
 }
 html[data-mode=split] #gutter{display:none}
 html[data-empty=yes] #panes{display:none}
