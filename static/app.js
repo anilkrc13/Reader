@@ -1360,6 +1360,9 @@ function toggleSidebar(force) {
   S.hidden = force !== undefined ? force : !S.hidden;
   root.dataset.sidebar = S.hidden ? "hidden" : "shown";
   root.classList.remove("peek");
+  const label = (S.hidden ? "Show" : "Hide") + " panel (⌘\\)";
+  $("btn-show").title = label;
+  $("btn-show").setAttribute("aria-label", label);
   savePrefs();
 }
 function cycleTheme() {
@@ -1634,7 +1637,10 @@ $("btn-refresh").onclick = refresh;
 $("btn-theme").onclick = cycleTheme;
 $("btn-full").onclick = toggleFullscreen;
 $("btn-hide").onclick = () => toggleSidebar(true);
-$("btn-show").onclick = () => toggleSidebar(false);
+/* One control, and it toggles: pin the panel open, or put it away. A peek shows
+   the panel without clearing S.hidden, so toggleSidebar's own read of the pinned
+   state is the right one -- clicking mid-peek pins, it does not hide. */
+$("btn-show").onclick = () => toggleSidebar();
 
 el.back.addEventListener("click", () => trailGo(-1));
 el.fwd.addEventListener("click", () => trailGo(1));
@@ -1872,27 +1878,28 @@ el.fmtbar.addEventListener("click", (ev) => {
 el.previewpane.addEventListener("scroll", hideFmtBar, {passive: true});
 window.addEventListener("resize", hideFmtBar);
 
-/* like the Claude app: with the panel hidden, resting on that edge (or the
-   reveal button) floats it back over the page until the pointer leaves */
+/* Resting on the reveal button floats the hidden panel out for a look, and the
+   pointer leaving puts it away again. Only that button peeks -- resting on the
+   window edge does nothing, so the panel cannot appear unasked. A peek is a
+   look, not a state: clicking is what pins the panel open (see btn-show above),
+   and once pinned these handlers stand down. Moving onto the panel itself keeps
+   a peek alive, so a peek can be used without pinning it first. */
 (() => {
-  const zone = $("peekzone");
   let hideTimer = null;
   const show = () => {
-    if (!S.hidden) return;
+    if (!S.hidden) return;                // pinned open: nothing to peek
     clearTimeout(hideTimer);
     root.classList.add("peek");
   };
-  const scheduleHide = (ev) => {
+  const scheduleHide = () => {
     if (!S.hidden) return;
     clearTimeout(hideTimer);
     hideTimer = setTimeout(() => root.classList.remove("peek"), 250);
   };
-  zone.addEventListener("mouseenter", show);
   $("btn-show").addEventListener("mouseenter", show);
+  $("btn-show").addEventListener("mouseleave", scheduleHide);
   el.sidebarEl.addEventListener("mouseenter", show);
   el.sidebarEl.addEventListener("mouseleave", scheduleHide);
-  zone.addEventListener("mouseleave", scheduleHide);
-  $("btn-show").addEventListener("mouseleave", scheduleHide);
 })();
 
 window.addEventListener("beforeunload", (ev) => {
