@@ -58,7 +58,7 @@
   --tab-size:2;
   --code-wrap:pre;
   --accent:#d97757;
-  --accent-fill:#d97757;   /* accent adjusted until text can reach 4.5:1 on it */
+  --accent-fill:#a85c43;   /* accent darkened until white text reaches 4.5:1 */
   --accent-text:#a85c44;   /* accent adjusted until it reads at 4.5:1 on paper */
   --accent-on:#ffffff;
 }

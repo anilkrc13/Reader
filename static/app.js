@@ -289,11 +289,8 @@ function luminance(hex) {
 }
 const contrastRatio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 
-function readableOn(hex) {
-  const bg = luminance(hex);
-  return contrastRatio(bg, luminance("#141413")) >= contrastRatio(bg, luminance("#ffffff"))
-    ? "#141413" : "#ffffff";
-}
+const INK = "#141413";
+const WHITE = "#ffffff";
 
 function mixHex(hex, other, w) {
   const a = parseInt(hex.slice(1), 16), b = parseInt(other.slice(1), 16);
@@ -302,20 +299,25 @@ function mixHex(hex, other, w) {
       .toString(16).padStart(2, "0")).join("");
 }
 
-/* The standard for text on an accent surface is WCAG AA: the better of ink or
-   white must reach 4.5:1. The palette's accents were tuned as text colours,
-   and a mid-luminance one (the light green) offers ~4.3:1 to both -- a coin
-   flip where neither is comfortable. Rather than pick the least-bad text,
-   nudge the SURFACE toward whichever pole helps until the ratio is met; the
-   raw accent stays itself wherever it acts as text or a thin line. */
-function fillFor(accent) {
+/* Text on an accent surface: WCAG AA, 4.5:1. Which text colour is not decided
+   per accent -- deciding it per accent is what looked broken, because "whichever
+   of ink or white wins" answered white for two accents and ink for the other
+   two, so four surfaces that should look like one decision looked like four.
+   The rule is per THEME instead: a light theme carries white on its accents, a
+   dark theme carries ink, so every accent reads the same way as the one beside
+   it. The surface then moves away from that text, in 5% steps so it stays as
+   close to the brand colour as the bar allows, until it clears 4.5:1.
+
+   Dark accents already clear it against ink and come through untouched, which
+   is why dark mode already looked right. */
+const accentTextOn = (dark) => (dark ? INK : WHITE);
+
+function fillFor(accent, dark) {
+  const on = accentTextOn(dark);
+  const pole = dark ? WHITE : "#000000";
   let fill = accent;
-  for (let i = 0; i < 10; i++) {
-    const bg = luminance(fill);
-    const best = Math.max(contrastRatio(bg, luminance("#141413")),
-                          contrastRatio(bg, luminance("#ffffff")));
-    if (best >= 4.5) break;
-    fill = mixHex(fill, bg > 0.18 ? "#000000" : "#ffffff", 0.12);
+  for (let i = 0; i < 40 && contrastRatio(luminance(fill), luminance(on)) < 4.5; i++) {
+    fill = mixHex(fill, pole, 0.05);
   }
   return fill;
 }
@@ -326,7 +328,7 @@ function fillFor(accent) {
    light papers deepen the accent a step or two. */
 function textFor(accent, paper) {
   const pl = luminance(paper);
-  const pole = contrastRatio(pl, 0) >= contrastRatio(pl, 1) ? "#000000" : "#ffffff";
+  const pole = contrastRatio(pl, 0) >= contrastRatio(pl, 1) ? "#000000" : WHITE;
   let text = accent;
   for (let i = 0; i < 12 && contrastRatio(luminance(text), pl) < 4.5; i++) {
     text = mixHex(text, pole, 0.12);
@@ -356,9 +358,8 @@ function applySettings() {
 
   const accent = (ACCENTS[S.accent] || ACCENTS.clay)[dark ? "dark" : "light"];
   st.setProperty("--accent", accent);
-  const fill = fillFor(accent);
-  st.setProperty("--accent-fill", fill);
-  st.setProperty("--accent-on", readableOn(fill));
+  st.setProperty("--accent-fill", fillFor(accent, dark));
+  st.setProperty("--accent-on", accentTextOn(dark));
   /* the paper follows theme and paper choice in the stylesheet, so read it
      back (the data- attributes above are already set) rather than duplicate it */
   const paper = getComputedStyle(root).getPropertyValue("--paper").trim();
