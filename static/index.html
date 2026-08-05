@@ -32,15 +32,11 @@
   <!-- =========================================================== sidebar -->
   <aside id="sidebar" aria-label="File browser">
     <div class="side-head">
+      <!-- No controls here: the toolbar's panel button is the one place that
+           shows, hides, and peeks the panel. A second copy of the same glyph
+           sitting right beside it read as a bug. Which edge the panel sits on
+           is a setting (Appearance > File panel side). -->
       <span class="side-title">Files</span>
-      <div class="side-head-actions">
-        <!-- Same panel glyph as the toolbar's show button, so one icon means
-             panel visibility wherever it appears. Which edge the panel sits on
-             is a setting (Appearance > File panel side), not a button. -->
-        <button class="icon-btn" id="btn-hide" title="Hide panel (⌘\)" aria-label="Hide panel">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2"/><path d="M8 3.5v13"/></svg>
-        </button>
-      </div>
     </div>
 
     <!-- pinned folders ---------------------------------------------------- -->
@@ -327,7 +323,7 @@
           <div class="group">
             <p class="group-title">Layout</p>
             <div class="set-row">
-              <div class="set-label"><b>Translucent panel</b><span>The file panel turns to frosted glass over the page — most visible when it floats over a document.</span></div>
+              <div class="set-label"><b>Translucent panel</b><span>The file panel turns to frosted glass, with a soft wash of your accent colour glowing through it.</span></div>
               <div class="set-control"><button class="switch" role="switch" data-set="glass" aria-checked="false" aria-label="Translucent panel"></button></div>
             </div>
             <div class="set-row">
