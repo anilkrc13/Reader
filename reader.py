@@ -5,9 +5,11 @@ Reader -- a small local document browser: markdown, code, CSV and PDF.
 Runs a loopback-only HTTP server and opens the UI in your default browser.
 Standard library only: no pip installs, no network access at runtime.
 
-    python3 mdview.py [PATH] [--port N] [--no-browser]
+    python3 reader.py [PATH] [--port N] [--no-browser]
 
-PATH may be a folder (opens the browser there) or a file (opens it).
+PATH may be a folder (opens the browser there) or a file (opens it). A
+relative PATH is taken against your home folder, not the working directory,
+so that double-clicking the launcher behaves the same as running it here.
 
 Preferences are stored server side, in preferences.json beside this script,
 so they survive restarts even when the app lands on a different port.
@@ -105,31 +107,41 @@ def choose_prefs_file() -> Path:
             return support / "preferences.json"
     except OSError:
         pass
-    return Path.home() / ".mdview-preferences.json"
+    return Path.home() / ".reader-preferences.json"
 
 
 PREFS_FILE = choose_prefs_file()
 PREFS_LOCK = threading.Lock()
 
 
-def load_or_make_token() -> str:
-    """A stable secret, so the app has one unchanging URL you can bookmark or
-    install as a browser app. Readable only by you."""
-    path = PREFS_FILE.parent / ".mdview-token"
-    try:
-        existing = path.read_text("utf-8").strip()
-        if len(existing) >= 24:
-            return existing
-    except OSError:
-        pass
-    token = secrets.token_urlsafe(24)
+def _rewrite_token(path: Path, token: str) -> None:
+    """Write the token readable only by its owner. Best effort: a token we
+    cannot persist still works for this run, it just will not survive it."""
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(token)
     except OSError:
-        pass          # fall back to a per-run token rather than refusing to start
+        pass
+
+
+def load_or_make_token() -> str:
+    """A stable secret, so the app has one unchanging URL you can bookmark or
+    install as a browser app. Readable only by you."""
+    path = PREFS_FILE.parent / ".reader-token"
+    legacy = PREFS_FILE.parent / ".mdview-token"     # pre-2.0 name
+    for candidate in (path, legacy):
+        try:
+            existing = candidate.read_text("utf-8").strip()
+        except OSError:
+            continue
+        if len(existing) >= 24:
+            if candidate is legacy:
+                _rewrite_token(path, existing)       # adopt it under the new name
+            return existing
+    token = secrets.token_urlsafe(24)
+    _rewrite_token(path, token)
     return token
 
 
@@ -456,7 +468,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _authed(self, query: dict) -> bool:
         for candidate in (self._cookie_token(),
-                          self.headers.get("X-MDView-Token") or "",
+                          self.headers.get("X-Reader-Token") or "",
                           (query.get("t") or [""])[0]):
             if candidate and secrets.compare_digest(candidate, TOKEN):
                 return True

@@ -218,7 +218,7 @@ async function api(path, {method = "GET", body = null, query = {}} = {}) {
   const qs = new URLSearchParams(query).toString();
   const res = await fetch(path + (qs ? "?" + qs : ""), {
     method,
-    headers: Object.assign({"X-MDView-Token": TOKEN},
+    headers: Object.assign({"X-Reader-Token": TOKEN},
                            body ? {"Content-Type": "application/json"} : {}),
     body: body ? JSON.stringify(body) : undefined,
     cache: "no-store",
@@ -669,7 +669,7 @@ function drawPinned() {
 
 /* ---- drag: reorder pins, or drop a folder from the tree to pin it ------- */
 
-const DIR_MIME = "application/x-mdview-dir";
+const DIR_MIME = "application/x-reader-dir";
 let dragPinFrom = null;
 
 el.pinned.addEventListener("dragstart", (ev) => {
@@ -1655,7 +1655,8 @@ async function boot() {
 }
 
 /* small automation hook (same-origin pages only) — used by the test suite */
-window.mdview = {goto: (p) => setRoot(p), open: (p) => openFile(p)};
+window.reader = {goto: (p) => setRoot(p), open: (p) => openFile(p)};
+window.mdview = window.reader;        // pre-2.0 name; drop once tests are updated
 
 boot();
 })();
