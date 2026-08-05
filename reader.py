@@ -25,6 +25,7 @@ import os
 import secrets
 import shutil
 import socket
+import subprocess
 import sys
 import tempfile
 import threading
@@ -55,6 +56,13 @@ CODE_SUFFIXES = {
 TEXT_SUFFIXES = MARKDOWN_SUFFIXES | CODE_SUFFIXES     # readable + editable
 PDF_SUFFIXES = {".pdf"}                               # read-only, native viewer
 LISTABLE_SUFFIXES = TEXT_SUFFIXES | PDF_SUFFIXES
+# Documents that belong to another application: Reader will not render these,
+# but it will hand one to macOS to open in whatever app owns it. Deliberately
+# a short allowlist of document formats -- `open` on an arbitrary file can
+# execute things (.command, .app), and a link in a markdown page must never
+# be able to do that.
+EXTERNAL_APP_SUFFIXES = {".doc", ".docx", ".xls", ".xlsx", ".xlsm", ".ppt", ".pptx",
+                         ".pages", ".numbers", ".key", ".rtf", ".odt", ".ods"}
 # Images a document may reference and that we will serve inline.
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif", ".bmp", ".ico"}
 
@@ -226,7 +234,9 @@ def has_documents(start: str, deadline: float) -> bool:
     return False
 
 
-def list_dir(path: Path, include_all: bool = False) -> dict:
+def list_dir(path: Path, include_all: bool = False, include_files: bool = False) -> dict:
+    """include_all lists folders holding no documents; include_files lists files
+    Reader cannot open, marked supported:false so the browser can dim them."""
     if not path.is_dir():
         raise NotADirectoryError(str(path))
     dirs, files, truncated = [], [], False
@@ -243,10 +253,16 @@ def list_dir(path: Path, include_all: bool = False) -> dict:
                 if entry.is_dir():
                     if include_all or has_documents(str(child), deadline):
                         dirs.append({"name": entry.name, "path": str(child), "type": "dir"})
-                elif entry.is_file() and child.suffix.lower() in LISTABLE_SUFFIXES:
+                elif entry.is_file():
+                    supported = child.suffix.lower() in LISTABLE_SUFFIXES
+                    if not supported and not include_files:
+                        continue
                     st = entry.stat()
-                    files.append({"name": entry.name, "path": str(child), "type": "file",
-                                  "size": st.st_size, "mtime": str(st.st_mtime_ns)})
+                    item = {"name": entry.name, "path": str(child), "type": "file",
+                            "size": st.st_size, "mtime": str(st.st_mtime_ns)}
+                    if not supported:
+                        item["supported"] = False
+                    files.append(item)
             except OSError:
                 continue
     key = lambda e: e["name"].lower()  # noqa: E731
@@ -594,7 +610,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(read_prefs())
             if route == "/api/list":
                 show_all = (query.get("all") or ["0"])[0] == "1"
-                return self._json(list_dir(resolve_path(arg), show_all))
+                show_files = (query.get("files") or ["0"])[0] == "1"
+                return self._json(list_dir(resolve_path(arg), show_all, show_files))
             if route == "/api/file":
                 return self._json(read_text_file(resolve_path(arg)))
             if route == "/api/stat":
@@ -628,6 +645,22 @@ class Handler(BaseHTTPRequestHandler):
             if route == "/api/rename":
                 return self._json(rename_path(resolve_path(payload.get("path", "")),
                                               str(payload.get("name", ""))))
+            if route == "/api/open-external":
+                path = resolve_path(payload.get("path", ""))
+                if not path.is_file():
+                    return self._error(HTTPStatus.NOT_FOUND, "no such file")
+                if path.suffix.lower() not in EXTERNAL_APP_SUFFIXES:
+                    return self._error(HTTPStatus.FORBIDDEN,
+                                       "not a document Reader hands to another app")
+                try:
+                    proc = subprocess.run(["open", str(path)], capture_output=True, timeout=15)
+                except subprocess.TimeoutExpired:
+                    return self._error(HTTPStatus.INTERNAL_SERVER_ERROR,
+                                       "timed out handing the file to macOS")
+                if proc.returncode:
+                    msg = proc.stderr.decode("utf-8", "replace").strip() or "could not open"
+                    return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, msg)
+                return self._json({"ok": True})
             if route == "/api/prefs":
                 if not isinstance(payload, dict):
                     return self._error(HTTPStatus.BAD_REQUEST, "preferences must be an object")

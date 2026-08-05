@@ -46,7 +46,7 @@ const DEFAULTS = {
   spellcheck: false, syncScroll: true, wordCount: true,
   /* files and watching */
   recentCount: 10, autoSave: true, autoRefresh: true, watchMs: 2000, watchToast: true,
-  showAllDirs: false, glass: false,
+  showAllDirs: false, showAllFiles: false, glass: false,
 };
 
 /* session state that is persisted but is not a "setting" (Reset keeps these) */
@@ -1072,7 +1072,23 @@ const ICONS = {
   pencil: '<svg viewBox="0 0 16 16"><path d="M10.7 2.7 13.3 5.3 5.8 12.8H3.2v-2.6z"/><path d="M9.3 4.1 11.9 6.7"/></svg>',
 };
 
-const listQuery = (path) => (S.showAllDirs ? {path, all: "1"} : {path});
+const listQuery = (path) => {
+  const q = {path};
+  if (S.showAllDirs) q.all = "1";
+  if (S.showAllFiles) q.files = "1";
+  return q;
+};
+
+/* Files that open in the app that owns them (Word, Excel, ...). Mirrors the
+   server's EXTERNAL_APP_SUFFIXES, which is the set actually enforced. */
+const EXT_APP = new Set(["doc", "docx", "xls", "xlsx", "xlsm", "ppt", "pptx",
+                         "pages", "numbers", "key", "rtf", "odt", "ods"]);
+
+function openExternal(path) {
+  api("/api/open-external", {method: "POST", body: {path}})
+    .then(() => toast("Opened in its own app"))
+    .catch((err) => toast(err.message, true));
+}
 
 async function childrenOf(path) {
   if (state.children.has(path)) return state.children.get(path);
@@ -1091,6 +1107,12 @@ function makeRow(entry, depth) {
   btn.dataset.path = entry.path;
   btn.dataset.type = entry.type;
   btn.title = entry.path;
+  if (entry.supported === false) {
+    btn.classList.add("unsupported");
+    btn.dataset.sup = "0";
+    btn.title = entry.path + (EXT_APP.has(extOf(entry.path))
+      ? " — opens in its own app" : " — Reader cannot open this");
+  }
   const isDir = entry.type === "dir";
   btn.innerHTML = (isDir ? ICONS.caret : ICONS.spacer) +
                   (isDir ? ICONS.folder : iconFor(entry.path)) + '<span class="nm"></span>';
@@ -1169,7 +1191,10 @@ function openRowMenu(anchor, path, kind) {
     add(ICONS.pencil, "Rename…", () => openRenamer(path, kind));
     /* no delete for folders — too much can disappear in one click */
   } else {
-    add(ICONS.file, "Open", () => openFile(path));
+    /* An unsupported file opens in the app that owns it, or not at all --
+       the menu should promise only what a click on the row would do. */
+    if (EXT_APP.has(extOf(path))) add(ICONS.file, "Open in its own app", () => openExternal(path));
+    else add(ICONS.file, "Open", () => openFile(path));
     sep();
     add(ICONS.pencil, "Rename…", () => openRenamer(path, kind));
     sep();
@@ -1584,7 +1609,7 @@ function setValue(key, value) {
   syncDialog();
   if (key === "recentCount") drawRecents();
   if (key === "watchMs" || key === "autoRefresh") restartWatch();
-  if (key === "showAllDirs") refreshTree();
+  if (key === "showAllDirs" || key === "showAllFiles") refreshTree();
 }
 
 /* reflect current settings into every control in the dialog */
@@ -1727,7 +1752,15 @@ el.tree.addEventListener("click", async (ev) => {
   const btn = ev.target.closest(".row");
   if (!btn) return;
   const {path, type} = btn.dataset;
-  if (type === "file") { openFile(path); return; }
+  if (type === "file") {
+    if (btn.dataset.sup === "0") {
+      if (EXT_APP.has(extOf(path))) openExternal(path);
+      else toast("Reader cannot open this kind of file", true);
+      return;
+    }
+    openFile(path);
+    return;
+  }
   const li = btn.closest("li");
   if (state.expanded.has(path)) collapse(li, path);
   else { state.expanded.add(path); await expand(li, path, 0); }
@@ -1760,7 +1793,13 @@ el.preview.addEventListener("click", (ev) => {
     if (target) target.scrollIntoView({behavior: "smooth", block: "start"});
     return;
   }
-  if (a.dataset.local) { ev.preventDefault(); openFile(a.dataset.local); }
+  if (a.dataset.local) {
+    ev.preventDefault();
+    /* A link to a Word or Excel document opens in the app that owns it;
+       everything Reader renders itself opens in place as before. */
+    if (EXT_APP.has(extOf(a.dataset.local))) openExternal(a.dataset.local);
+    else openFile(a.dataset.local);
+  }
 });
 
 el.editor.addEventListener("input", () => {

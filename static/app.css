@@ -276,6 +276,10 @@ html[data-recents=off] #recents{display:none}
 }
 .row:hover{background:var(--panel-hi);color:var(--text)}
 .row.active{background:var(--accent);color:var(--accent-on);font-weight:500}
+/* files Reader cannot render: listed for orientation, dimmed to say so */
+.row.unsupported{color:var(--text-3)}
+.row.unsupported .fi{opacity:.5}
+.row.unsupported:hover{color:var(--text-2)}
 .row .caret{width:12px;height:12px;flex:none;transition:transform var(--speed);opacity:.7}
 .row .caret.open{transform:rotate(90deg)}
 .row .fi{width:14px;height:14px;flex:none;opacity:.85}
