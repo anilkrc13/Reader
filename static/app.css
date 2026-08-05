@@ -463,11 +463,13 @@ html[data-mode=split] .prose{padding:28px 34px 28vh;font-size:calc(var(--fs-body
   font-family:var(--ui);display:block;overflow-x:auto}
 .prose th,.prose td{border:1px solid var(--border);padding:8px 12px;text-align:left;vertical-align:top}
 .prose th{background:var(--panel);font-weight:600}
-/* bullets faked with <br> inside a cell, rebuilt as a real list (listifyCells):
-   marker outside the text column so a wrapped line stays aligned */
-.prose ul.cell-list{margin:0;padding-left:1.15em;list-style:disc outside}
-.prose ul.cell-list>li{margin:0 0 .3em;padding-left:0}
-.prose ul.cell-list>li:last-child{margin-bottom:0}
+/* bullets faked with <br> inside a cell, rebuilt as a real list (listifyCells).
+   Indent matches .prose ul so a cell list reads like every other list in the
+   document, and the marker sits outside the text column so a wrapped line stays
+   aligned with the text above it rather than sliding under the bullet. */
+.prose ul.cell-list{margin:0;padding-left:1.4em}
+.prose .cell-text + ul.cell-list{margin-top:.3em}
+.prose ul.cell-list + .cell-text{margin-top:.45em}
 .prose kbd{font-family:var(--font-mono);font-size:.8em;padding:.15em .45em;border-radius:5px;
   border:1px solid var(--border);border-bottom-width:2px;background:var(--panel)}
 .prose sup a{border:0}
