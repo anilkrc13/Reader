@@ -37,7 +37,7 @@ const DEFAULTS = {
   theme: "auto", accent: "clay", paper: "cream", paperDark: "ink", side: "left",
   /* reading */
   bodyFont: "lora", headFont: "poppins",
-  fontSize: 16.5, lineHeight: 1.75, measure: 720, paraGap: 1.1,
+  fontSize: 16.5, lineHeight: 1.75, measure: 65, paraGap: 1.1,
   /* code */
   codeTheme: "brand", monoFont: "system", codeScale: 0.82, codeWrap: false,
   /* editor */
@@ -58,6 +58,14 @@ const SESSION_DEFAULTS = {
 
 const NUMERIC = new Set(["fontSize", "lineHeight", "measure", "paraGap", "codeScale",
                          "editorSize", "tabSize", "recentCount", "watchMs", "width"]);
+
+/* Line width is a percentage of the reading pane, so it follows the window
+   instead of pinning prose to one pixel width. `cap` is a readability ceiling:
+   a percentage alone would stretch a line past 200 characters on a wide
+   display, and the cap is in `ch` so it tracks the reading font's own size.
+   At `max` the setting means "fill the pane" and the cap is lifted. */
+const MEASURE = {min: 40, max: 100, step: 5, cap: "90ch"};
+const LEGACY_MEASURE = {min: 520, max: 1240};   // the pixel range used before 2.0
 
 const ACCENTS = {
   clay:  {label: "Clay",  light: "#d97757", dark: "#e18a6b"},
@@ -91,9 +99,9 @@ const MONO_FONTS = [
 ];
 
 const PRESETS = {
-  compact:     {fontSize: 15,   lineHeight: 1.55, measure: 680, paraGap: 0.85},
-  comfortable: {fontSize: 16.5, lineHeight: 1.75, measure: 720, paraGap: 1.1},
-  focus:       {fontSize: 19,   lineHeight: 1.9,  measure: 660, paraGap: 1.35},
+  compact:     {fontSize: 15,   lineHeight: 1.55, measure: 60, paraGap: 0.85},
+  comfortable: {fontSize: 16.5, lineHeight: 1.75, measure: 65, paraGap: 1.1},
+  focus:       {fontSize: 19,   lineHeight: 1.9,  measure: 55, paraGap: 1.35},
 };
 
 const S = Object.assign({}, DEFAULTS, SESSION_DEFAULTS);
@@ -103,6 +111,17 @@ const state = {
   expanded: new Set(), children: new Map(),
   dirty: false, polling: false, diskSeen: null, lastFocus: null,
 };
+
+/* Before 2.0 the line width was a pixel value from a 520-1240 slider, so any
+   stored number above 100 is one of those and is mapped onto the percentage
+   range. Both load paths call this, since either can be the one that runs. */
+function migrateMeasure() {
+  if (!(S.measure > MEASURE.max)) return;
+  const px = Math.min(Math.max(S.measure, LEGACY_MEASURE.min), LEGACY_MEASURE.max);
+  const span = (MEASURE.max - MEASURE.min) / (LEGACY_MEASURE.max - LEGACY_MEASURE.min);
+  const pct = MEASURE.min + (px - LEGACY_MEASURE.min) * span;
+  S.measure = Math.round(pct / MEASURE.step) * MEASURE.step;
+}
 
 function loadPrefs() {
   let raw = null;
@@ -117,6 +136,7 @@ function loadPrefs() {
   if (saved.file && !saved.lastFile) S.lastFile = saved.file;
   if (saved.root && !saved.rootDir) S.rootDir = saved.root;
   if (!Array.isArray(S.recents)) S.recents = [];
+  migrateMeasure();
 }
 /* Preferences live on disk beside the app so they survive restarts even when
    the server lands on a different port (which would otherwise give the page a
@@ -143,6 +163,7 @@ async function loadServerPrefs() {
     if (remote[key] !== undefined && remote[key] !== null) S[key] = remote[key];
   }
   if (!Array.isArray(S.recents)) S.recents = [];
+  migrateMeasure();
   try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (_) {}
 }
 
@@ -197,7 +218,9 @@ function applySettings() {
 
   st.setProperty("--fs-body", S.fontSize + "px");
   st.setProperty("--lh-body", String(S.lineHeight));
-  st.setProperty("--measure", S.measure >= 1240 ? "100%" : S.measure + "px");
+  const fullWidth = S.measure >= MEASURE.max;
+  st.setProperty("--measure", fullWidth ? "100%" : S.measure + "%");
+  st.setProperty("--measure-max", fullWidth ? "100%" : MEASURE.cap);
   st.setProperty("--para-gap", S.paraGap + "em");
   st.setProperty("--fs-code", S.codeScale + "em");
   st.setProperty("--fs-editor", S.editorSize + "px");
@@ -1324,7 +1347,7 @@ function labelFor(key, v) {
   switch (key) {
     case "fontSize": case "editorSize": return v + " px";
     case "lineHeight": return v.toFixed(2);
-    case "measure": return v >= 1240 ? "Full" : v + " px";
+    case "measure": return v >= MEASURE.max ? "Full" : v + "%";
     case "paraGap": return v.toFixed(2) + " em";
     case "codeScale": return Math.round(v * 100) + " %";
     default: return String(v);
