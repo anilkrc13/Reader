@@ -360,6 +360,7 @@ function applySettings() {
   st.setProperty("--accent", accent);
   st.setProperty("--accent-fill", fillFor(accent, dark));
   st.setProperty("--accent-on", accentTextOn(dark));
+  invalidateSyncMaps();               // typography settings move every line
   /* the paper follows theme and paper choice in the stylesheet, so read it
      back (the data- attributes above are already set) rather than duplicate it */
   const paper = getComputedStyle(root).getPropertyValue("--paper").trim();
@@ -469,6 +470,8 @@ function kindOf(path) {
 const extOf = (path) => (path.split(".").pop() || "").toLowerCase();
 
 function render(text) {
+  state.lineAnchors = null;
+  invalidateSyncMaps();
   const kind = state.file ? state.file.kind : "md";
   if (kind === "code") return renderCode(text);
   if (kind === "csv") return renderCSV(text);
@@ -511,6 +514,11 @@ function render(text) {
     try { hljs.highlightElement(block); } catch (_) {}
   });
   listifyCells(el.preview);
+  state.lineAnchors = buildAnchors(text);
+  /* images change the page's height as they arrive, so anchor positions
+     measured before a load are stale the moment it finishes */
+  el.preview.querySelectorAll("img").forEach((img) =>
+    img.addEventListener("load", () => { state.previewTops = null; }, {once: true}));
 
   const words = (text.replace(/`{3}[\s\S]*?`{3}/g, " ").match(/\S+/g) || []).length;
   el.footnote.textContent = state.file ? `${words.toLocaleString()} words` : "";
@@ -1547,17 +1555,121 @@ function openLocMenu() {
    8. Scroll sync and view modes
    ======================================================================== */
 
+/* Proportional sync (same scroll FRACTION on both sides) only lines up when
+   source and rendered output have the same density profile -- a table, a code
+   fence or a wrapped paragraph throws every line after it out of register.
+   Sync instead pins markdown blocks to their source lines and interpolates
+   between those anchors, so what is at the top of one pane is what is at the
+   top of the other. Non-markdown documents keep the proportional fallback. */
+
+function buildAnchors(text) {
+  /* marked's lexer exposes no positions, but every token carries its raw
+     slice, so cumulative newline counts recover each block's start line.
+     Top-level tokens map to the preview's top-level children in order. */
+  let line = 0;
+  const blocks = [];
+  for (const tok of marked.lexer(text || "")) {
+    if (tok.type !== "space") blocks.push(line);
+    line += (tok.raw.match(/\n/g) || []).length;
+  }
+  const kids = el.preview.children;
+  const anchors = [];
+  for (let i = 0; i < blocks.length && i < kids.length; i++) {
+    anchors.push({line: blocks[i], el: kids[i]});
+  }
+  return anchors.length >= 2 ? anchors : null;
+}
+
+function invalidateSyncMaps() {
+  state.editorTops = null;
+  state.previewTops = null;
+}
+
+/* Where each source line starts vertically in the textarea. A textarea lays
+   each newline-separated line out as its own wrapped block, so a mirror with
+   one div per line, in the textarea's own metrics, measures the real
+   positions -- soft wrap included. Rebuilt lazily after edits and resizes. */
+function editorTops() {
+  if (state.editorTops) return state.editorTops;
+  const cs = getComputedStyle(el.editor);
+  const m = document.createElement("div");
+  m.style.cssText =
+    "position:absolute;visibility:hidden;left:-99999px;top:0;" +
+    `width:${el.editor.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)}px;` +
+    `font-family:${cs.fontFamily};font-size:${cs.fontSize};line-height:${cs.lineHeight};` +
+    `letter-spacing:${cs.letterSpacing};tab-size:${cs.tabSize};` +
+    "white-space:pre-wrap;overflow-wrap:break-word;";
+  for (const ln of el.editor.value.split("\n")) {
+    const d = document.createElement("div");
+    d.textContent = ln || "​";
+    m.appendChild(d);
+  }
+  document.body.appendChild(m);
+  const padTop = parseFloat(cs.paddingTop);
+  state.editorTops = [...m.children].map((d) => padTop + d.offsetTop);
+  m.remove();
+  return state.editorTops;
+}
+
+function previewAnchorTops() {
+  if (state.previewTops) return state.previewTops;
+  const paneTop = el.previewpane.getBoundingClientRect().top;
+  const base = el.previewpane.scrollTop;
+  state.previewTops = state.lineAnchors.map(
+    (a) => a.el.getBoundingClientRect().top - paneTop + base);
+  return state.previewTops;
+}
+
+function syncTarget(from, to) {
+  const mapped = state.file && state.file.kind === "md" && state.lineAnchors;
+  if (!mapped) return scrollRatio(from) * maxScroll(to);
+
+  const fromEd = from === el.editor;
+  const eTops = editorTops();
+  const pTops = previewAnchorTops();
+  const pairs = [[0, 0]];
+  state.lineAnchors.forEach((a, i) => {
+    const e = eTops[Math.min(a.line, eTops.length - 1)];
+    pairs.push(fromEd ? [e, pTops[i]] : [pTops[i], e]);
+  });
+  pairs.push(fromEd ? [maxScroll(el.editor), maxScroll(el.previewpane)]
+                    : [maxScroll(el.previewpane), maxScroll(el.editor)]);
+
+  /* keep the map monotonic: a stray measurement must not make scroll jump back */
+  const mono = [];
+  for (const p of pairs) {
+    const last = mono[mono.length - 1];
+    if (!last || (p[0] > last[0] && p[1] >= last[1])) mono.push(p);
+  }
+
+  const x = from.scrollTop;
+  let y = mono[mono.length - 1][1];
+  if (x <= mono[0][0]) y = mono[0][1];
+  else {
+    for (let i = 1; i < mono.length; i++) {
+      if (x <= mono[i][0]) {
+        const [x0, y0] = mono[i - 1], [x1, y1] = mono[i];
+        y = y0 + ((x - x0) / (x1 - x0 || 1)) * (y1 - y0);
+        break;
+      }
+    }
+  }
+  return Math.max(0, Math.min(y, maxScroll(to)));
+}
+
 let syncing = null;
 function linkScroll(from, to) {
   from.addEventListener("scroll", () => {
     if (!S.syncScroll || root.dataset.mode !== "split" || syncing === to) return;
     syncing = from;
-    to.scrollTop = scrollRatio(from) * maxScroll(to);
+    to.scrollTop = syncTarget(from, to);
     requestAnimationFrame(() => { syncing = null; });
   }, {passive: true});
 }
 linkScroll(el.editor, el.previewpane);
 linkScroll(el.previewpane, el.editor);
+new ResizeObserver(invalidateSyncMaps).observe(el.editor);
+new ResizeObserver(() => { state.previewTops = null; }).observe(el.previewpane);
 
 function setMode(mode) {
   if (state.file && state.file.kind === "pdf" && mode !== "preview") return;
@@ -1870,6 +1982,38 @@ el.btnUp.onclick = () => { if (el.btnUp.dataset.parent) setRoot(el.btnUp.dataset
 
 document.querySelectorAll("#toolbar .seg").forEach((b) => { b.onclick = () => setMode(b.dataset.mode); });
 $("btn-save").onclick = saveFile;
+
+/* Copy the whole document, keeping its formatting. The clipboard carries two
+   flavours at once: rich targets (Word, Docs, Slack, mail) take the rendered
+   HTML, plain targets take the source exactly as written. Code files have no
+   rendered form worth copying, so they go over as plain text only. */
+async function copyDocument() {
+  if (!state.file) return;
+  const plain = el.editor.value;
+  try {
+    const rich = state.file.kind !== "code" &&
+                 navigator.clipboard.write && window.ClipboardItem;
+    if (rich) {
+      /* strip the session token that image URLs carry inside the app --
+         it has no business travelling along on a clipboard */
+      const copy = el.preview.cloneNode(true);
+      copy.querySelectorAll("img[src]").forEach((img) =>
+        img.setAttribute("src", img.src.split("?")[0]));
+      await navigator.clipboard.write([new ClipboardItem({
+        "text/html": new Blob(['<meta charset="utf-8">' + copy.innerHTML],
+                              {type: "text/html"}),
+        "text/plain": new Blob([plain], {type: "text/plain"}),
+      })]);
+      toast("Copied with formatting");
+    } else {
+      await navigator.clipboard.writeText(plain);
+      toast("Copied");
+    }
+  } catch (err) {
+    toast("Copy failed: " + (err.message || err), true);
+  }
+}
+$("btn-copy").onclick = copyDocument;
 $("btn-refresh").onclick = refresh;
 $("btn-theme").onclick = cycleTheme;
 $("btn-full").onclick = toggleFullscreen;
@@ -2002,7 +2146,10 @@ function previewSelection() {
   if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
   const range = sel.getRangeAt(0);
   if (!el.preview.contains(range.commonAncestorContainer)) return null;
-  const text = sel.toString();
+  /* Range.toString() reads the text nodes directly, which matches how the
+     occurrence counts below read el.preview.textContent; Selection.toString()
+     reads the painted selection and can disagree with both. */
+  const text = range.toString();
   if (!text.trim()) return null;
   /* How many identical strings sit before this one, so the same string later in
      the document is not the one we rewrite. */
@@ -2089,6 +2236,48 @@ function applyBlock(level) {
   commitQuickEdit(lines.join("\n"));
 }
 
+/* Indent and outdent act on the list item's whole source line. The item is
+   located by its own text (children stripped, so a parent with sub-bullets
+   still matches its single line) under the same uniqueness rules as headings. */
+const LIST_MARK = /^(\s*)(?:[-*+]|\d+[.)])\s+/;
+
+function listLineOf(li) {
+  const own = li.cloneNode(true);
+  own.querySelectorAll("ul,ol").forEach((n) => n.remove());
+  const want = own.textContent.trim();
+  if (!want) return {err: "none"};
+  const lines = el.editor.value.split("\n");
+  const hits = [];
+  lines.forEach((line, i) => {
+    const m = line.match(LIST_MARK);
+    if (m && line.slice(m[0].length).trim() === want) hits.push(i);
+  });
+  if (hits.length !== 1) return {err: hits.length ? "many" : "none"};
+  return {i: hits[0], lines};
+}
+
+const selectedListItem = () => {
+  const info = previewSelection();
+  const block = info && blockOf(info.range);
+  return block ? block.closest("li") : null;
+};
+
+function applyIndent(delta) {
+  const li = selectedListItem();
+  if (!li) return;
+  const found = listLineOf(li);
+  if (found.err) {
+    return toast(found.err === "many"
+      ? "More than one source line matches that list item." + USE_EDIT_MODE
+      : "Could not find that list item in the source." + USE_EDIT_MODE, true);
+  }
+  const {i, lines} = found;
+  if (delta > 0) lines[i] = "  " + lines[i];
+  else if (/^(\t| {1,2})/.test(lines[i])) lines[i] = lines[i].replace(/^(\t| {1,2})/, "");
+  else return;                        // already top level; button is disabled anyway
+  commitQuickEdit(lines.join("\n"));
+}
+
 function hideFmtBar() { el.fmtbar.hidden = true; }
 
 function showFmtBar() {
@@ -2097,6 +2286,16 @@ function showFmtBar() {
   if (!info) return hideFmtBar();
   const r = info.range.getBoundingClientRect();
   if (!r.width && !r.height) return hideFmtBar();
+
+  /* the indent pair appears only inside a list item, and outdent only lights
+     up when that item's source line actually carries indentation */
+  const li = blockOf(info.range) ? blockOf(info.range).closest("li") : null;
+  el.fmtbar.classList.toggle("in-list", !!li);
+  if (li) {
+    const found = listLineOf(li);
+    el.fmtbar.querySelector('[data-fmt="outdent"]').disabled =
+      !!found.err || !/^(\t| )/.test(found.lines[found.i]);
+  }
 
   el.fmtbar.hidden = false;                       // measure only once visible
   const bar = el.fmtbar.getBoundingClientRect();
@@ -2122,6 +2321,8 @@ el.fmtbar.addEventListener("click", (ev) => {
   const v = b.dataset.fmt;
   if (v === "body") applyBlock(0);
   else if (/^h[1-6]$/.test(v)) applyBlock(Number(v.slice(1)));
+  else if (v === "indent") applyIndent(1);
+  else if (v === "outdent") applyIndent(-1);
   else applyInline(v);
 });
 
