@@ -125,6 +125,9 @@
       <button class="icon-btn accent" id="btn-save" title="Save (⌘S)" aria-label="Save" disabled>
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.8v9.4"/><path d="M6.2 8.6 10 12.4l3.8-3.8"/><path d="M3.6 13.4v2.2a1.2 1.2 0 0 0 1.2 1.2h10.4a1.2 1.2 0 0 0 1.2-1.2v-2.2"/></svg>
       </button>
+      <button class="icon-btn" id="btn-copy" title="Copy document (formatted)" aria-label="Copy document with formatting">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.6"/><path d="M13 4.6V4a1.4 1.4 0 0 0-1.4-1.4H4A1.4 1.4 0 0 0 2.6 4v7.6A1.4 1.4 0 0 0 4 13h.6"/></svg>
+      </button>
       <button class="icon-btn" id="btn-refresh" title="Reload from disk (⌘R)" aria-label="Reload from disk">
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.6 10a6.6 6.6 0 1 1-2-4.7"/><path d="M16.8 3.4v4h-4"/></svg>
       </button>
@@ -190,6 +193,14 @@
   <button data-fmt="h2" title="Heading 2" aria-label="Heading 2">H2</button>
   <button data-fmt="h3" title="Heading 3" aria-label="Heading 3">H3</button>
   <button data-fmt="body" title="Body text" aria-label="Body text">¶</button>
+  <!-- only shown when the selection sits in a list item -->
+  <span class="fmt-sep fmt-li"></span>
+  <button data-fmt="outdent" title="Outdent list item" aria-label="Outdent list item" class="fmt-li">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 3.5h7M6.5 8h7m-11 4.5h11M5.5 5.75 3 8l2.5 2.25"/></svg>
+  </button>
+  <button data-fmt="indent" title="Indent list item (make sub-bullet)" aria-label="Indent list item" class="fmt-li">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 3.5h7M6.5 8h7m-11 4.5h11M3 5.75 5.5 8 3 10.25"/></svg>
+  </button>
 </div>
 
 <!-- ============================================================= rename -->

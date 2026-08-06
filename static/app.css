@@ -405,7 +405,7 @@ html[data-empty=yes] #panes{display:none}
 html:not([data-empty=yes]) #empty{display:none}
 
 /* PDFs are read-only: hide every editing affordance and let the frame fill */
-html[data-doc=pdf] .segmented,html[data-doc=pdf] #btn-save,
+html[data-doc=pdf] .segmented,html[data-doc=pdf] #btn-save,html[data-doc=pdf] #btn-copy,
 html[data-doc=pdf] #editorpane,html[data-doc=pdf] #gutter{display:none!important}
 html[data-doc=pdf] #previewpane{overflow:hidden}
 .pdfframe{display:block;width:100%;height:100%;border:0;background:var(--paper)}
@@ -609,6 +609,11 @@ html[data-theme=light] .prose a code{
 #fmtbar .fmt-s{text-decoration:line-through}
 #fmtbar .fmt-c{font-family:var(--font-mono);font-size:11px}
 #fmtbar .fmt-sep{width:1px;height:18px;margin:0 3px;background:var(--border)}
+#fmtbar button svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.5;
+  stroke-linecap:round;stroke-linejoin:round}
+/* the indent pair only appears when the selection sits in a list item */
+#fmtbar:not(.in-list) .fmt-li{display:none}
+#fmtbar button:disabled{opacity:.35;pointer-events:none}
 .menu-item{
   display:flex;align-items:center;gap:10px;width:100%;text-align:left;
   padding:7.5px 10px;border-radius:8px;font-size:13px;font-weight:500;color:var(--text);
