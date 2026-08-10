@@ -2207,14 +2207,71 @@ function applyInline(kind) {
   commitQuickEdit(next);
 }
 
+/* Precise source span for a TOP-LEVEL preview block (a direct child of
+   #preview), found via marked's own lexer rather than by matching plain text
+   against a single source line. This is what lets a paragraph that wraps
+   across several source lines, or that carries inline markup (**bold**,
+   `code`, links), still be turned into a heading or a blockquote: the raw
+   slice marked already parsed out is used verbatim, so nothing needs to be
+   reconstructed from rendered text.
+
+   Top-level (non-space) tokens map 1:1 to #preview's top-level children, in
+   order -- the same invariant buildAnchors() above relies on for scroll sync. */
+function topLevelSpan(block) {
+  if (!block || block.parentElement !== el.preview) return null;
+  const idx = [...el.preview.children].indexOf(block);
+  if (idx < 0) return null;
+  const text = el.editor.value;
+  let offset = 0, i = 0;
+  for (const tok of marked.lexer(text)) {
+    if (tok.type !== "space") {
+      if (i === idx) return {token: tok, offset, length: tok.raw.length, text};
+      i++;
+    }
+    offset += tok.raw.length;
+  }
+  return null;
+}
+
+/* Splices a transformed copy of a top-level span back into the source. The
+   transform sees the block's raw text with any single trailing newline
+   (the gap before the next block) already set aside, so it never has to
+   worry about swallowing or duplicating it. */
+function commitTopLevelBlock(span, transform) {
+  const {offset, length, text} = span;
+  let raw = text.slice(offset, offset + length);
+  const trailingNL = raw.endsWith("\n") ? "\n" : "";
+  if (trailingNL) raw = raw.slice(0, -1);
+  const next = transform(raw);
+  commitQuickEdit(text.slice(0, offset) + next + trailingNL + text.slice(offset + length));
+}
+
 /* Headings are a property of the whole line, so this rewrites the line's prefix
-   rather than wrapping the selection. level 0 clears the heading. */
+   rather than wrapping the selection. level 0 clears the heading. Converting
+   to a heading always collapses the block to one line, since a heading
+   cannot span more than one -- but clearing one back to body text leaves a
+   plain paragraph untouched rather than reflowing it. */
 function applyBlock(level) {
   const info = previewSelection();
   if (!info) return;
   const block = blockOf(info.range);
   if (!block) return;
 
+  const span = topLevelSpan(block);
+  if (span && (span.token.type === "paragraph" || span.token.type === "heading")) {
+    const isHeading = span.token.type === "heading";
+    return commitTopLevelBlock(span, (raw) => {
+      const indent = (raw.match(/^(\s*)/) || ["", ""])[1];
+      if (!level) return isHeading ? raw.replace(HEADING_MARK, (m, ind) => ind) : raw;
+      let bare = isHeading ? raw.replace(HEADING_MARK, "") : raw;
+      bare = bare.replace(/\s*\n\s*/g, " ").trim();
+      return indent + "#".repeat(level) + " " + bare;
+    });
+  }
+
+  /* Fallback for blocks marked's lexer does not map cleanly to one preview
+     child (a list item, a table cell): the older whole-line match, which
+     only copes with a block sitting on exactly one unmarked-up source line. */
   const want = block.textContent.trim();
   const lines = el.editor.value.split("\n");
   const hits = [];
@@ -2233,6 +2290,67 @@ function applyBlock(level) {
   const indent = (lines[i].match(HEADING_MARK) || ["", ""])[1];
   const bare = lines[i].replace(HEADING_MARK, "");
   lines[i] = level ? indent + "#".repeat(level) + " " + bare : indent + bare;
+  commitQuickEdit(lines.join("\n"));
+}
+
+/* Blockquote toggles a > prefix on every source line of the block. */
+const BLOCKQUOTE_MARK = /^(\s*)>\s+/;
+const BLOCKQUOTE_LINE = /^(\s*)>[ \t]?/;
+
+/* A selection inside an already-quoted paragraph resolves to that inner <p>,
+   which is not itself a top-level child of #preview -- its <blockquote> is.
+   Toggling quoting off has to act on the whole blockquote regardless, so this
+   walks up to it when the block itself is not already top-level. */
+function blockquoteTarget(block) {
+  if (!block) return null;
+  if (block.parentElement === el.preview) return block;
+  const bq = block.closest("blockquote");
+  return bq && bq.parentElement === el.preview ? bq : null;
+}
+
+function applyBlockquote() {
+  const info = previewSelection();
+  if (!info) return;
+  const block = blockOf(info.range);
+  if (!block) return;
+
+  const span = topLevelSpan(blockquoteTarget(block));
+  if (span && (span.token.type === "paragraph" || span.token.type === "blockquote")) {
+    const already = span.token.type === "blockquote";
+    return commitTopLevelBlock(span, (raw) => raw.split("\n").map((line) => {
+      if (already) return line.replace(BLOCKQUOTE_LINE, "$1");
+      const indent = (line.match(/^(\s*)/) || ["", ""])[1];
+      return indent + "> " + line.slice(indent.length);
+    }).join("\n"));
+  }
+
+  /* Fallback for blocks marked's lexer does not map cleanly to one preview
+     child (a list item, a table cell): the older whole-line match, which
+     only copes with a block sitting on exactly one unmarked-up source line. */
+  const want = block.textContent.trim();
+  const lines = el.editor.value.split("\n");
+  const hits = [];
+  lines.forEach((line, i) => {
+    if (line.replace(BLOCKQUOTE_MARK, "").replace(HEADING_MARK, "").trim() === want) hits.push(i);
+  });
+
+  if (!hits.length) {
+    return toast("That block does not sit on one line of the source." + USE_EDIT_MODE, true);
+  }
+  if (hits.length > 1) {
+    return toast("More than one line in the source matches that block." + USE_EDIT_MODE, true);
+  }
+
+  const i = hits[0];
+  const line = lines[i];
+  const isBlockquote = BLOCKQUOTE_MARK.test(line);
+  if (isBlockquote) {
+    lines[i] = line.replace(BLOCKQUOTE_MARK, "$1");
+  } else {
+    const indent = (line.match(/^(\s*)/) || ["", ""])[1];
+    const bare = line.replace(/^\s*/, "");
+    lines[i] = indent + "> " + bare;
+  }
   commitQuickEdit(lines.join("\n"));
 }
 
@@ -2321,6 +2439,7 @@ el.fmtbar.addEventListener("click", (ev) => {
   const v = b.dataset.fmt;
   if (v === "body") applyBlock(0);
   else if (/^h[1-6]$/.test(v)) applyBlock(Number(v.slice(1)));
+  else if (v === "blockquote") applyBlockquote();
   else if (v === "indent") applyIndent(1);
   else if (v === "outdent") applyIndent(-1);
   else applyInline(v);
