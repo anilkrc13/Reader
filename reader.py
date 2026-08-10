@@ -23,13 +23,10 @@ import json
 import mimetypes
 import os
 import secrets
-import shutil
-import socket
 import subprocess
 import sys
 import tempfile
 import threading
-import time
 import urllib.parse
 import urllib.request
 import webbrowser
@@ -37,48 +34,18 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from reader_backend import (
+    EXTERNAL_APP_SUFFIXES, IMAGE_SUFFIXES, MAX_IMAGE_BYTES, MAX_PDF_BYTES,
+    MAX_TEXT_BYTES, PDF_SUFFIXES, DocumentStore, FileAccessPolicy,
+)
+
 APP_NAME = "Reader"
 VERSION = "2.0"
 APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / "static"
 DEFAULT_PORT = 8737          # stable by default; falls back to a free port
 
-# Files offered in the browser pane, by kind.
-MARKDOWN_SUFFIXES = {".md", ".markdown", ".mdown", ".mkd", ".mdx", ".mdc"}
-CODE_SUFFIXES = {
-    ".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".json",
-    ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf", ".env",
-    ".sh", ".bash", ".zsh", ".sql", ".css", ".scss", ".less",
-    ".html", ".htm", ".xml", ".go", ".rs", ".java", ".rb", ".php",
-    ".swift", ".kt", ".c", ".h", ".cpp", ".hpp", ".cc", ".cs", ".lua",
-    ".txt", ".csv", ".tsv",
-}
-TEXT_SUFFIXES = MARKDOWN_SUFFIXES | CODE_SUFFIXES     # readable + editable
-PDF_SUFFIXES = {".pdf"}                               # read-only, native viewer
-LISTABLE_SUFFIXES = TEXT_SUFFIXES | PDF_SUFFIXES
-# Documents that belong to another application: Reader will not render these,
-# but it will hand one to macOS to open in whatever app owns it. Deliberately
-# a short allowlist of document formats -- `open` on an arbitrary file can
-# execute things (.command, .app), and a link in a markdown page must never
-# be able to do that.
-EXTERNAL_APP_SUFFIXES = {".doc", ".docx", ".xls", ".xlsx", ".xlsm", ".ppt", ".pptx",
-                         ".pages", ".numbers", ".key", ".rtf", ".odt", ".ods"}
-# Images a document may reference and that we will serve inline.
-IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif", ".bmp", ".ico"}
-
-MAX_TEXT_BYTES = 8 * 1024 * 1024      # refuse to open text larger than this
-MAX_IMAGE_BYTES = 32 * 1024 * 1024    # refuse to inline images larger than this
-MAX_PDF_BYTES = 128 * 1024 * 1024     # refuse to open PDFs larger than this
 MAX_PREFS_BYTES = 256 * 1024          # a preferences blob should never be big
-MAX_ENTRIES = 4000                    # cap on a single directory listing
-
-# Folders are only listed when they hold a document somewhere inside. These
-# bound that search so a listing can never hang on a huge tree.
-PROBE_DEPTH = 6
-PROBE_NODES = 4000                    # entries examined per candidate folder
-PROBE_SECONDS = 1.5                   # wall-clock ceiling for one listing
-PROBE_SKIP = {"node_modules", "__pycache__", "venv", ".venv", "site-packages",
-              "Photos Library.photoslibrary", "Music Library.musiclibrary"}
 
 COOKIE = "reader_session"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 365
@@ -104,7 +71,17 @@ def resolve_path(raw: str) -> Path:
 
 
 def choose_prefs_file() -> Path:
-    """Keep preferences with the app when possible, so the folder stays portable."""
+    """Choose writable state storage without modifying a packaged app bundle."""
+    data_dir = os.environ.get("READER_DATA_DIR")
+    if data_dir:
+        support = Path(data_dir).expanduser()
+        try:
+            support.mkdir(parents=True, exist_ok=True)
+            return support / "preferences.json"
+        except OSError:
+            pass
+
+    # Keep the command-line version portable when it is run from source.
     beside = APP_DIR / "preferences.json"
     if beside.exists() or os.access(APP_DIR, os.W_OK):
         return beside
@@ -183,240 +160,38 @@ def write_prefs(data: dict) -> None:
 
 def quick_roots() -> list[dict]:
     home = Path.home()
-    out = []
-    for label, path in (("Home", home), ("Desktop", home / "Desktop"),
-                        ("Documents", home / "Documents"), ("Downloads", home / "Downloads")):
-        try:
-            if path.is_dir():
-                out.append({"name": label, "path": str(path)})
-        except OSError:
-            pass
-    return out
+    # These are navigation choices, not launch-time filesystem probes. In
+    # particular, touching Documents here can make macOS ask for access before
+    # the user has selected it.
+    return [
+        {"name": "Home", "path": str(home)},
+        {"name": "Desktop", "path": str(home / "Desktop")},
+        {"name": "Documents", "path": str(home / "Documents")},
+        {"name": "Downloads", "path": str(home / "Downloads")},
+    ]
 
 
 # --------------------------------------------------------------------------
 # files
 # --------------------------------------------------------------------------
 
-def has_documents(start: str, deadline: float) -> bool:
-    """Does this subtree hold anything worth opening?
+DOCUMENT_STORE = DocumentStore(FileAccessPolicy(APP_DIR, [Path.home()]))
 
-    Deliberately fails open: if the walk is cut short by the node budget, the
-    deadline, or a permission error, we say yes. Hiding a folder that really
-    does contain a document would make it unreachable, which is far worse than
-    showing one that turns out to be empty.
-    """
-    stack, budget = [(start, 0)], PROBE_NODES
-    while stack:
-        folder, depth = stack.pop()
-        if budget <= 0 or time.monotonic() > deadline:
-            return True
-        try:
-            with os.scandir(folder) as it:
-                for entry in it:
-                    budget -= 1
-                    if budget <= 0:
-                        return True
-                    name = entry.name
-                    if name.startswith("."):
-                        continue
-                    try:
-                        if entry.is_file(follow_symlinks=False):
-                            if os.path.splitext(name)[1].lower() in LISTABLE_SUFFIXES:
-                                return True
-                        elif (entry.is_dir(follow_symlinks=False)
-                              and depth < PROBE_DEPTH and name not in PROBE_SKIP):
-                            stack.append((os.path.join(folder, name), depth + 1))
-                    except OSError:
-                        continue
-        except OSError:
-            continue
-    return False
+
+def resolve_path(raw: str) -> Path:
+    return DOCUMENT_STORE.policy.resolve(raw)
 
 
 def list_dir(path: Path, include_all: bool = False, include_files: bool = False) -> dict:
-    """include_all lists folders holding no documents; include_files lists files
-    Reader cannot open, marked supported:false so the browser can dim them."""
-    if not path.is_dir():
-        raise NotADirectoryError(str(path))
-    dirs, files, truncated = [], [], False
-    deadline = time.monotonic() + PROBE_SECONDS
-    with os.scandir(path) as it:
-        for entry in it:
-            if len(dirs) + len(files) >= MAX_ENTRIES:
-                truncated = True
-                break
-            if entry.name.startswith("."):
-                continue
-            child = path / entry.name
-            try:
-                if entry.is_dir():
-                    if include_all or has_documents(str(child), deadline):
-                        dirs.append({"name": entry.name, "path": str(child), "type": "dir"})
-                elif entry.is_file():
-                    supported = child.suffix.lower() in LISTABLE_SUFFIXES
-                    if not supported and not include_files:
-                        continue
-                    st = entry.stat()
-                    item = {"name": entry.name, "path": str(child), "type": "file",
-                            "size": st.st_size, "mtime": str(st.st_mtime_ns)}
-                    if not supported:
-                        item["supported"] = False
-                    files.append(item)
-            except OSError:
-                continue
-    key = lambda e: e["name"].lower()  # noqa: E731
-    dirs.sort(key=key)
-    files.sort(key=key)
-    return {
-        "path": str(path),
-        "name": path.name or str(path),
-        "parent": None if path.parent == path else str(path.parent),
-        "entries": dirs + files,
-        "truncated": truncated,
-    }
+    return DOCUMENT_STORE.list_dir(path, include_all, include_files)
 
 
 def read_text_file(path: Path) -> dict:
-    if not path.is_file():
-        raise FileNotFoundError(str(path))
-    if path.suffix.lower() not in TEXT_SUFFIXES:
-        raise ValueError("not a text document")
-    st = path.stat()
-    if st.st_size > MAX_TEXT_BYTES:
-        raise ValueError(f"file is too large to open ({st.st_size // 1024 // 1024} MB)")
-    try:
-        text = path.read_bytes().decode("utf-8")
-    except UnicodeDecodeError:
-        raise ValueError("file is not valid UTF-8 text")
-    return {
-        "path": str(path), "name": path.name, "dir": str(path.parent),
-        "text": text, "mtime": str(st.st_mtime_ns), "size": st.st_size,
-    }
+    return DOCUMENT_STORE.read_text_file(path)
 
 
 def stat_file(path: Path) -> dict:
-    """Cheap freshness probe for the watcher; also used to describe a folder
-    before the delete confirmation is shown."""
-    if path.is_dir():
-        try:
-            items = sum(1 for _ in os.scandir(path))
-        except OSError:
-            items = -1
-        return {"path": str(path), "isDir": True, "items": items}
-    if not path.is_file():
-        raise FileNotFoundError(str(path))
-    st = path.stat()
-    return {"path": str(path), "isDir": False,
-            "mtime": str(st.st_mtime_ns), "size": st.st_size}
-
-
-def guard_protected(path: Path) -> None:
-    """Refuse to touch the app, your home folder, or the root of the disk."""
-    home, rootdir = Path.home(), Path(path.anchor or "/")
-    inside = str(path).rstrip("/") + "/"
-    if path == APP_DIR or str(APP_DIR).startswith(inside):
-        raise ValueError("that holds Markdown Viewer itself, so it is protected")
-    if path == home or str(home).startswith(inside):
-        raise ValueError("your home folder is protected")
-    if path == rootdir:
-        raise ValueError("the root of the disk is protected")
-
-
-def rename_path(path: Path, new_name: str) -> dict:
-    if not path.exists():
-        raise FileNotFoundError(str(path))
-    guard_protected(path)
-
-    new_name = (new_name or "").strip()
-    if not new_name or new_name in (".", "..") or "/" in new_name or "\x00" in new_name:
-        raise ValueError("that name cannot be used")
-    if new_name.startswith("."):
-        raise ValueError("names starting with a dot would be hidden")
-    if len(new_name.encode("utf-8")) > 255:
-        raise ValueError("that name is too long")
-
-    # keep a document reachable: no extension typed means keep the old one,
-    # an unlisted extension is refused, and text never turns into "pdf"
-    if path.is_file():
-        old_suffix = path.suffix.lower()
-        if "." not in new_name:
-            new_name += path.suffix
-        else:
-            new_suffix = os.path.splitext(new_name)[1].lower()
-            if old_suffix in LISTABLE_SUFFIXES and new_suffix not in LISTABLE_SUFFIXES:
-                raise ValueError("that extension would hide the file from this app")
-            if (old_suffix in PDF_SUFFIXES) != (new_suffix in PDF_SUFFIXES):
-                raise ValueError("renaming cannot change a file's type")
-
-    target = path.with_name(new_name)
-    if target == path:
-        return {"path": str(path), "newPath": str(path), "name": path.name}
-    if target.exists():
-        raise FileExistsError(f"something named {new_name} is already there")
-    path.rename(target)
-    return {"path": str(path), "newPath": str(target), "name": new_name}
-
-
-# --------------------------------------------------------------------------
-# deletion — always to the Trash, never an unrecoverable unlink
-# --------------------------------------------------------------------------
-
-def trash_dir() -> Path | None:
-    mac = Path.home() / ".Trash"
-    if mac.is_dir():
-        return mac
-    xdg = Path.home() / ".local" / "share" / "Trash" / "files"
-    try:
-        xdg.mkdir(parents=True, exist_ok=True)
-        return xdg
-    except OSError:
-        return None
-
-
-def move_to_trash(path: Path) -> dict:
-    if not path.exists():
-        raise FileNotFoundError(str(path))
-    if path.is_dir():
-        raise ValueError("folders cannot be deleted from this app")
-    guard_protected(path)
-
-    bin_dir = trash_dir()
-    if bin_dir is None:
-        raise ValueError("no Trash folder is available, so nothing was deleted")
-    if path == bin_dir or str(path).startswith(str(bin_dir) + "/"):
-        raise ValueError("that item is already in the Trash")
-
-    dest, n = bin_dir / path.name, 2
-    while dest.exists():
-        dest = bin_dir / f"{path.stem} {n}{path.suffix}"
-        n += 1
-    shutil.move(str(path), str(dest))
-    return {"path": str(path), "trashed": str(dest), "name": path.name}
-
-
-def write_text_file(path: Path, text: str, expected_mtime: str | None) -> dict:
-    if path.exists() and not path.is_file():
-        raise ValueError("target is not a regular file")
-    if path.exists() and expected_mtime is not None:
-        if str(path.stat().st_mtime_ns) != expected_mtime:
-            raise FileExistsError("the file changed on disk since it was opened")
-    mode = path.stat().st_mode & 0o777 if path.exists() else None
-    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
-    tmp = Path(tmp_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
-            fh.write(text)
-            fh.flush()
-            os.fsync(fh.fileno())
-        if mode is not None:
-            os.chmod(tmp, mode)
-        os.replace(tmp, path)
-    except BaseException:
-        tmp.unlink(missing_ok=True)
-        raise
-    st = path.stat()
-    return {"path": str(path), "mtime": str(st.st_mtime_ns), "size": st.st_size}
+    return DOCUMENT_STORE.stat_file(path)
 
 
 # --------------------------------------------------------------------------
@@ -548,7 +323,7 @@ class Handler(BaseHTTPRequestHandler):
             "p{color:#57554e;margin:0 0 .5rem}code{background:#ebe8dd;padding:.15em .4em;border-radius:5px;"
             "font-family:ui-monospace,Menlo,monospace;font-size:13px}</style>"
             "<div><h1>This browser is not authorised yet</h1>"
-            "<p>Start Markdown Viewer from <code>Markdown Viewer.command</code> once, "
+            "<p>Start Reader from <code>install/Reader.command</code> once, "
             "and it will open here with permission granted.</p>"
             "<p>After that this address keeps working, so you can bookmark it "
             "or install it as an app.</p></div>"
@@ -598,6 +373,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def api_get(self, route: str, query: dict):
         arg = (query.get("path") or [""])[0]
+        store = self.server.documents
         try:
             if route == "/api/config":
                 return self._json({
@@ -611,15 +387,15 @@ class Handler(BaseHTTPRequestHandler):
             if route == "/api/list":
                 show_all = (query.get("all") or ["0"])[0] == "1"
                 show_files = (query.get("files") or ["0"])[0] == "1"
-                return self._json(list_dir(resolve_path(arg), show_all, show_files))
+                return self._json(store.list_dir(store.policy.resolve(arg), show_all, show_files))
             if route == "/api/file":
-                return self._json(read_text_file(resolve_path(arg)))
+                return self._json(store.read_text_file(store.policy.resolve(arg)))
             if route == "/api/stat":
-                return self._json(stat_file(resolve_path(arg)))
+                return self._json(store.stat_file(store.policy.resolve(arg)))
             if route == "/api/raw":
-                return self.serve_raw(resolve_path(arg))
+                return self.serve_raw(store.policy.resolve(arg))
             if route == "/api/doc":
-                return self.serve_doc(resolve_path(arg))
+                return self.serve_doc(store.policy.resolve(arg))
         except PermissionError:
             return self._error(HTTPStatus.FORBIDDEN, "permission denied")
         except (FileNotFoundError, NotADirectoryError):
@@ -631,20 +407,23 @@ class Handler(BaseHTTPRequestHandler):
         return self._error(HTTPStatus.NOT_FOUND, "unknown endpoint")
 
     def api_post(self, route: str, payload: dict):
+        if not isinstance(payload, dict):
+            return self._error(HTTPStatus.BAD_REQUEST, "request body must be an object")
+        store = self.server.documents
         try:
             if route == "/api/save":
-                path = resolve_path(payload.get("path", ""))
+                path = store.policy.resolve(payload.get("path", ""))
                 text = payload.get("text")
                 if not isinstance(text, str):
                     return self._error(HTTPStatus.BAD_REQUEST, "missing text")
                 mtime = payload.get("mtime")
                 mtime = str(mtime) if isinstance(mtime, (str, int)) else None
-                return self._json(write_text_file(path, text, mtime))
+                return self._json(store.write_text_file(path, text, mtime))
             if route == "/api/delete":
-                return self._json(move_to_trash(resolve_path(payload.get("path", ""))))
+                return self._json(store.move_to_trash(store.policy.resolve(payload.get("path", ""))))
             if route == "/api/rename":
-                return self._json(rename_path(resolve_path(payload.get("path", "")),
-                                              str(payload.get("name", ""))))
+                return self._json(store.rename_path(store.policy.resolve(payload.get("path", "")),
+                                                    str(payload.get("name", ""))))
             if route == "/api/open-external":
                 path = resolve_path(payload.get("path", ""))
                 if not path.is_file():
@@ -713,6 +492,7 @@ class Server(ThreadingHTTPServer):
     allow_reuse_address = True
     start_dir = str(Path.home())
     start_file = None
+    documents = DOCUMENT_STORE
 
 
 # --------------------------------------------------------------------------
@@ -788,6 +568,12 @@ def main(argv=None) -> int:
 
     httpd.start_dir = str(start_dir)
     httpd.start_file = str(start_file) if start_file else None
+    # The default workspace is the user's home folder. An explicitly supplied
+    # external start folder remains usable, but saves cannot wander into an
+    # unrelated tree later through a forged API path.
+    httpd.documents = DocumentStore(
+        FileAccessPolicy(APP_DIR, [Path.home(), start_dir])
+    )
     port = httpd.server_address[1]
     home_url = f"http://127.0.0.1:{port}/"
     entry_url = home_url + f"?t={TOKEN}"

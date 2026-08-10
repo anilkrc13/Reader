@@ -8,15 +8,15 @@ network access.
 
 ## Start it
 
-Double-click **`Reader.command`** in Finder.
+Double-click **`install/Reader.command`** in Finder.
 
-A Terminal window opens and your browser opens the app at
-**http://127.0.0.1:8737**. Keep that Terminal window open while you work;
-close it, or press `Control-C` in it, to stop the server.
+It opens its sibling native app at **`install/Reader.app`**. If that bundle is
+missing, the command builds it first. Reader then manages its own local server
+and window; quitting the app stops only the server it started.
 
 > The first time you double-click it, macOS may ask whether you're sure you
 > want to open it. Choose **Open**. If Finder opens the file in a text editor
-> instead of running it, run `chmod +x "Reader.command"` once in
+> instead of running it, run `chmod +x "install/Reader.command"` once in
 > Terminal.
 
 From the command line you can also do:
@@ -26,6 +26,38 @@ python3 reader.py                      # start in your home folder
 python3 reader.py ~/Documents/notes    # start in a folder
 python3 reader.py ~/notes/spec.md      # open a file straight away
 ```
+
+### Native macOS app
+
+The repository includes a small native macOS launcher. It opens the existing
+Reader interface in a WebKit window, starts the bundled server only when no
+compatible Reader server is already listening, and stops only a server it
+started itself.
+
+Build it with the macOS Command Line Tools installed:
+
+```
+./macos/build-app.sh
+open install/Reader.app
+```
+
+The app is built for Apple silicon by default and includes the server, static
+UI, licenses, and the original Reader app icon. To build a universal app on a
+Mac with the required SDK support, use:
+
+```
+ARCHS="arm64 x86_64" ./macos/build-app.sh
+```
+
+The app requires `python3` on the Mac that runs it. If port 8737 already has a
+Reader server, the app reuses it and leaves it running when the app quits. If
+another service owns that port, the app reports the conflict and does not
+stop or replace it. `install/Reader.command` opens this exact same bundle; it does not
+start a second server or use separate icon assets. A saved Edge/PWA launcher
+remains browser-owned and cannot use Reader.app's adaptive Dock icon; use
+`install/Reader.command` or `install/Reader.app` for the native path. Because
+this is a local unsigned build, macOS may show a
+first-launch warning; Control-click the app, choose **Open**, and confirm.
 
 ### Turning it into a browser app
 
@@ -84,6 +116,14 @@ were browsing, the file you were reading, the panel side and width, and the
 view mode. Preferences are written to `preferences.json` beside this file, so
 moving the folder takes your setup with it.
 
+### Verification
+
+Run the focused server-side save and path-policy tests with:
+
+```
+python3 -m unittest discover -s tests -v
+```
+
 ## What it renders
 
 GitHub-flavoured markdown: tables, task lists, footnotes, fenced code with
@@ -100,7 +140,9 @@ document's folder, and relative links to other markdown files open in the app.
 - Rendered HTML is sanitised before display, so a document containing a
   `<script>` tag cannot act on your files.
 - Saving is atomic — write to a temporary file, then replace — so an
-  interrupted save cannot truncate your document. If the file changed on disk
+  interrupted save cannot truncate your document. Saves are limited to
+  supported text documents in the active workspace; Reader's own project files
+  and paths outside that workspace are protected. If the file changed on disk
   since you opened it, you are asked before anything is overwritten.
 - Deleting never unlinks anything, and only ever applies to single files —
   the server refuses to trash a folder at all, and refuses to rename or touch
