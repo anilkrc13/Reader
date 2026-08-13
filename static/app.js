@@ -2141,6 +2141,15 @@ function nthIndexOf(haystack, needle, n) {
 const quickEditable = () =>
   !!state.file && state.file.kind === "md" && root.dataset.mode !== "edit";
 
+function editorSelection() {
+  const start = el.editor.selectionStart;
+  const end = el.editor.selectionEnd;
+  if (start === end) return null;
+  const text = el.editor.value.slice(start, end);
+  if (!text.trim()) return null;
+  return {text, start, end};
+}
+
 function previewSelection() {
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
@@ -2205,6 +2214,94 @@ function applyInline(kind) {
     ? src.slice(0, at - open.length) + info.text + src.slice(end + close.length)
     : src.slice(0, at) + open + info.text + close + src.slice(end);
   commitQuickEdit(next);
+}
+
+/* Apply formatting to a direct editor selection. Much simpler than preview
+   mode: we're editing the source directly, so no matching ambiguity. */
+function applyInlineInEditor(kind) {
+  const spec = INLINE_FMT[kind];
+  const info = editorSelection();
+  if (!spec || !info) return;
+
+  const {text, start, end} = info;
+  const before = el.editor.value.slice(0, start);
+  const after = el.editor.value.slice(end);
+  const {open, close} = spec;
+
+  /* Already wrapped? Then remove it. */
+  const wrapped = before.slice(-open.length) === open && after.slice(0, close.length) === close;
+  const next = wrapped
+    ? before.slice(0, -open.length) + text + after.slice(close.length)
+    : before + open + text + close + after;
+
+  historySettle();
+  el.editor.value = next;
+  setDirty(true);
+  render(next);
+  historyPush();
+  hideFmtBar();
+
+  /* Restore selection around the formatted text. */
+  const newStart = wrapped ? start - open.length : start + open.length;
+  const newEnd = newStart + text.length;
+  el.editor.setSelectionRange(newStart, newEnd);
+  el.editor.focus();
+}
+
+function applyBlockInEditor(level) {
+  const info = editorSelection();
+  if (!info) return;
+
+  const {text, start, end} = info;
+  const before = el.editor.value.slice(0, start);
+  const after = el.editor.value.slice(end);
+
+  const lines = text.split("\n");
+  const formatted = lines.map((line, i) => {
+    const indent = (line.match(/^(\s*)/) || ["", ""])[1];
+    const bare = line.replace(/^(\s*)#*\s*/, "").trim();
+    if (!level) return bare ? line.replace(/^(\s*)#*\s*/, "$1") : line;
+    return indent + "#".repeat(level) + " " + bare;
+  }).join("\n");
+
+  const next = before + formatted + after;
+  historySettle();
+  el.editor.value = next;
+  setDirty(true);
+  render(next);
+  historyPush();
+  hideFmtBar();
+
+  el.editor.setSelectionRange(start, start + formatted.length);
+  el.editor.focus();
+}
+
+function applyBlockquoteInEditor() {
+  const info = editorSelection();
+  if (!info) return;
+
+  const {text, start, end} = info;
+  const before = el.editor.value.slice(0, start);
+  const after = el.editor.value.slice(end);
+
+  const lines = text.split("\n");
+  const isBlockquote = lines[0].match(/^(\s*)>/);
+  const formatted = lines.map((line) => {
+    if (isBlockquote) return line.replace(BLOCKQUOTE_LINE, "$1");
+    const indent = (line.match(/^(\s*)/) || ["", ""])[1];
+    return indent + "> " + line.slice(indent.length);
+  }).join("\n");
+
+  const next = before + formatted + after;
+  historySettle();
+  el.editor.value = next;
+  setDirty(true);
+  render(next);
+  historyPush();
+  hideFmtBar();
+
+  el.editor.setSelectionRange(start, start + formatted.length);
+  el.editor.focus();
 }
 
 /* Precise source span for a TOP-LEVEL preview block (a direct child of
@@ -2399,7 +2496,25 @@ function applyIndent(delta) {
 function hideFmtBar() { el.fmtbar.hidden = true; }
 
 function showFmtBar() {
-  if (!quickEditable()) return hideFmtBar();
+  const inEdit = root.dataset.mode === "edit" && !!state.file && state.file.kind === "md";
+  const inPreview = !quickEditable() === false;  // preview mode with a selection
+
+  /* In edit mode, show bar for any selection. In preview, only for markdown. */
+  if (inEdit) {
+    const info = editorSelection();
+    if (!info) return hideFmtBar();
+    /* Position above the editor, centered. */
+    el.fmtbar.classList.toggle("in-list", false);
+    el.fmtbar.hidden = false;
+    const pad = 8;
+    const editorRect = el.editor.getBoundingClientRect();
+    const left = Math.max(pad, editorRect.left + 32);
+    el.fmtbar.style.left = left + "px";
+    el.fmtbar.style.top = (editorRect.top - 44) + "px";
+    return;
+  }
+
+  if (!inPreview) return hideFmtBar();
   const info = previewSelection();
   if (!info) return hideFmtBar();
   const r = info.range.getBoundingClientRect();
@@ -2431,18 +2546,38 @@ document.addEventListener("selectionchange", () => {
   fmtTimer = setTimeout(showFmtBar, 90);          // wait for the drag to settle
 });
 
+/* Also watch for input changes in the editor (selection can change via arrow keys). */
+el.editor.addEventListener("input", () => {
+  clearTimeout(fmtTimer);
+  fmtTimer = setTimeout(showFmtBar, 90);
+});
+el.editor.addEventListener("mouseup", () => {
+  clearTimeout(fmtTimer);
+  fmtTimer = setTimeout(showFmtBar, 90);
+});
+
 /* Keep the selection alive: focusing a button would collapse it. */
 el.fmtbar.addEventListener("mousedown", (ev) => ev.preventDefault());
 el.fmtbar.addEventListener("click", (ev) => {
   const b = ev.target.closest("button[data-fmt]");
   if (!b) return;
   const v = b.dataset.fmt;
-  if (v === "body") applyBlock(0);
-  else if (/^h[1-6]$/.test(v)) applyBlock(Number(v.slice(1)));
-  else if (v === "blockquote") applyBlockquote();
-  else if (v === "indent") applyIndent(1);
-  else if (v === "outdent") applyIndent(-1);
-  else applyInline(v);
+  const inEdit = root.dataset.mode === "edit";
+
+  if (inEdit) {
+    if (v === "body") applyBlockInEditor(0);
+    else if (/^h[1-6]$/.test(v)) applyBlockInEditor(Number(v.slice(1)));
+    else if (v === "blockquote") applyBlockquoteInEditor();
+    else if (v === "indent" || v === "outdent") return;  // not in editor
+    else applyInlineInEditor(v);
+  } else {
+    if (v === "body") applyBlock(0);
+    else if (/^h[1-6]$/.test(v)) applyBlock(Number(v.slice(1)));
+    else if (v === "blockquote") applyBlockquote();
+    else if (v === "indent") applyIndent(1);
+    else if (v === "outdent") applyIndent(-1);
+    else applyInline(v);
+  }
 });
 
 el.previewpane.addEventListener("scroll", hideFmtBar, {passive: true});
