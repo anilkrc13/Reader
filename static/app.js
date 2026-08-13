@@ -2061,11 +2061,16 @@ document.addEventListener("keydown", (ev) => {
   if (!meta) return;
   const k = ev.key.toLowerCase();
 
-  /* ⌘B/I/U format a preview selection. Only claimed when there is one to
-     format, so the browser keeps these keys the rest of the time. */
+  /* ⌘B/I/U format a preview or editor selection. Only claimed when there is
+     one to format, so the browser keeps these keys the rest of the time. */
   if ("biu".includes(k) && quickEditable() && previewSelection()) {
     ev.preventDefault();
     applyInline(k === "b" ? "bold" : k === "i" ? "italic" : "underline");
+    return;
+  }
+  if ("biu".includes(k) && editorActive() && editorSelection()) {
+    ev.preventDefault();
+    applyInlineInEditor(k === "b" ? "bold" : k === "i" ? "italic" : "underline");
     return;
   }
 
@@ -2495,31 +2500,68 @@ function applyIndent(delta) {
 
 function hideFmtBar() { el.fmtbar.hidden = true; }
 
-function showFmtBar() {
-  const inEdit = root.dataset.mode === "edit" && !!state.file && state.file.kind === "md";
-  const inPreview = !quickEditable() === false;  // preview mode with a selection
+/* The editor pane is on screen in both Edit and Split modes; the selection
+   lives in the textarea whenever it has focus. */
+const editorActive = () =>
+  !!state.file && state.file.kind === "md" &&
+  root.dataset.mode !== "preview" && document.activeElement === el.editor;
 
-  /* In edit mode, show bar for any selection. In preview, only for markdown. */
-  if (inEdit) {
+/* Viewport position of a character in the textarea. A textarea exposes no
+   ranges, so the text up to that point is laid out in a hidden mirror with
+   the textarea's own metrics and a marker span reads back the coordinates --
+   the same trick editorTops() uses for scroll sync. */
+function editorCaretPoint(pos) {
+  const cs = getComputedStyle(el.editor);
+  const m = document.createElement("div");
+  m.style.cssText =
+    "position:absolute;visibility:hidden;left:-99999px;top:0;" +
+    `width:${el.editor.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)}px;` +
+    `font-family:${cs.fontFamily};font-size:${cs.fontSize};line-height:${cs.lineHeight};` +
+    `letter-spacing:${cs.letterSpacing};tab-size:${cs.tabSize};` +
+    "white-space:pre-wrap;overflow-wrap:break-word;";
+  m.textContent = el.editor.value.slice(0, pos);
+  const marker = document.createElement("span");
+  marker.textContent = "​";
+  m.appendChild(marker);
+  document.body.appendChild(m);
+  const x = marker.offsetLeft, y = marker.offsetTop;
+  m.remove();
+  const r = el.editor.getBoundingClientRect();
+  return {
+    left: r.left + parseFloat(cs.paddingLeft) + x - el.editor.scrollLeft,
+    top: r.top + parseFloat(cs.paddingTop) + y - el.editor.scrollTop,
+    lineHeight: parseFloat(cs.lineHeight) || 20,
+  };
+}
+
+function showFmtBar() {
+  /* A selection in the editor textarea (Edit or Split mode) gets the bar too. */
+  if (editorActive()) {
     const info = editorSelection();
     if (!info) return hideFmtBar();
-    /* Position above the editor, centered. */
+    const caret = editorCaretPoint(info.start);
+    el.fmtbar.dataset.target = "editor";
     el.fmtbar.classList.toggle("in-list", false);
-    el.fmtbar.hidden = false;
+    el.fmtbar.hidden = false;                     // measure only once visible
+    const bar = el.fmtbar.getBoundingClientRect();
     const pad = 8;
-    const editorRect = el.editor.getBoundingClientRect();
-    const left = Math.max(pad, editorRect.left + 32);
+    const edRect = el.editor.getBoundingClientRect();
+    const left = Math.max(pad, Math.min(caret.left - bar.width / 2,
+                                        window.innerWidth - bar.width - pad));
+    let top = caret.top - bar.height - pad;
+    if (top < Math.max(pad, edRect.top)) top = caret.top + caret.lineHeight + pad;
     el.fmtbar.style.left = left + "px";
-    el.fmtbar.style.top = (editorRect.top - 44) + "px";
+    el.fmtbar.style.top = top + "px";
     return;
   }
 
-  if (!inPreview) return hideFmtBar();
+  if (!quickEditable()) return hideFmtBar();
   const info = previewSelection();
   if (!info) return hideFmtBar();
   const r = info.range.getBoundingClientRect();
   if (!r.width && !r.height) return hideFmtBar();
 
+  el.fmtbar.dataset.target = "preview";
   /* the indent pair appears only inside a list item, and outdent only lights
      up when that item's source line actually carries indentation */
   const li = blockOf(info.range) ? blockOf(info.range).closest("li") : null;
@@ -2546,14 +2588,12 @@ document.addEventListener("selectionchange", () => {
   fmtTimer = setTimeout(showFmtBar, 90);          // wait for the drag to settle
 });
 
-/* Also watch for input changes in the editor (selection can change via arrow keys). */
-el.editor.addEventListener("input", () => {
-  clearTimeout(fmtTimer);
-  fmtTimer = setTimeout(showFmtBar, 90);
-});
-el.editor.addEventListener("mouseup", () => {
-  clearTimeout(fmtTimer);
-  fmtTimer = setTimeout(showFmtBar, 90);
+/* Also watch for selection changes in the editor textarea. */
+["mouseup", "keyup", "keydown"].forEach((event) => {
+  el.editor.addEventListener(event, () => {
+    clearTimeout(fmtTimer);
+    fmtTimer = setTimeout(showFmtBar, 90);
+  });
 });
 
 /* Keep the selection alive: focusing a button would collapse it. */
@@ -2562,9 +2602,8 @@ el.fmtbar.addEventListener("click", (ev) => {
   const b = ev.target.closest("button[data-fmt]");
   if (!b) return;
   const v = b.dataset.fmt;
-  const inEdit = root.dataset.mode === "edit";
 
-  if (inEdit) {
+  if (el.fmtbar.dataset.target === "editor") {
     if (v === "body") applyBlockInEditor(0);
     else if (/^h[1-6]$/.test(v)) applyBlockInEditor(Number(v.slice(1)));
     else if (v === "blockquote") applyBlockquoteInEditor();
@@ -2580,7 +2619,15 @@ el.fmtbar.addEventListener("click", (ev) => {
   }
 });
 
-el.previewpane.addEventListener("scroll", hideFmtBar, {passive: true});
+/* A scrolling pane moves the text its bar is anchored to, so that bar goes.
+   In split mode scroll sync scrolls the preview on the editor's behalf, so
+   each pane only dismisses its own bar. */
+el.previewpane.addEventListener("scroll", () => {
+  if (el.fmtbar.dataset.target !== "editor") hideFmtBar();
+}, {passive: true});
+el.editor.addEventListener("scroll", () => {
+  if (el.fmtbar.dataset.target === "editor") hideFmtBar();
+}, {passive: true});
 window.addEventListener("resize", hideFmtBar);
 
 /* Resting on the reveal button floats the hidden panel out for a look, and the
