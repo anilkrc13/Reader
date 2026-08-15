@@ -1657,13 +1657,34 @@ function syncTarget(from, to) {
   return Math.max(0, Math.min(y, maxScroll(to)));
 }
 
+/* A scroll event raised by assigning the other pane's scrollTop may arrive
+   after the current event handler returns. A one-frame boolean is therefore
+   too short-lived: with uneven content such as tables, the second event can
+   be mistaken for a new user scroll and feed back into the first pane. Keep
+   the expected target until that exact propagated event is observed instead. */
+const SCROLL_SYNC_EPSILON = 1;
 let syncing = null;
 function linkScroll(from, to) {
   from.addEventListener("scroll", () => {
-    if (!S.syncScroll || root.dataset.mode !== "split" || syncing === to) return;
-    syncing = from;
-    to.scrollTop = syncTarget(from, to);
-    requestAnimationFrame(() => { syncing = null; });
+    if (!S.syncScroll || root.dataset.mode !== "split") {
+      syncing = null;
+      return;
+    }
+
+    /* Swallow only the scroll event caused by our own correction. If the
+       value differs materially, the user moved this pane while a correction
+       was pending, so let it become the new source of truth. */
+    if (syncing) {
+      const propagated = syncing.node === from &&
+        Math.abs(from.scrollTop - syncing.top) <= SCROLL_SYNC_EPSILON;
+      syncing = null;
+      if (propagated) return;
+    }
+
+    const target = syncTarget(from, to);
+    if (Math.abs(to.scrollTop - target) <= SCROLL_SYNC_EPSILON) return;
+    syncing = {node: to, top: target};
+    to.scrollTop = target;
   }, {passive: true});
 }
 linkScroll(el.editor, el.previewpane);
@@ -1969,6 +1990,16 @@ el.editor.addEventListener("input", () => {
   historyNoteTyping();
   if (dirty) scheduleAutosave();
 });
+/* These commands belong to the textarea and to the platform, not to Reader's
+   document-wide shortcut layer. Undo/redo stay out of this list because
+   Reader deliberately owns that history across preview quick-edits and the
+   editor. */
+const NATIVE_TEXT_COMMANDS = new Set(["a", "c", "v", "x"]);
+function isNativeTextCommand(ev) {
+  return (ev.metaKey || ev.ctrlKey) && !ev.altKey &&
+         NATIVE_TEXT_COMMANDS.has(ev.key.toLowerCase());
+}
+
 el.editor.addEventListener("keydown", (ev) => {
   if (ev.key !== "Tab" || ev.metaKey || ev.ctrlKey || ev.altKey) return;
   ev.preventDefault();
@@ -2046,6 +2077,11 @@ document.addEventListener("keydown", (ev) => {
   if (ev.key === "Escape" && confirmOpen()) { ev.preventDefault(); closeConfirm(); return; }
   if (ev.key === "Escape" && settingsOpen()) { ev.preventDefault(); closeSettings(); return; }
   const meta = ev.metaKey || ev.ctrlKey;
+
+  /* Let the browser/WebKit own standard text commands completely. In
+     particular, paste's native default action must survive the event path;
+     stopping propagation at the textarea prevents it in WKWebView. */
+  if (meta && editingText() && isNativeTextCommand(ev)) return;
 
   /* Back and forward. Bare arrows while reading; they are left alone when the
      caret owns them or a dialog is up. ⌘[ and ⌘] work everywhere, including in
