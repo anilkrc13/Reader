@@ -26,9 +26,55 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
     private var appearanceObservation: NSKeyValueObservation?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        configureMainMenu()
         configureDockIconAppearance()
         makeWindow()
         probeAndOpen()
+    }
+
+    /* WKWebView's text system routes the standard editing commands through
+       the AppKit responder chain. The native launcher previously installed no
+       Edit menu at all, so the Reader window had no Copy/Paste key equivalents
+       for that chain even though the page's textarea had a valid selection.
+       Leave the menu items untargeted so AppKit forwards them to whichever
+       first responder owns the selection. */
+    private func configureMainMenu() {
+        let mainMenu = NSMenu()
+
+        let appItem = NSMenuItem()
+        let appMenu = NSMenu(title: readerAppName)
+        appItem.submenu = appMenu
+        mainMenu.addItem(appItem)
+        appMenu.addItem(NSMenuItem(title: "About \(readerAppName)",
+                                   action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
+                                   keyEquivalent: ""))
+        appMenu.addItem(.separator())
+        appMenu.addItem(NSMenuItem(title: "Quit \(readerAppName)",
+                                   action: #selector(NSApplication.terminate(_:)),
+                                   keyEquivalent: "q"))
+
+        let editItem = NSMenuItem()
+        let editMenu = NSMenu(title: "Edit")
+        editItem.submenu = editMenu
+        mainMenu.addItem(editItem)
+
+        func addEditCommand(_ title: String, _ selector: String, _ key: String) {
+            let item = NSMenuItem(title: title,
+                                  action: Selector((selector)),
+                                  keyEquivalent: key)
+            item.keyEquivalentModifierMask = .command
+            editMenu.addItem(item)
+        }
+
+        addEditCommand("Undo", "undo:", "z")
+        addEditCommand("Redo", "redo:", "Z")
+        editMenu.addItem(.separator())
+        addEditCommand("Cut", "cut:", "x")
+        addEditCommand("Copy", "copy:", "c")
+        addEditCommand("Paste", "paste:", "v")
+        addEditCommand("Select All", "selectAll:", "a")
+
+        NSApp.mainMenu = mainMenu
     }
 
     /// The Icon Composer asset remains the system-managed Finder and
