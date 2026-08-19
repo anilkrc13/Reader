@@ -26,5 +26,123 @@
 	<string>13.0</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+
+	<!-- macOS gates Desktop, Documents, Downloads and attached volumes behind a
+	     consent prompt the first time Reader reads one. Without these strings
+	     the prompt gives no reason at all, which is what makes it feel arbitrary. -->
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Reader needs access to your Desktop to list and open documents stored there.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Reader needs access to your Documents folder to list and open documents stored there.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Reader needs access to your Downloads folder to list and open documents stored there.</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>Reader needs access to removable volumes to open documents stored on them.</string>
+	<key>NSNetworkVolumesUsageDescription</key>
+	<string>Reader needs access to network volumes to open documents stored on them.</string>
+
+	<!-- Without these, Finder happily lets you pick Reader as the default app
+	     for a .md file and then refuses the handoff with "Reader cannot open
+	     files in the Markdown text file format". LaunchServices matches these
+	     entries on LSItemContentTypes alone -- CFBundleTypeExtensions is inert
+	     on current macOS -- and it matches by conformance, so public.source-code
+	     covers .py, .swift, .java and the rest of that family. -->
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Markdown Document</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Default</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>net.daringfireball.markdown</string>
+				<string>com.reader.markdown-variant</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Text or Code Document</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.plain-text</string>
+				<string>public.source-code</string>
+				<string>public.script</string>
+				<string>public.json</string>
+				<string>public.yaml</string>
+				<string>public.toml</string>
+				<string>public.xml</string>
+				<string>public.html</string>
+				<string>public.css</string>
+				<string>com.microsoft.ini</string>
+				<string>com.microsoft.typescript</string>
+				<string>org.iso.sql</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Delimited Text Document</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.comma-separated-values-text</string>
+				<string>public.tab-separated-values-text</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>PDF Document</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.adobe.pdf</string>
+			</array>
+		</dict>
+	</array>
+
+	<!-- macOS declares net.daringfireball.markdown for .md and .markdown only,
+	     and keeps its own tag list for it, so an imported declaration cannot add
+	     the four further extensions Reader treats as markdown. This exported
+	     type carries them instead and conforms to the Apple type, so every other
+	     markdown-aware app still matches these files by conformance. -->
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.reader.markdown-variant</string>
+			<key>UTTypeDescription</key>
+			<string>Markdown Document</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>net.daringfireball.markdown</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>mdown</string>
+					<string>mkd</string>
+					<string>mdx</string>
+					<string>mdc</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>text/markdown</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
 </dict>
 </plist>
