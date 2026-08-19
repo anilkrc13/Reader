@@ -24,12 +24,65 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
     private var isFinishing = false
     private var readinessStartedAt: Date?
     private var appearanceObservation: NSKeyValueObservation?
+    /* A document handed to us by Finder or `open`. AppKit can deliver it
+       before the server is up and before the page has loaded, so it is held
+       here until there is somewhere to send it. */
+    private var pendingOpenPath: String?
+    private var isPageLoaded = false
 
-    func applicationDidFinishLaunching(_ notification: Notification) {
+    /* Window and menus are built in `will` rather than `did` so that an
+       open-document request, which AppKit sends between the two, always finds
+       a live window to attach itself to. */
+    func applicationWillFinishLaunching(_ notification: Notification) {
         configureMainMenu()
         configureDockIconAppearance()
         makeWindow()
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
         probeAndOpen()
+    }
+
+    /* Info.plist declares the document types Reader renders; this is the other
+       half of that contract. Without it macOS would launch Reader and then
+       silently drop the file the user double-clicked. */
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard let path = urls.first(where: { $0.isFileURL })?.standardizedFileURL.path else { return }
+        NSApp.activate(ignoringOtherApps: true)
+        window?.makeKeyAndOrderFront(nil)
+        if isPageLoaded {
+            deliver(path: path)
+        } else {
+            pendingOpenPath = path
+        }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            window?.makeKeyAndOrderFront(nil)
+        }
+        return true
+    }
+
+    /// Ask the already-loaded page to open a document. The path is passed as a
+    /// JSON-encoded literal so no filename can escape into the script itself.
+    private func deliver(path: String) {
+        guard let data = try? JSONSerialization.data(withJSONObject: [path], options: []),
+              let array = String(data: data, encoding: .utf8) else { return }
+        let script = "window.reader && window.reader.openExternal ? "
+            + "(window.reader.openExternal(\(array)[0]), true) : false"
+        webView.evaluateJavaScript(script) { [weak self] result, _ in
+            // app.js publishes `window.reader` as the page finishes booting;
+            // one bounded retry covers the case where we win that race.
+            if (result as? Bool) != true {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    guard let self, self.isPageLoaded else { return }
+                    self.webView.evaluateJavaScript(
+                        "window.reader && window.reader.openExternal && "
+                        + "window.reader.openExternal(\(array)[0])", completionHandler: nil)
+                }
+            }
+        }
     }
 
     /* WKWebView's text system routes the standard editing commands through
@@ -201,7 +254,17 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         statusLabel.stringValue = "Starting Reader’s local server…"
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["python3", script.path, "--port", String(readerPort), "--no-browser"]
+        var arguments = ["python3", script.path, "--port", String(readerPort), "--no-browser"]
+        // Handing the document to the server it is about to start makes that
+        // file's folder part of the save workspace, so a document opened from
+        // Finder outside the home folder stays editable.
+        if let path = pendingOpenPath {
+            arguments.append(path)
+            // The server now reports it as the start document, so there is no
+            // second delivery to make once the page loads.
+            pendingOpenPath = nil
+        }
+        process.arguments = arguments
         process.currentDirectoryURL = resourceURL
         var environment = ProcessInfo.processInfo.environment
         let support = FileManager.default.homeDirectoryForCurrentUser
@@ -331,6 +394,11 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         statusLabel.isHidden = true
         webView.isHidden = false
+        isPageLoaded = true
+        if let path = pendingOpenPath {
+            pendingOpenPath = nil
+            deliver(path: path)
+        }
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {

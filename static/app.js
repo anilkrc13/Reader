@@ -2724,6 +2724,11 @@ window.addEventListener("beforeunload", (ev) => {
    11. Boot
    ======================================================================== */
 
+/* Resolved once boot() has settled, so a document handed to the page by the
+   native launcher opens after the restored session rather than under it. */
+let bootDone;
+const bootReady = new Promise((resolve) => { bootDone = resolve; });
+
 async function boot() {
   loadPrefs();
   applySettings();
@@ -2764,9 +2769,25 @@ async function boot() {
   if (first) { try { await openFile(first); } catch (_) {} }
 }
 
+/* A document the OS asked for — a Reader.app double-click, or `open -a Reader`.
+   Unlike open(), it moves the tree to the file's folder when the file sits
+   outside the folder being browsed, because revealInTree can only reach paths
+   below the current root. */
+async function openExternal(path) {
+  await bootReady;
+  if (typeof path !== "string" || !path.startsWith("/")) return null;
+  const dir = path.slice(0, path.lastIndexOf("/")) || "/";
+  if (!(state.root === dir || dir.startsWith(state.root + "/"))) {
+    await setRoot(dir, {redraw: false});
+    await drawTree();
+  }
+  try { return await openFile(path); }
+  catch (err) { toast(err.message, true); return null; }
+}
+
 /* small automation hook (same-origin pages only) — used by the test suite */
-window.reader = {goto: (p) => setRoot(p), open: (p) => openFile(p)};
+window.reader = {goto: (p) => setRoot(p), open: (p) => openFile(p), openExternal};
 window.mdview = window.reader;        // pre-2.0 name; drop once tests are updated
 
-boot();
+boot().finally(bootDone);
 })();
