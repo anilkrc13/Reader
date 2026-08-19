@@ -19,3 +19,8 @@ __pycache__/
 /install/*
 !/install/
 !/install/Reader.command
+# The built app is committed so it can be run without a build step. Note that
+# actool regenerates Assets.car (~3 MB) nondeterministically and the ad-hoc
+# signature changes on every build, so each rebuild you commit adds that much
+# again to history rather than diffing against the last one.
+!/install/Reader.app
