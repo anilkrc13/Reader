@@ -78,10 +78,39 @@ chmod +x "$MACOS_BIN_DIR/ReaderLauncher"
 rm -f "${OBJECTS[@]}"
 
 # Sign the complete bundle so Info.plist and resources are bound to one app
-# identity. A configured Apple Development/Developer ID identity remains stable
-# across rebuilds; '-' is a valid ad-hoc fallback for local development.
-CODE_SIGN_IDENTITY="${CODE_SIGN_IDENTITY:--}"
-codesign --force --deep --sign "$CODE_SIGN_IDENTITY" \
+# identity. That identity wants to be the same one every time: macOS keys
+# folder-access consent to it, and an ad-hoc signature produces a fresh identity
+# on every build, which silently revokes every permission already granted.
+#
+# Order of preference:
+#   1. CODE_SIGN_IDENTITY, if you have an Apple Development/Developer ID cert.
+#   2. Reader's own per-user self-signed identity, created on first use.
+#   3. Ad-hoc, so a build never fails outright -- with the caveat spelled out.
+SIGN_ARGS=()
+if [ -n "${CODE_SIGN_IDENTITY:-}" ]; then
+  SIGN_IDENTITY="$CODE_SIGN_IDENTITY"
+else
+  ENSURE="$MACOS_DIR/ensure-signing-identity.sh"
+  IDENTITY_MODE="use-existing"
+  # Creating the identity needs one password authorisation, so only reach for it
+  # when there is a person at a terminal to answer. Set READER_SIGNING=create to
+  # force it from a script.
+  if [ -t 1 ] || [ "${READER_SIGNING:-}" = "create" ]; then
+    IDENTITY_MODE="create"
+  fi
+  if IDENTITY_INFO="$("$ENSURE" "$IDENTITY_MODE")"; then
+    SIGN_IDENTITY="$(printf '%s' "$IDENTITY_INFO" | sed -n 1p)"
+    SIGN_KEYCHAIN="$(printf '%s' "$IDENTITY_INFO" | sed -n 2p)"
+    SIGN_ARGS+=(--keychain "$SIGN_KEYCHAIN")
+  else
+    SIGN_IDENTITY="-"
+    echo "Signing ad-hoc. macOS will re-ask for folder permissions after each" >&2
+    echo "build; run ./macos/ensure-signing-identity.sh once to stop that." >&2
+  fi
+fi
+
+codesign --force --deep --sign "$SIGN_IDENTITY" \
+  ${SIGN_ARGS+"${SIGN_ARGS[@]}"} \
   --identifier "com.reader.local" "$APP_BUNDLE"
 codesign --verify --deep --strict "$APP_BUNDLE"
 

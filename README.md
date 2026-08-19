@@ -59,6 +59,74 @@ remains browser-owned and cannot use Reader.app's adaptive Dock icon; use
 this is a local unsigned build, macOS may show a
 first-launch warning; Control-click the app, choose **Open**, and confirm.
 
+### Why macOS keeps asking for folder permissions
+
+Because an ad-hoc signature is derived from the bundle's own bytes. Its
+designated requirement is a bare content hash:
+
+```
+designated => cdhash H"26e68e53a7b3ce765be0c532a456a83f1f441ef2"
+```
+
+macOS keys folder-access consent to that requirement, and the hash changes on
+every build — even a rebuild from unchanged sources. Every build was therefore a
+new app as far as the privacy database was concerned, and every permission you
+had granted was thrown away.
+
+The fix is to sign with a certificate, which pins the requirement to the
+certificate instead of to the bundle. Reader can make its own, once per user:
+
+```
+./macos/ensure-signing-identity.sh
+```
+
+That creates a self-signed code-signing certificate in a keychain of Reader's
+own, beside Reader's preferences — no Apple developer account, and your login
+keychain is left alone. macOS asks for your login password one time, to trust the
+certificate for code signing, because `codesign` refuses an untrusted identity
+outright. Afterwards `build-app.sh` finds and reuses it automatically, so folder
+permissions you grant now outlive every later build.
+
+`build-app.sh` creates the identity on first use when you run it from a terminal.
+Run non-interactively it will not raise a password dialog on its own — it signs
+ad-hoc and says so. `READER_SIGNING=create` forces creation from a script.
+
+If you do have an Apple certificate, it takes precedence:
+
+```
+CODE_SIGN_IDENTITY="Apple Development: you@example.com (TEAMID)" ./macos/build-app.sh
+```
+
+Either way the app stays unnotarised, so the first-launch warning above is
+unchanged. To undo Reader's identity completely:
+
+```
+security delete-keychain ~/Library/Application\ Support/Reader/signing/reader-signing.keychain-db
+security remove-trusted-cert ~/Library/Application\ Support/Reader/signing/certificate.pem
+rm -rf ~/Library/Application\ Support/Reader/signing
+```
+
+### Opening files from Finder
+
+Reader declares the document types it renders, so it can be the app a document
+opens with. Select a file in Finder, press **⌘I**, and set *Open with* — or
+Control-click → *Open With*. Double-clicking then hands the file to Reader:
+if Reader is not running it starts and opens straight into that document, and if
+it is already running the open window switches to it, moving the file tree to the
+document's folder when the document sits outside the folder you were browsing.
+
+All six markdown extensions Reader treats as markdown (`.md .markdown .mdown
+.mkd .mdx .mdc`) are covered, along with every other type Reader reads that macOS
+has a declared type for — `.txt`, `.csv/.tsv`, `.pdf`, `.py`, `.json`, `.yaml`,
+`.html`, `.sh`, `.swift`, `.java`, `.c/.cpp`, `.sql` and the rest of the source
+family. Reader offers itself as an alternate handler for those, so it never
+displaces Preview or Numbers unless you choose it.
+
+A few extensions macOS has no declared type for at all — `.go .rs .kt .cs .lua
+.jsx .cjs .scss .less .conf .env` — cannot appear in *Open With* without Reader
+claiming those file kinds system-wide, which it deliberately does not do. Open
+those from inside Reader's own file tree.
+
 ### Turning it into a browser app
 
 The address never changes, so you can install it:
