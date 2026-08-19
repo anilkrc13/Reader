@@ -424,6 +424,10 @@ class Handler(BaseHTTPRequestHandler):
             if route == "/api/rename":
                 return self._json(store.rename_path(store.policy.resolve(payload.get("path", "")),
                                                     str(payload.get("name", ""))))
+            if route == "/api/move":
+                path = store.policy.resolve(payload.get("path", ""))
+                target_dir = store.policy.resolve(payload.get("targetDir", ""))
+                return self._json(store.move_file(path, target_dir))
             if route == "/api/open-external":
                 path = resolve_path(payload.get("path", ""))
                 if not path.is_file():

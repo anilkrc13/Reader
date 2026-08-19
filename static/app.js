@@ -959,6 +959,7 @@ function drawPinned() {
 /* ---- drag: reorder pins, or drop a folder from the tree to pin it ------- */
 
 const DIR_MIME = "application/x-reader-dir";
+const FILE_MIME = "application/x-reader-file";
 let dragPinFrom = null;
 
 el.pinned.addEventListener("dragstart", (ev) => {
@@ -1173,7 +1174,7 @@ function makeRow(entry, depth) {
   btn.innerHTML = (isDir ? ICONS.caret : ICONS.spacer) +
                   (isDir ? ICONS.folder : iconFor(entry.path)) + '<span class="nm"></span>';
   btn.querySelector(".nm").textContent = entry.name;
-  if (isDir) btn.draggable = true;
+  btn.draggable = true;
   const more = document.createElement("button");
   more.className = "rowact";
   more.dataset.menu = entry.path;
@@ -1357,6 +1358,50 @@ async function doRename() {
   await refreshTree();
   markActive();
   toast("Renamed to " + res.name);
+}
+
+/* ---------------------------------------------------------- move a file */
+
+const parentPath = (path) => path.split("/").slice(0, -1).join("/") || "/";
+
+async function moveFileToFolder(path, targetDir) {
+  if (parentPath(path) === targetDir) return;
+  let res;
+  try {
+    res = await api("/api/move", {
+      method: "POST", body: {path, targetDir},
+    });
+  } catch (err) {
+    toast(err.message, true);
+    return;
+  }
+
+  const from = res.path || path;
+  const to = res.newPath;
+  const moved = (p) => p === from ? to : p;
+  S.recents = (S.recents || []).map((r) => {
+    const np = moved(r.path);
+    return np === r.path ? r
+      : {path: np, name: np.split("/").pop(),
+         dir: np.split("/").slice(0, -1).join("/") || "/"};
+  });
+  if (S.lastFile === from) S.lastFile = to;
+  state.trail = state.trail.map(moved);
+
+  if (state.file && state.file.path === from) {
+    state.file.path = to;
+    state.file.dir = parentPath(to);
+    state.file.name = to.split("/").pop();
+    el.docname.textContent = state.file.name;
+    document.title = (state.dirty ? "• " : "") + state.file.name;
+  }
+  syncTrailButtons();
+  state.children.clear();
+  savePrefs();
+  drawRecents();
+  await drawTree();
+  markActive();
+  toast(`${prettyName(from)} moved to ${prettyName(targetDir)}`);
 }
 
 renEls.cancel.onclick = closeRenamer;
@@ -1951,12 +1996,40 @@ el.tree.addEventListener("dblclick", (ev) => {
   if (btn) setRoot(btn.dataset.path);
 });
 el.tree.addEventListener("dragstart", (ev) => {
-  const btn = ev.target.closest('.row[data-type="dir"]');
+  const btn = ev.target.closest(".row[data-path]");
   if (!btn) return;
-  ev.dataTransfer.setData(DIR_MIME, btn.dataset.path);
+  const mime = btn.dataset.type === "dir" ? DIR_MIME : FILE_MIME;
+  ev.dataTransfer.setData(mime, btn.dataset.path);
   ev.dataTransfer.setData("text/plain", btn.dataset.path);
-  ev.dataTransfer.effectAllowed = "copy";
+  ev.dataTransfer.effectAllowed = btn.dataset.type === "dir" ? "copy" : "move";
 });
+function clearTreeDropMarks() {
+  el.tree.querySelectorAll(".drop-target").forEach((n) => n.classList.remove("drop-target"));
+}
+el.tree.addEventListener("dragover", (ev) => {
+  const row = ev.target.closest('.row[data-type="dir"]');
+  if (!row || ![...ev.dataTransfer.types].includes(FILE_MIME)) {
+    clearTreeDropMarks();
+    return;
+  }
+  ev.preventDefault();
+  ev.dataTransfer.dropEffect = "move";
+  clearTreeDropMarks();
+  row.classList.add("drop-target");
+});
+el.tree.addEventListener("dragleave", (ev) => {
+  const row = ev.target.closest('.row[data-type="dir"]');
+  if (row && !row.contains(ev.relatedTarget)) row.classList.remove("drop-target");
+});
+el.tree.addEventListener("drop", (ev) => {
+  const row = ev.target.closest('.row[data-type="dir"]');
+  const path = ev.dataTransfer.getData(FILE_MIME);
+  if (!row || !path) return;
+  ev.preventDefault();
+  clearTreeDropMarks();
+  moveFileToFolder(path, row.dataset.path);
+});
+el.tree.addEventListener("dragend", clearTreeDropMarks);
 el.tree.addEventListener("contextmenu", (ev) => {
   const btn = ev.target.closest("#tree .row");
   if (!btn) return;
