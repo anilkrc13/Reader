@@ -284,6 +284,34 @@ class DocumentStore:
         path.rename(target)
         return {"path": str(path), "newPath": str(target), "name": new_name}
 
+    def move_file(self, path: Path, target_dir: Path) -> dict:
+        if not path.exists():
+            raise FileNotFoundError(str(path))
+        if path.is_dir():
+            raise ValueError("folders cannot be moved from this app")
+        if not path.is_file():
+            raise ValueError("only regular files can be moved")
+        if not target_dir.exists():
+            raise FileNotFoundError(str(target_dir))
+        if not target_dir.is_dir():
+            raise ValueError("the destination is not a folder")
+
+        self.policy.assert_mutation_allowed(path)
+        self.policy.assert_mutation_allowed(target_dir)
+        target = (target_dir / path.name).resolve()
+        self.policy.assert_mutation_allowed(target)
+        if target == path:
+            return {"path": str(path), "newPath": str(path), "name": path.name}
+        if target.exists():
+            raise FileExistsError(f"something named {path.name} is already there")
+
+        # A rename is a filesystem move on the local volumes Reader is meant
+        # to browse. It never creates a second copy or replaces a destination.
+        path.rename(target)
+        st = target.stat()
+        return {"path": str(path), "newPath": str(target), "name": target.name,
+                "mtime": str(st.st_mtime_ns), "size": st.st_size}
+
     def move_to_trash(self, path: Path) -> dict:
         if not path.exists():
             raise FileNotFoundError(str(path))

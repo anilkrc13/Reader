@@ -280,6 +280,7 @@ html[data-recents=off] #recents{display:none}
 }
 .row:hover{background:var(--panel-hi);color:var(--text)}
 .row.active{background:var(--accent-fill);color:var(--accent-on);font-weight:500}
+.row.drop-target{background:var(--accent-fill);color:var(--accent-on);box-shadow:inset 0 0 0 1px var(--accent)}
 /* files Reader cannot render: listed for orientation, dimmed to say so */
 .row.unsupported{color:var(--text-3)}
 .row.unsupported .fi{opacity:.5}
