@@ -19,6 +19,15 @@
 @font-face{font-family:Lora;src:url(/static/fonts/lora-latin-700-normal.woff2)format("woff2");font-weight:700;font-style:normal;font-display:swap}
 @font-face{font-family:Lora;src:url(/static/fonts/lora-latin-700-italic.woff2)format("woff2");font-weight:700;font-style:italic;font-display:swap}
 
+@font-face{font-family:Figtree;src:url(/static/fonts/figtree-latin-variable-normal.ttf)format("truetype");font-weight:300 900;font-style:normal;font-display:swap}
+@font-face{font-family:Figtree;src:url(/static/fonts/figtree-latin-variable-italic.ttf)format("truetype");font-weight:300 900;font-style:italic;font-display:swap}
+
+@font-face{font-family:Satoshi;src:url(/static/fonts/satoshi-latin-variable-normal.woff2)format("woff2");font-weight:300 900;font-style:normal;font-display:swap}
+@font-face{font-family:Satoshi;src:url(/static/fonts/satoshi-latin-variable-italic.woff2)format("woff2");font-weight:300 900;font-style:italic;font-display:swap}
+
+@font-face{font-family:"EB Garamond";src:url(/static/fonts/ebgaramond-latin-variable-normal.ttf)format("truetype");font-weight:400 800;font-style:normal;font-display:swap}
+@font-face{font-family:"EB Garamond";src:url(/static/fonts/ebgaramond-latin-variable-italic.ttf)format("truetype");font-weight:400 800;font-style:italic;font-display:swap}
+
 @font-face{font-family:Inter;src:url(/static/fonts/inter-latin-400-normal.woff2)format("woff2");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:Inter;src:url(/static/fonts/inter-latin-400-italic.woff2)format("woff2");font-weight:400;font-style:italic;font-display:swap}
 @font-face{font-family:Inter;src:url(/static/fonts/inter-latin-500-normal.woff2)format("woff2");font-weight:500;font-style:normal;font-display:swap}
@@ -46,6 +55,9 @@
 
   /* written by settings — these defaults keep the app usable without JS */
   --font-body:Lora,Georgia,serif;
+  --fw-body:400;
+  --prose-body:var(--text);
+  --prose-strong:var(--text);
   --font-head:Poppins,-apple-system,sans-serif;
   --font-mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
   --font-editor:var(--font-mono);
@@ -53,6 +65,7 @@
   --lh-body:1.75;
   --measure:65%;
   --para-gap:1.1em;
+  --list-gap:.32em;
   --fs-code:.82em;
   --fs-editor:13.5px;
   --tab-size:2;
@@ -96,6 +109,10 @@ html[data-theme=dark]{
   --shadow-lg:0 16px 56px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.4);
   --scrim:rgba(0,0,0,.5);
   --danger:#e0705a; --danger-soft:#3a2019;
+  /* Dark-mode reading refinement: body copy is slightly dimmed for comfort,
+     while bold/strong stays near-white for clear emphasis. */
+  --prose-body:#c8c6bc;
+  --prose-strong:#ffffff;
   color-scheme:dark;
 }
 html[data-theme=dark][data-paper-dark=charcoal]{
@@ -333,8 +350,8 @@ html[data-glass=on][data-sidebar=hidden] #sidebar{
   padding:0 13px 0 11px;border-bottom:1px solid var(--border);background:var(--paper);
 }
 .doc-title{display:flex;align-items:center;gap:7px;min-width:0;padding-left:3px}
-#docname{font-weight:600;font-size:13.5px;letter-spacing:-.01em;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#docname{font-family:var(--ui);font-weight:650;font-size:15px;letter-spacing:-.015em;
+  line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
 .live{
   display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;
@@ -453,26 +470,87 @@ html[data-doc=pdf] #previewpane{overflow:hidden}
 /* ------------------------------------------------------------------ prose */
 .prose{
   max-width:min(var(--measure),100%);margin:0 auto;padding:40px 44px 28vh;
-  font-family:var(--font-body);font-size:var(--fs-body);line-height:var(--lh-body);
-  color:var(--text);word-wrap:break-word;
+  font-family:var(--font-body);font-weight:var(--fw-body,400);
+  font-size:var(--fs-body);line-height:var(--lh-body);
+  color:var(--prose-body);word-wrap:break-word;
 }
 html[data-mode=split] .prose{padding:28px 34px 28vh;font-size:calc(var(--fs-body) * .94)}
 .prose>:first-child{margin-top:0}
-.prose h1,.prose h2,.prose h3,.prose h4,.prose h5,.prose h6{
-  font-family:var(--font-head);font-weight:600;letter-spacing:-.02em;line-height:1.3;
-  color:var(--text);margin:1.9em 0 .6em;
+/* Distinct document-title style. Applies only to the first Markdown H1 so the
+   top-bar filename stays a compact UI label and the H1-H6 hierarchy below
+   remains proportional to the selected body size. */
+/* Document-title values are user-adjustable through settings variables; these
+   literals are only the fallback defaults before preferences load. */
+.prose h1.doc-heading{
+  font-size:var(--title-size,48px);font-weight:var(--title-weight,700);
+  line-height:var(--title-lh,1.08);letter-spacing:var(--title-spacing,-.035em);
+  margin:.15em 0 .5em;
 }
-.prose h1{font-size:1.85em;font-weight:700;letter-spacing:-.03em;margin-top:0}
-.prose h2{font-size:1.4em;margin-top:1.8em;padding-bottom:.28em;border-bottom:1px solid var(--border)}
-.prose h3{font-size:1.16em}
-.prose h4{font-size:1em}
-.prose h5,.prose h6{font-size:.92em;color:var(--text-2)}
+/* Shared proportional heading hierarchy. One rule styles every level from
+   per-level custom properties (--hs size, --hw weight, --hlh line-height,
+   --hsp spacing, --hg gap above), so the saved Settings overrides and the
+   heading-scale multiplier apply uniformly to H1-H6 in every font. */
+.prose h1,.prose h2,.prose h3,.prose h4,.prose h5,.prose h6{
+  font-family:var(--font-head);color:var(--text);
+  font-size:calc(var(--hs,1em) * var(--head-scale,1));
+  font-weight:var(--head-weight-override,var(--hw,600));
+  line-height:var(--head-lh-override,var(--hlh,1.3));
+  letter-spacing:var(--head-spacing-override,var(--hsp,0em));
+  margin:var(--hg,1.9em) 0 .55em;
+}
+.prose h1{--hs:2.05em;--hw:700;--hlh:1.12;--hsp:-.032em;--hg:0em;margin-bottom:.45em}
+.prose h2{--hs:1.52em;--hw:680;--hlh:1.18;--hsp:-.026em;--hg:1.8em;
+  padding-bottom:.26em;border-bottom:1px solid var(--border)}
+.prose h3{--hs:1.24em;--hw:650;--hlh:1.24;--hsp:-.02em;--hg:1.85em}
+.prose h4{--hs:1.05em;--hw:650;--hlh:1.32;--hsp:-.014em}
+.prose h5{--hs:.94em;--hw:650;--hlh:1.38;--hsp:-.008em;color:var(--text-2)}
+.prose h6{--hs:.86em;--hw:600;--hlh:1.42;--hsp:.004em;color:var(--text-3)}
+/* Saved heading gap replaces each level's default space above; the document
+   title and a leading H1 keep their own tighter margins. */
+.prose h2,.prose h3,.prose h4,.prose h5,.prose h6{
+  margin-top:var(--head-gap-override,var(--hg,1.9em));
+}
+/* Letter proportions: capital runs inside headings (wrapped at render time)
+   scale around the shared baseline, tuning cap height against x-height
+   without changing the heading's own size. font-size-adjust cannot express
+   this — it rescales all glyphs uniformly to pin one metric. */
+.prose h1 .cap-run,.prose h2 .cap-run,.prose h3 .cap-run,
+.prose h4 .cap-run,.prose h5 .cap-run,.prose h6 .cap-run{
+  font-size:calc(1em * var(--cap-scale,1));
+}
+/* The document title tunes its capital proportions independently of H1-H6. */
+.prose h1.doc-heading .cap-run{font-size:calc(1em * var(--title-cap-scale,1))}
+
+/* EB Garamond is a text serif whose display cuts look heavy under generic
+   sans weights and negative tracking, so relax those while preserving the
+   shared sizes and vertical rhythm. Its cap height is also shorter than the
+   sans faces (0.65 em vs ~0.70-0.74 em), so headings get a slight optical
+   scale bump; this preserves relative hierarchy because it applies to all
+   heading levels through the shared em-based sizes. Only the per-level
+   defaults change here — saved Settings overrides still win through the
+   shared rule above. */
+html[data-head=ebgaramond] .prose h1,
+html[data-head=ebgaramond] .prose h2,
+html[data-head=ebgaramond] .prose h3,
+html[data-head=ebgaramond] .prose h4,
+html[data-head=ebgaramond] .prose h5,
+html[data-head=ebgaramond] .prose h6{font-size:calc(var(--hs,1em) * var(--head-scale,1) * 1.08)}
+html[data-head=ebgaramond] .prose h1{--hw:640;--hlh:1.06;--hsp:-.006em}
+html[data-head=ebgaramond] .prose h2{--hw:620;--hlh:1.22;--hsp:-.012em}
+html[data-head=ebgaramond] .prose h3,
+html[data-head=ebgaramond] .prose h4,
+html[data-head=ebgaramond] .prose h5{--hw:600;--hsp:-.004em}
+html[data-head=ebgaramond] .prose h6{--hw:560;--hsp:.002em}
+html[data-head=ebgaramond] .prose h1.doc-heading{font-size:calc(var(--title-size,48px) * 1.08)}
 .prose p{margin:0 0 var(--para-gap)}
 .prose a{color:var(--accent-text);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--accent-text) 35%,transparent)}
 .prose a:hover{border-bottom-color:var(--accent-text)}
-.prose strong{font-weight:700}
+/* Markdown strong uses a consistent 600 baseline across body font choices.
+   In dark mode its dedicated variable keeps emphasis brighter than body copy;
+   light mode inherits the normal text color unchanged. */
+.prose strong{font-weight:600;color:var(--prose-strong)}
 .prose ul,.prose ol{margin:0 0 var(--para-gap);padding-left:1.4em}
-.prose li{margin:.32em 0}
+.prose li{margin:var(--list-gap) 0}
 .prose li::marker{color:var(--text-3)}
 .prose li>ul,.prose li>ol{margin:.32em 0}
 .prose ul.contains-task-list{list-style:none;padding-left:.2em}
@@ -630,7 +708,7 @@ html[data-theme=light] .prose a code{
 @keyframes rise{from{opacity:0;transform:translateY(8px) scale(.99)}to{opacity:1;transform:none}}
 
 #settings{
-  display:flex;width:min(880px,100%);height:min(620px,100%);
+  display:flex;width:min(1020px,100%);height:min(680px,100%);
   background:var(--surface);border:1px solid var(--border);border-radius:16px;
   box-shadow:var(--shadow-lg);overflow:hidden;animation:rise .18s cubic-bezier(.2,.7,.3,1);
 }
@@ -639,6 +717,25 @@ html[data-theme=light] .prose a code{
   width:218px;flex:none;background:var(--panel);border-right:1px solid var(--border);
   display:flex;flex-direction:column;padding:16px 10px;gap:2px;
 }
+/* Fine-tuning disclosure inside a typography group: the typeface row above
+   stays visible while the detailed controls fold behind this compact summary,
+   keeping Body and Headings parallel and the panel short by default. */
+details.sub-collapse>summary{list-style:none;cursor:pointer;user-select:none;
+  display:flex;align-items:center;gap:7px;padding:10px 0;
+  font-size:11.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--text-3);transition:color var(--speed)}
+details.sub-collapse>summary:hover{color:var(--text)}
+details.sub-collapse>summary::-webkit-details-marker{display:none}
+details.sub-collapse[open]>summary{border-bottom:1px solid var(--border-soft)}
+.gt-caret{width:0;height:0;border-left:4px solid transparent;
+  border-right:4px solid transparent;border-top:5px solid currentColor;
+  transition:transform var(--speed)}
+details.sub-collapse[open]>summary .gt-caret{transform:rotate(180deg)}
+/* Sub-headers inside a fine-tune disclosure separate the document-title
+   controls from the H1-H6 hierarchy controls. */
+.sub-title{font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-3);margin:16px 0 2px}
+.sub-title:first-of-type{margin-top:8px}
 .set-rail h2{font-size:14px;font-weight:700;letter-spacing:-.01em;margin:0 0 12px;padding:0 8px}
 .cat{
   display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;
@@ -702,7 +799,7 @@ select.control:hover{border-color:var(--text-3)}
   background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.2);
 }
 
-.slider{display:flex;align-items:center;gap:11px;min-width:236px}
+.slider{display:flex;align-items:center;gap:11px;min-width:min(320px,34vw)}
 .slider input[type=range]{flex:1;appearance:none;height:4px;border-radius:99px;background:var(--panel-hi);outline:none}
 .slider input[type=range]::-webkit-slider-thumb{
   appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);

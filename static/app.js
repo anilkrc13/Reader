@@ -38,7 +38,10 @@ const DEFAULTS = {
   theme: "auto", accent: "clay", paper: "cream", paperDark: "ink", side: "left",
   /* reading */
   bodyFont: "lora", headFont: "poppins",
-  fontSize: 16.5, lineHeight: 1.75, measure: 65, paraGap: 1.1,
+  fontSize: 16.5, bodyWeight: 400, lineHeight: 1.75, measure: 65, paraGap: 1.1, listGap: .32,
+  titleSize: 48, titleWeight: 700, titleLineHeight: 1.08,
+  titleSpacing: -.035, titleCapScale: 1, headSizeScale: 1, headCapScale: 1, headWeight: null, headLineHeight: null,
+  headSpacing: null, headGap: null,
   /* code */
   codeTheme: "brand", monoFont: "system", codeScale: 0.82, codeWrap: false,
   /* editor */
@@ -57,7 +60,10 @@ const SESSION_DEFAULTS = {
   pinned: null, pinnedOpen: true,   // null = not seeded yet
 };
 
-const NUMERIC = new Set(["fontSize", "lineHeight", "measure", "paraGap", "codeScale",
+const NUMERIC = new Set(["fontSize", "bodyWeight", "lineHeight", "measure", "paraGap", "listGap",
+                         "titleSize", "titleWeight", "titleLineHeight", "titleSpacing", "titleCapScale",
+                         "headSizeScale", "headCapScale", "headWeight", "headLineHeight", "headSpacing",
+                         "headGap", "codeScale",
                          "editorSize", "tabSize", "recentCount", "watchMs", "width"]);
 
 /* Line width is a percentage of the reading pane, so it follows the window
@@ -80,13 +86,18 @@ const BODY_FONTS = [
   ["lora", "Lora — serif", 'Lora,Georgia,serif'],
   ["sourceserif", "Source Serif 4 — serif", '"Source Serif 4",Georgia,serif'],
   ["georgia", "Georgia — system serif", 'Georgia,"Times New Roman",serif'],
+  ["figtree", "Figtree — sans", 'Figtree,' + SANS_SYSTEM],
+  ["satoshi", "Satoshi — sans", 'Satoshi,' + SANS_SYSTEM],
   ["inter", "Inter — sans", 'Inter,' + SANS_SYSTEM],
   ["poppins", "Poppins — sans", 'Poppins,' + SANS_SYSTEM],
   ["system", "System sans", SANS_SYSTEM],
 ];
 const HEAD_FONTS = [
   ["poppins", "Poppins", 'Poppins,' + SANS_SYSTEM],
+  ["figtree", "Figtree", 'Figtree,' + SANS_SYSTEM],
+  ["satoshi", "Satoshi", 'Satoshi,' + SANS_SYSTEM],
   ["inter", "Inter", 'Inter,' + SANS_SYSTEM],
+  ["ebgaramond", "EB Garamond", '"EB Garamond",Georgia,serif'],
   ["lora", "Lora", 'Lora,Georgia,serif'],
   ["sourceserif", "Source Serif 4", '"Source Serif 4",Georgia,serif'],
   ["system", "System sans", SANS_SYSTEM],
@@ -368,7 +379,11 @@ function applySettings() {
                  textFor(accent, /^#[0-9a-f]{6}$/i.test(paper) ? paper : "#faf9f5"));
 
   const body = fontStack(BODY_FONTS, S.bodyFont);
+  root.dataset.body = S.bodyFont;
   st.setProperty("--font-body", body);
+  st.setProperty("--fw-body", String(S.bodyWeight));
+  const headFontKey = S.headFont === "match" ? S.bodyFont : S.headFont;
+  root.dataset.head = headFontKey;
   st.setProperty("--font-head", S.headFont === "match" ? body : fontStack(HEAD_FONTS, S.headFont));
   const mono = fontStack(MONO_FONTS, S.monoFont);
   st.setProperty("--font-mono", mono);
@@ -378,6 +393,20 @@ function applySettings() {
   st.setProperty("--lh-body", String(S.lineHeight));
   st.setProperty("--measure", S.measure + "%");
   st.setProperty("--para-gap", S.paraGap + "em");
+  st.setProperty("--list-gap", S.listGap + "em");
+  st.setProperty("--title-size", S.titleSize + "px");
+  st.setProperty("--title-weight", String(S.titleWeight));
+  st.setProperty("--title-lh", String(S.titleLineHeight));
+  st.setProperty("--title-spacing", S.titleSpacing + "em");
+  /* Heading-group overrides: `null` means "use the built-in hierarchy default".
+     Saved personal values replace the defaults consistently for every font. */
+  st.setProperty("--head-scale", S.headSizeScale != null ? String(S.headSizeScale) : "");
+  st.setProperty("--cap-scale", S.headCapScale != null ? String(S.headCapScale) : "");
+  st.setProperty("--title-cap-scale", S.titleCapScale != null ? String(S.titleCapScale) : "");
+  st.setProperty("--head-weight-override", S.headWeight != null ? String(S.headWeight) : "");
+  st.setProperty("--head-lh-override", S.headLineHeight != null ? String(S.headLineHeight) : "");
+  st.setProperty("--head-spacing-override", S.headSpacing != null ? (S.headSpacing + "em") : "");
+  st.setProperty("--head-gap-override", S.headGap != null ? (S.headGap + "em") : "");
   st.setProperty("--fs-code", S.codeScale + "em");
   st.setProperty("--fs-editor", S.editorSize + "px");
   st.setProperty("--tab-size", String(S.tabSize));
@@ -469,6 +498,40 @@ function kindOf(path) {
 }
 const extOf = (path) => (path.split(".").pop() || "").toLowerCase();
 
+/* Letter proportions: browsers expose no way to retune a font's own
+   cap-to-x-height ratio within one text run (font-size-adjust rescales every
+   glyph uniformly), so capital runs in headings are wrapped once at render
+   time and scaled around the baseline through the --cap-scale variable.
+   Moving the slider therefore needs no re-render. Code spans keep their
+   exact text. */
+const CAP_RUN = /\p{Lu}+/gu;
+function wrapCapRuns(rootEl) {
+  rootEl.querySelectorAll("h1,h2,h3,h4,h5,h6").forEach((h) => {
+    const walker = document.createTreeWalker(h, NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) => n.parentElement.closest("code,pre")
+        ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+    });
+    const nodes = [];
+    for (let n; (n = walker.nextNode()); ) {
+      if (/\p{Lu}/u.test(n.data)) nodes.push(n);
+    }
+    nodes.forEach((n) => {
+      const frag = document.createDocumentFragment();
+      let last = 0;
+      for (const m of n.data.matchAll(CAP_RUN)) {
+        if (m.index > last) frag.append(n.data.slice(last, m.index));
+        const span = document.createElement("span");
+        span.className = "cap-run";
+        span.textContent = m[0];
+        frag.append(span);
+        last = m.index + m[0].length;
+      }
+      if (last < n.data.length) frag.append(n.data.slice(last));
+      n.replaceWith(frag);
+    });
+  });
+}
+
 function render(text) {
   state.lineAnchors = null;
   invalidateSyncMaps();
@@ -482,6 +545,12 @@ function render(text) {
     ALLOW_DATA_ATTR: false,
   });
   el.preview.innerHTML = html;
+  /* A document that opens with an H1 is treating it as its title. Mark it
+     separately so the title can be displayed prominently without redefining
+     the shared H1-H6 hierarchy used by the rest of the document. */
+  const firstEl = el.preview.firstElementChild;
+  if (firstEl && firstEl.tagName === "H1") firstEl.classList.add("doc-heading");
+  wrapCapRuns(el.preview);
 
   const dir = state.file ? state.file.dir : "";
   const seen = new Set();
@@ -1820,16 +1889,31 @@ fillSelect($("sel-mono"), MONO_FONTS);
 function labelFor(key, v) {
   switch (key) {
     case "fontSize": case "editorSize": return v + " px";
+    case "bodyWeight": return String(v);
     case "lineHeight": return v.toFixed(2);
     case "measure": return v >= MEASURE.max ? "Full" : v + "%";
     case "paraGap": return v.toFixed(2) + " em";
+    case "listGap": return v.toFixed(2) + " em";
+    case "titleSize": return v + " px";
+    case "titleWeight": return String(v);
+    case "titleLineHeight": return v.toFixed(2);
+    case "titleSpacing": return v.toFixed(3) + " em";
+    case "headSizeScale": return Math.round(v * 100) + " %";
+    case "headCapScale": return Math.round(v * 100) + " %";
+    case "titleCapScale": return Math.round(v * 100) + " %";
+    case "headWeight": return v == null ? "Default" : String(v);
+    case "headLineHeight": return v == null ? "Default" : Number(v).toFixed(2);
+    case "headSpacing": return v == null ? "Default" : Number(v).toFixed(3) + " em";
+    case "headGap": return v == null ? "Default" : Number(v).toFixed(2) + " em";
     case "codeScale": return Math.round(v * 100) + " %";
     default: return String(v);
   }
 }
 
 function setValue(key, value) {
-  S[key] = NUMERIC.has(key) ? Number(value) : value;
+  /* null clears an optional override (the "Default" position of null-min
+     sliders); Number(null) would silently turn that into 0. */
+  S[key] = value == null ? null : NUMERIC.has(key) ? Number(value) : value;
   applySettings();
   savePrefs();
   syncDialog();
@@ -1861,9 +1945,17 @@ function syncDialog() {
   });
   document.querySelectorAll('input[type=range][data-set]').forEach((r) => {
     const key = r.dataset.set;
-    r.value = String(S[key]);
+    /* "null-min" sliders use their minimum value to mean the built-in default.
+       This gives optional heading overrides a natural reset position. */
+    const nullMin = r.closest(".slider")?.dataset.nullmin === key;
+    if (nullMin && S[key] == null) r.value = r.min;
+    else r.value = String(S[key]);
     const out = document.querySelector(`.val[data-val="${key}"]`);
-    if (out) out.textContent = labelFor(key, Number(S[key]));
+    if (out) {
+      if (nullMin && S[key] == null && Number(r.value) === Number(r.min)) {
+        out.textContent = "Default";
+      } else out.textContent = labelFor(key, Number(r.value));
+    }
   });
   document.querySelectorAll(".switch[data-set]").forEach((sw) => {
     sw.setAttribute("aria-checked", String(!!S[sw.dataset.set]));
@@ -1903,7 +1995,13 @@ el.dialog.addEventListener("click", (ev) => {
 });
 el.dialog.addEventListener("input", (ev) => {
   const r = ev.target.closest("input[type=range][data-set]");
-  if (r) { setValue(r.dataset.set, r.value); return; }
+  if (r) {
+    const key = r.dataset.set;
+    const nullMin = r.closest(".slider")?.dataset.nullmin === key;
+    /* Sliding off the minimum clears an override and returns to built-in defaults. */
+    setValue(key, nullMin && Number(r.value) <= Number(r.min) ? null : r.value);
+    return;
+  }
   const sel = ev.target.closest("select[data-set]");
   if (sel) setValue(sel.dataset.set, sel.value);
 });
@@ -2006,28 +2104,47 @@ el.tree.addEventListener("dragstart", (ev) => {
 function clearTreeDropMarks() {
   el.tree.querySelectorAll(".drop-target").forEach((n) => n.classList.remove("drop-target"));
 }
+/* A file drop belongs to the folder showing it. If the row under the cursor
+   is itself a folder, that folder is the target; otherwise the nearest
+   visible, loaded parent folder accepts the drop, so users do not have to
+   thread the pointer onto the narrow folder heading. */
+function treeDropFolder(row) {
+  if (!row) return null;
+  if (row.dataset.type === "dir") return row.dataset.path;
+  const parentLi = row.closest("li")?.parentElement?.closest("li");
+  if (!parentLi) return null;
+  const parentRow = parentLi.querySelector(":scope > .rowline > .row[data-type='dir']");
+  const kids = parentLi.querySelector(":scope > ul");
+  if (!parentRow || !kids || kids.hidden) return null;
+  return parentRow.dataset.path;
+}
 el.tree.addEventListener("dragover", (ev) => {
-  const row = ev.target.closest('.row[data-type="dir"]');
-  if (!row || ![...ev.dataTransfer.types].includes(FILE_MIME)) {
+  if (![...ev.dataTransfer.types].includes(FILE_MIME)) {
+    clearTreeDropMarks();
+    return;
+  }
+  const folderPath = treeDropFolder(ev.target.closest(".row[data-path]"));
+  if (!folderPath) {
     clearTreeDropMarks();
     return;
   }
   ev.preventDefault();
   ev.dataTransfer.dropEffect = "move";
   clearTreeDropMarks();
-  row.classList.add("drop-target");
+  el.tree.querySelector(`.row[data-path="${CSS.escape(folderPath)}"]`)
+    .classList.add("drop-target");
 });
 el.tree.addEventListener("dragleave", (ev) => {
-  const row = ev.target.closest('.row[data-type="dir"]');
+  const row = ev.target.closest(".row[data-path]");
   if (row && !row.contains(ev.relatedTarget)) row.classList.remove("drop-target");
 });
 el.tree.addEventListener("drop", (ev) => {
-  const row = ev.target.closest('.row[data-type="dir"]');
   const path = ev.dataTransfer.getData(FILE_MIME);
-  if (!row || !path) return;
+  const folderPath = treeDropFolder(ev.target.closest(".row[data-path]"));
+  if (!path || !folderPath) return;
   ev.preventDefault();
   clearTreeDropMarks();
-  moveFileToFolder(path, row.dataset.path);
+  moveFileToFolder(path, folderPath);
 });
 el.tree.addEventListener("dragend", clearTreeDropMarks);
 el.tree.addEventListener("contextmenu", (ev) => {
