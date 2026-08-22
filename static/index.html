@@ -377,42 +377,132 @@
           </div>
 
           <div class="group">
-            <p class="group-title">Typeface</p>
+            <p class="group-title">Body</p>
             <div class="set-row">
-              <div class="set-label"><b>Body text</b><span>Serif faces read more comfortably in long documents.</span></div>
+              <div class="set-label"><b>Typeface</b><span>Serif faces read more comfortably in long documents.</span></div>
               <div class="set-control"><select class="control" data-set="bodyFont" id="sel-body"></select></div>
             </div>
+            <details class="sub-collapse">
+              <summary>Fine-tune<span class="gt-caret" aria-hidden="true"></span></summary>
             <div class="set-row">
-              <div class="set-label"><b>Headings</b><span>Poppins is the Anthropic heading face.</span></div>
+              <div class="set-label"><b>Weight</b><span>Regular is 400. Variable fonts render every step; others snap to their nearest cut.</span></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="bodyWeight" min="300" max="600" step="10" aria-label="Body text weight">
+                <span class="val" data-val="bodyWeight"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Text size</b></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="fontSize" min="13" max="26" step="0.5" aria-label="Body text size">
+                <span class="val" data-val="fontSize"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Line height</b><span>Vertical rhythm of body text.</span></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="lineHeight" min="1.3" max="2.2" step="0.05" aria-label="Body line height">
+                <span class="val" data-val="lineHeight"></span></div></div>
+            </div>
+            </details>
+          </div>
+
+          <div class="group">
+            <p class="group-title">Headings</p>
+            <div class="set-row">
+              <div class="set-label"><b>Typeface</b><span>Poppins is the Anthropic heading face.</span></div>
               <div class="set-control"><select class="control" data-set="headFont" id="sel-head"></select></div>
             </div>
+            <details class="sub-collapse">
+              <summary>Fine-tune<span class="gt-caret" aria-hidden="true"></span></summary>
+            <p class="sub-title">Document title — the H1 a document opens with</p>
+            <div class="set-row">
+              <div class="set-label"><b>Size</b></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="titleSize" min="28" max="72" step="1" aria-label="Title size">
+                <span class="val" data-val="titleSize"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Weight</b></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="titleWeight" min="400" max="800" step="10" aria-label="Title weight">
+                <span class="val" data-val="titleWeight"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Line height</b></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="titleLineHeight" min="0.95" max="1.4" step="0.01" aria-label="Title line height">
+                <span class="val" data-val="titleLineHeight"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Letter spacing</b><span>Fine control over capital fit.</span></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="titleSpacing" min="-0.05" max="0.02" step="0.001" aria-label="Title letter spacing">
+                <span class="val" data-val="titleSpacing"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Letter proportions</b><span>Height of the title's capitals relative to lowercase.</span></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="titleCapScale" min="0.85" max="1.15" step="0.01" aria-label="Title capital-to-lowercase proportion">
+                <span class="val" data-val="titleCapScale"></span></div></div>
+            </div>
+            <p class="sub-title">H1–H6 — every heading in the document body</p>
+            <div class="set-row">
+              <div class="set-label"><b>Scale</b><span>Overall size multiplier.</span></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="headSizeScale" min="0.8" max="1.3" step="0.01" aria-label="Heading scale">
+                <span class="val" data-val="headSizeScale"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Letter proportions</b><span>Height of capitals relative to lowercase. 100&nbsp;% keeps the typeface's own proportions.</span></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="headCapScale" min="0.85" max="1.15" step="0.01" aria-label="Capital-to-lowercase proportion">
+                <span class="val" data-val="headCapScale"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Weight</b><span>Leave at minimum for built-in defaults.</span></div>
+              <div class="set-control"><div class="slider" data-nullmin="headWeight">
+                <input type="range" data-set="headWeight" min="390" max="800" step="10" aria-label="Heading weight override">
+                <span class="val" data-val="headWeight"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Line height</b><span>Leave at minimum for built-in defaults.</span></div>
+              <div class="set-control"><div class="slider" data-nullmin="headLineHeight">
+                <input type="range" data-set="headLineHeight" min="0.9" max="1.6" step="0.01" aria-label="Heading line-height override">
+                <span class="val" data-val="headLineHeight"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Letter spacing</b><span>Leave at minimum for built-in defaults.</span></div>
+              <div class="set-control"><div class="slider" data-nullmin="headSpacing">
+                <input type="range" data-set="headSpacing" min="-0.06" max="0.03" step="0.001" aria-label="Heading letter-spacing override">
+                <span class="val" data-val="headSpacing"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Gap above</b><span>Vertical space above headings; leave at minimum for built-in defaults.</span></div>
+              <div class="set-control"><div class="slider" data-nullmin="headGap">
+                <input type="range" data-set="headGap" min="0" max="3" step="0.05" aria-label="Heading margin override">
+                <span class="val" data-val="headGap"></span></div></div>
+            </div>
+            </details>
           </div>
 
           <div class="group">
             <p class="group-title">Rhythm</p>
             <div class="set-row">
-              <div class="set-label"><b>Text size</b></div>
+              <div class="set-label"><b>Paragraph spacing</b></div>
               <div class="set-control"><div class="slider">
-                <input type="range" data-set="fontSize" min="13" max="26" step="0.5" aria-label="Text size">
-                <span class="val" data-val="fontSize"></span></div></div>
+                <input type="range" data-set="paraGap" min="0.5" max="2.2" step="0.05" aria-label="Paragraph spacing">
+                <span class="val" data-val="paraGap"></span></div></div>
             </div>
             <div class="set-row">
-              <div class="set-label"><b>Line height</b></div>
+              <div class="set-label"><b>List spacing</b><span>Vertical gap between list items.</span></div>
               <div class="set-control"><div class="slider">
-                <input type="range" data-set="lineHeight" min="1.3" max="2.2" step="0.05" aria-label="Line height">
-                <span class="val" data-val="lineHeight"></span></div></div>
+                <input type="range" data-set="listGap" min="0.05" max="1.2" step="0.01" aria-label="List spacing">
+                <span class="val" data-val="listGap"></span></div></div>
             </div>
             <div class="set-row">
               <div class="set-label"><b>Line width</b><span>Around 65–75 characters per line is the comfortable range.</span></div>
               <div class="set-control"><div class="slider">
                 <input type="range" data-set="measure" min="30" max="100" step="5" aria-label="Line width">
                 <span class="val" data-val="measure"></span></div></div>
-            </div>
-            <div class="set-row">
-              <div class="set-label"><b>Paragraph spacing</b></div>
-              <div class="set-control"><div class="slider">
-                <input type="range" data-set="paraGap" min="0.5" max="2.2" step="0.05" aria-label="Paragraph spacing">
-                <span class="val" data-val="paraGap"></span></div></div>
             </div>
           </div>
         </section>

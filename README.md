@@ -233,6 +233,9 @@ Bundled locally in `static/`, licences in `licenses/`:
 [marked](https://marked.js.org) (markdown), [DOMPurify](https://github.com/cure53/DOMPurify)
 (sanitising), [highlight.js](https://highlightjs.org) (code), and the
 [Poppins](https://fonts.google.com/specimen/Poppins),
+[EB Garamond](https://fonts.google.com/specimen/EB+Garamond),
+[Figtree](https://fonts.google.com/specimen/Figtree),
+[Satoshi](https://www.fontshare.com/fonts/satoshi) (ITF Free Font License),
 [Lora](https://fonts.google.com/specimen/Lora),
 [Inter](https://fonts.google.com/specimen/Inter),
 [Source Serif 4](https://fonts.google.com/specimen/Source+Serif+4) and
