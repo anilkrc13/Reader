@@ -574,14 +574,27 @@ function render(text) {
     a.dataset.local = absolutise(href.split("#")[0], dir);
   });
   el.preview.querySelectorAll("li > input[type=checkbox]").forEach((box) => {
-    box.disabled = true;
     const item = box.parentElement;
     item.classList.add("task-list-item");
+    /* marked ships task checkboxes with `disabled` set, so clearing the
+       attribute is what actually makes them clickable -- simply not disabling
+       them here leaves the renderer's own attribute in place. */
+    box.disabled = false;
     /* marked emits "<input> text", and that leading space is added to the gap
        the stylesheet already sets. It also has nowhere sensible to sit once the
        checkbox is positioned out of the flow, so it goes. */
     const after = box.nextSibling;
     if (after && after.nodeType === 3) after.data = after.data.replace(/^\s+/, "");
+    /* The item's own words are gathered into one span, stopping at any list
+       nested beneath it, so a finished task can be dimmed and struck through
+       without dragging its sub-items into the same treatment. */
+    const own = document.createElement("span");
+    own.className = "task-text";
+    while (box.nextSibling && !/^(?:UL|OL)$/.test(box.nextSibling.nodeName)) {
+      own.appendChild(box.nextSibling);
+    }
+    item.insertBefore(own, box.nextSibling);
+    item.classList.toggle("done", box.checked);
     const list = item.parentElement;
     if (list) list.classList.add("contains-task-list");
   });
@@ -2160,6 +2173,15 @@ el.tree.addEventListener("contextmenu", (ev) => {
   openRowMenu({x: ev.clientX, y: ev.clientY}, btn.dataset.path, btn.dataset.type);
 });
 
+el.preview.addEventListener("change", (ev) => {
+  const box = ev.target;
+  if (!(box instanceof HTMLInputElement) || box.type !== "checkbox") return;
+  if (!box.parentElement || !box.parentElement.classList.contains("task-list-item")) return;
+  if (toggleTask(box)) return;
+  box.checked = !box.checked;
+  toast("That task could not be matched to a line in the file.", true);
+});
+
 el.preview.addEventListener("click", (ev) => {
   const a = ev.target.closest("a");
   if (!a) return;
@@ -2420,6 +2442,56 @@ function commitQuickEdit(next) {
   hideFmtBar();
   const sel = window.getSelection();
   if (sel) sel.removeAllRanges();
+}
+
+/* Task lists are live in Preview. The nth checkbox in the rendered document is
+   the nth task line in the source, so a click can flip one character in place.
+   "[ ]" and "[x]" are the same width, which is the whole reason this is cheap:
+   every byte offset after it is unchanged, so the scroll anchors stay valid and
+   nothing has to be re-rendered. */
+const TASK_LINE = /^(\s*(?:[-*+]|\d+[.)])\s+\[)([ xX])(\])/;
+
+/* Source lines that marked will have turned into a checkbox. Fenced code is
+   skipped: a "- [ ]" inside a fence is text and renders no checkbox, so
+   counting it would misalign every toggle after it. */
+function taskLines(text) {
+  const out = [];
+  let fence = "";
+  text.split("\n").forEach((line, i) => {
+    const edge = line.match(/^\s*(`{3,}|~{3,})/);
+    if (edge) {
+      if (!fence) fence = edge[1][0];
+      else if (edge[1][0] === fence) fence = "";
+      return;
+    }
+    if (!fence && TASK_LINE.test(line)) out.push(i);
+  });
+  return out;
+}
+
+/* Returns false when the click could not be mapped to a source line, so the
+   caller can put the checkbox back rather than show a state the file does
+   not have. */
+function toggleTask(box) {
+  if (!state.file || state.file.kind !== "md") return false;
+  const boxes = [...el.preview.querySelectorAll(".task-list-item > input[type=checkbox]")];
+  const nth = boxes.indexOf(box);
+  if (nth < 0) return false;
+  const text = el.editor.value;
+  const at = taskLines(text)[nth];
+  if (at === undefined) return false;
+
+  const lines = text.split("\n");
+  lines[at] = lines[at].replace(TASK_LINE,
+    (_, open, _mark, close) => open + (box.checked ? "x" : " ") + close);
+
+  historySettle();                  // fold pending keystrokes in before this lands
+  el.editor.value = lines.join("\n");
+  setDirty(el.editor.value !== state.saved);
+  historyPush();
+  if (state.dirty) scheduleAutosave();
+  box.parentElement.classList.toggle("done", box.checked);
+  return true;
 }
 
 const USE_EDIT_MODE = " Use Edit mode for this one.";
