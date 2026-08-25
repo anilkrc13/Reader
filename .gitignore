@@ -6,6 +6,10 @@ preferences.json
 
 # Local Claude Code settings
 .claude/settings.local.json
+.claude/
+
+# Local Playwright inspection artifacts
+.playwright-cli/
 
 # Python
 __pycache__/
