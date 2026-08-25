@@ -560,7 +560,31 @@ html[data-head=ebgaramond] .prose h1.doc-heading{font-size:calc(var(--title-size
    exactly where its parent's text began, so the hierarchy read as flat. */
 .prose ul.contains-task-list{list-style:none;padding-left:0}
 .prose .task-list-item{display:block;position:relative;padding-left:1.7em}
-.prose .task-list-item>input[type=checkbox]{position:absolute;left:0;top:.28em;margin:0}
+.prose .task-list-item>input[type=checkbox]{
+  position:absolute;left:0;top:.28em;margin:0;cursor:pointer;
+  transition:background-color .16s ease,border-color .16s ease,transform .12s ease;
+}
+/* A forgiving target. The box sits at left:0 and the text begins at 1.7em, so
+   this reaches out for the pointer without ever covering a word. */
+.prose .task-list-item>input[type=checkbox]::before{
+  content:"";position:absolute;inset:-7px;border-radius:.55em;
+}
+.prose .task-list-item>input[type=checkbox]:hover{border-color:var(--accent)}
+.prose .task-list-item>input[type=checkbox]:active{transform:scale(.88)}
+.prose .task-list-item>input[type=checkbox]:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px;
+}
+/* A finished task reads as finished. Dimmed with opacity rather than a colour
+   swap: a transitioned `color` whose value comes from a custom property does not
+   re-interpolate when the token changes, so switching theme left completed text
+   at the old palette's grey -- and dark-grey on a dark paper is unreadable.
+   Opacity interpolates on its own and carries the strike along with the text.
+   .72 is the lowest step that keeps completed copy past 4.5:1 on every paper --
+   sepia is the binding one, at 4.87:1, where .62 fell to 3.7:1. */
+.prose .task-list-item>.task-text{transition:opacity .18s ease}
+.prose .task-list-item.done>.task-text{
+  opacity:.72;text-decoration:line-through;text-decoration-thickness:1px;
+}
 /* The native control ignores most styling and renders a washed-out grey square
    a couple of pixels smaller than the surrounding text. Drawing it keeps it
    proportional to the type and uses the accent pair whose contrast the theme
@@ -578,11 +602,16 @@ html[data-head=ebgaramond] .prose h1.doc-heading{font-size:calc(var(--title-size
   background:var(--panel);
 }
 .prose input[type=checkbox]:checked{background:var(--accent-fill);border-color:var(--accent-fill)}
-.prose input[type=checkbox]:checked::after{
+/* The tick is always present and scales in, so checking something has a bit of
+   snap to it. The overshoot curve is what makes it feel like a press rather
+   than a repaint. The global prefers-reduced-motion rule flattens all of it. */
+.prose input[type=checkbox]::after{
   content:"";position:absolute;left:31%;top:15%;width:29%;height:53%;
   border:solid var(--accent-on);border-width:0 .13em .13em 0;
-  transform:rotate(45deg);
+  transform:rotate(45deg) scale(.4);opacity:0;
+  transition:opacity .12s ease,transform .2s cubic-bezier(.2,1.5,.45,1);
 }
+.prose input[type=checkbox]:checked::after{transform:rotate(45deg) scale(1);opacity:1}
 .prose blockquote{
   margin:1.3em 0;padding:.1em 0 .1em 1.15em;border-left:3px solid var(--accent);
   color:var(--text-2);font-style:italic;
