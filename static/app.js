@@ -575,8 +575,14 @@ function render(text) {
   });
   el.preview.querySelectorAll("li > input[type=checkbox]").forEach((box) => {
     box.disabled = true;
-    box.parentElement.classList.add("task-list-item");
-    const list = box.parentElement.parentElement;
+    const item = box.parentElement;
+    item.classList.add("task-list-item");
+    /* marked emits "<input> text", and that leading space is added to the gap
+       the stylesheet already sets. It also has nowhere sensible to sit once the
+       checkbox is positioned out of the flow, so it goes. */
+    const after = box.nextSibling;
+    if (after && after.nodeType === 3) after.data = after.data.replace(/^\s+/, "");
+    const list = item.parentElement;
     if (list) list.classList.add("contains-task-list");
   });
   el.preview.querySelectorAll("pre code").forEach((block) => {

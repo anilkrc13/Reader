@@ -553,9 +553,36 @@ html[data-head=ebgaramond] .prose h1.doc-heading{font-size:calc(var(--title-size
 .prose li{margin:var(--list-gap) 0}
 .prose li::marker{color:var(--text-3)}
 .prose li>ul,.prose li>ol{margin:.32em 0}
-.prose ul.contains-task-list{list-style:none;padding-left:.2em}
-.prose .task-list-item{display:flex;gap:.55em;align-items:baseline}
-.prose input[type=checkbox]{accent-color:var(--accent);margin:0;transform:translateY(1px)}
+/* Task lists. The checkbox is lifted out of the text flow and hung in the
+   item's own padding, which fixes two things at once: a wrapped line now aligns
+   under the text instead of under the box, and a nested list starts from the
+   text edge rather than landing on it. Before this, a sub-list indented to
+   exactly where its parent's text began, so the hierarchy read as flat. */
+.prose ul.contains-task-list{list-style:none;padding-left:0}
+.prose .task-list-item{display:block;position:relative;padding-left:1.7em}
+.prose .task-list-item>input[type=checkbox]{position:absolute;left:0;top:.28em;margin:0}
+/* The native control ignores most styling and renders a washed-out grey square
+   a couple of pixels smaller than the surrounding text. Drawing it keeps it
+   proportional to the type and uses the accent pair whose contrast the theme
+   already guarantees. */
+.prose input[type=checkbox]{
+  appearance:none;-webkit-appearance:none;
+  /* the tick is an absolutely-positioned ::after, so the box has to be its own
+     containing block -- a checkbox outside a task list has no positioned parent */
+  position:relative;
+  width:1.02em;height:1.02em;flex:none;
+  /* --border is only 1.21:1 against the paper, so an unchecked box all but
+     disappeared. --text-3 reaches 3.26:1, the threshold for a UI component,
+     while staying quieter than the text it sits beside. */
+  border:1.5px solid var(--text-3);border-radius:.28em;
+  background:var(--panel);
+}
+.prose input[type=checkbox]:checked{background:var(--accent-fill);border-color:var(--accent-fill)}
+.prose input[type=checkbox]:checked::after{
+  content:"";position:absolute;left:31%;top:15%;width:29%;height:53%;
+  border:solid var(--accent-on);border-width:0 .13em .13em 0;
+  transform:rotate(45deg);
+}
 .prose blockquote{
   margin:1.3em 0;padding:.1em 0 .1em 1.15em;border-left:3px solid var(--accent);
   color:var(--text-2);font-style:italic;
