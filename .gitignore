@@ -28,3 +28,4 @@ __pycache__/
 # signature changes on every build, so each rebuild you commit adds that much
 # again to history rather than diffing against the last one.
 !/install/Reader.app
+install/Reader.app/Contents/_CodeSignature/
