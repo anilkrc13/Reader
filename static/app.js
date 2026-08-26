@@ -49,7 +49,7 @@ const DEFAULTS = {
   spellcheck: false, syncScroll: true, wordCount: true,
   /* files and watching */
   recentCount: 10, autoSave: true, autoRefresh: true, watchMs: 2000, watchToast: true,
-  showAllDirs: false, showAllFiles: false, glass: false,
+  showAllDirs: false, showAllFiles: false, showHidden: false, glass: false,
 };
 
 /* session state that is persisted but is not a "setting" (Reset keeps these) */
@@ -1221,6 +1221,7 @@ const listQuery = (path) => {
   const q = {path};
   if (S.showAllDirs) q.all = "1";
   if (S.showAllFiles) q.files = "1";
+  if (S.showHidden) q.hidden = "1";
   return q;
 };
 
@@ -1938,7 +1939,7 @@ function setValue(key, value) {
   syncDialog();
   if (key === "recentCount") drawRecents();
   if (key === "watchMs" || key === "autoRefresh") restartWatch();
-  if (key === "showAllDirs" || key === "showAllFiles") refreshTree();
+  if (key === "showAllDirs" || key === "showAllFiles" || key === "showHidden") refreshTree();
 }
 
 /* reflect current settings into every control in the dialog */
@@ -2344,6 +2345,13 @@ document.addEventListener("keydown", (ev) => {
   else if (k === "e") { ev.preventDefault(); setMode(root.dataset.mode === "edit" ? "preview" : "edit"); }
   else if (k === "\\") { ev.preventDefault(); toggleSidebar(); }
   else if (k === "f" && ev.ctrlKey && ev.metaKey) { ev.preventDefault(); toggleFullscreen(); }
+  /* ⌘⇧. mirrors Finder's shortcut for hidden files. Shift turns "." into ">"
+     on most layouts, so match the physical key as well as both characters. */
+  else if (ev.shiftKey && (k === "." || k === ">" || ev.code === "Period")) {
+    ev.preventDefault();
+    setValue("showHidden", !S.showHidden);
+    toast(S.showHidden ? "Hidden files shown" : "Hidden files hidden");
+  }
 });
 
 /* ==========================================================================
