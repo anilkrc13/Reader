@@ -182,8 +182,9 @@ def resolve_path(raw: str) -> Path:
     return DOCUMENT_STORE.policy.resolve(raw)
 
 
-def list_dir(path: Path, include_all: bool = False, include_files: bool = False) -> dict:
-    return DOCUMENT_STORE.list_dir(path, include_all, include_files)
+def list_dir(path: Path, include_all: bool = False, include_files: bool = False,
+             include_hidden: bool = False) -> dict:
+    return DOCUMENT_STORE.list_dir(path, include_all, include_files, include_hidden)
 
 
 def read_text_file(path: Path) -> dict:
@@ -387,7 +388,9 @@ class Handler(BaseHTTPRequestHandler):
             if route == "/api/list":
                 show_all = (query.get("all") or ["0"])[0] == "1"
                 show_files = (query.get("files") or ["0"])[0] == "1"
-                return self._json(store.list_dir(store.policy.resolve(arg), show_all, show_files))
+                show_hidden = (query.get("hidden") or ["0"])[0] == "1"
+                return self._json(store.list_dir(store.policy.resolve(arg),
+                                                 show_all, show_files, show_hidden))
             if route == "/api/file":
                 return self._json(store.read_text_file(store.policy.resolve(arg)))
             if route == "/api/stat":

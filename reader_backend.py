@@ -122,7 +122,7 @@ class DocumentStore:
         self.policy = policy
 
     def list_dir(self, path: Path, include_all: bool = False,
-                 include_files: bool = False) -> dict:
+                 include_files: bool = False, include_hidden: bool = False) -> dict:
         if not path.is_dir():
             raise NotADirectoryError(str(path))
         dirs, files, truncated = [], [], False
@@ -132,14 +132,14 @@ class DocumentStore:
                 if len(dirs) + len(files) >= MAX_ENTRIES:
                     truncated = True
                     break
-                if entry.name.startswith("."):
+                if entry.name.startswith(".") and not include_hidden:
                     continue
                 if path == self.policy.home and entry.name in HOME_AUTOSCAN_SKIP:
                     continue
                 child = path / entry.name
                 try:
                     if entry.is_dir():
-                        if include_all or self._has_documents(str(child), deadline):
+                        if include_all or self._has_documents(str(child), deadline, include_hidden):
                             dirs.append({"name": entry.name, "path": str(child), "type": "dir"})
                     elif entry.is_file():
                         supported = child.suffix.lower() in LISTABLE_SUFFIXES
@@ -165,7 +165,7 @@ class DocumentStore:
         }
 
     @staticmethod
-    def _has_documents(start: str, deadline: float) -> bool:
+    def _has_documents(start: str, deadline: float, include_hidden: bool = False) -> bool:
         stack, budget = [(start, 0)], PROBE_NODES
         while stack:
             folder, depth = stack.pop()
@@ -178,7 +178,7 @@ class DocumentStore:
                         if budget <= 0:
                             return True
                         name = entry.name
-                        if name.startswith("."):
+                        if name.startswith(".") and not include_hidden:
                             continue
                         try:
                             if entry.is_file(follow_symlinks=False):
