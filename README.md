@@ -149,13 +149,15 @@ your last document.
 | **Browse** | Click folders to expand them; click a `.md` file to open it. Drag a file onto another folder to move it there. Double-click a folder to make it the top of the tree. The header above the tree works like Finder's title bar: it names the folder you are in, **↑** climbs one level, and clicking the name drops down the chain of enclosing folders. Folders that hold no readable document anywhere inside are left out of the tree — *Files & watching* has a switch to show them. |
 | **Row menu** | Hover any row and press **⋯** (or right-click it). Files offer **Open**, **Rename…** and **Move to Trash…**; folders offer **Browse from here**, **Pin this folder** and **Rename…** — deliberately no delete, since too much can disappear in one click. Deleting a file always asks first and moves it to the macOS Trash, so you can put it back from Finder. Renaming without typing an extension keeps the current one, and the open document follows its own rename. |
 | **Panel side** | The panel icon at the top of the file panel flips it between the left and right edge; the reveal button follows it. The `‹` icon hides the panel and `⌘\` brings it back — or just rest the pointer on that edge and the panel floats out until you leave it, like the Claude app. |
+| **Hidden files** | Names beginning with a dot are left out of the tree. `⇧⌘.` shows them and hides them again, the same as in Finder, and *Files & watching* has the same switch. |
 | **Modes** | **Preview**, **Split** and **Edit**. `⌘E` toggles preview and edit. In split view the two sides scroll together. |
 | **Save** | `⌘S`, or the save button. The orange dot next to the filename means unsaved changes. |
 | **Copy** | The copy icon puts the whole document on the clipboard in two flavours at once: formatted, for rich editors (Word, Docs, mail), and the raw markdown for plain-text targets. Code files copy as plain text. |
 | **Auto-refresh** | While you read, the open document is watched. If something else rewrites it, the app reloads it and keeps your place. If you have unsaved edits it never overwrites them — it shows a bar offering **Reload from disk** or **Keep mine**. |
 | **Refresh** | `⌘R`, or the circular arrow, to reload by hand. |
 | **Full screen** | The corners icon, or `⌃⌘F`. `Esc` leaves it. |
-| **Find** | Your browser's own `⌘F` searches the rendered document. |
+| **Find** | `⌘F` opens a find bar above the document. It highlights every match, counts them, and `⌘G` / `⇧⌘G` — or `↵` / `⇧↵` — step between them; `Esc` closes it. A match is found even where it spans styling, so searching `one two` finds **one** two. There is no toolbar button: the shortcut is the whole interface. |
+| **Find a file** | `⌘F` while the file panel has focus searches names instead, anywhere below the folder you are browsing — including folders you never expanded. Each hit shows the folder holding it, `↑`/`↓` move, `↵` opens it and takes the tree with it. |
 | **Settings** | `⌘,` or the gear. See below. |
 
 ## Settings
@@ -174,8 +176,9 @@ Seven sections, in a dialog laid out like the Claude desktop app:
 - **Editor** — editor typeface and size, tab width, spell check, split-view
   scroll syncing, word count.
 - **Files & watching** — length of the recent list, clearing it, restoring the
-  default pins, auto-refresh on and off, how often to check, and whether a
-  refresh is announced.
+  default pins, showing unsupported files, showing hidden files and folders,
+  auto-refresh on and off, how often to check, and whether a refresh is
+  announced.
 - **Shortcuts** — the full list.
 - **About** — version, where the app and its preferences live.
 
@@ -218,12 +221,29 @@ document's folder, and relative links to other markdown files open in the app.
   Viewer itself.
 - Listed files: markdown (`.md` family), ~40 common code and config types
   (`.py .js .ts .json .yaml .sh .sql .go .rs .java` and friends), `.csv/.tsv`,
-  `.txt` and `.pdf`. Hidden files and folders are skipped. PDFs are read-only
-  and served straight to the browser's built-in viewer, never edited.
+  `.txt` and `.pdf`. Hidden files and folders are skipped unless you ask for
+  them, with the switch in *Files & watching* or `⇧⌘.` from anywhere — Finder's
+  own shortcut. PDFs are read-only and served straight to the browser's
+  built-in viewer, never edited.
 - Deciding whether a folder holds a document means looking inside it. That walk
   stops at six levels deep, at 4000 entries, or after 1.5 seconds for a whole
   listing — and when it is cut short the folder is shown rather than hidden, so
   a document can never become unreachable.
+- Searching for a file by name walks the same way and is bounded the same way:
+  eight levels, 120000 entries, three seconds, 200 results. It goes
+  breadth-first, so when a bound is reached what survives is the matches nearest
+  the folder you are in, and the panel says the list was cut short rather than
+  implying it is complete.
+- That search skips build output, dependency and tool caches, version-control
+  internals, and the parts of `~/Library` that hold application state — a
+  Home-wide search otherwise spent its whole allowance in `go/pkg/mod` and
+  `Library/Caches` and reported three matches where there were fifty-six. Cloud
+  folders are deliberately not skipped: Google Drive, OneDrive and iCloud Drive
+  live under `~/Library` and hold real documents.
+- Unlike the tree, which never probes Desktop, Documents or Downloads on its own
+  initiative, a search you typed does look inside them — you asked. macOS may
+  raise its folder-consent prompt the first time. `~/Music` is never searched;
+  the access policy refuses that path outright.
 - Starting the launcher while the app is already running just opens the
   existing window instead of starting a second server.
 

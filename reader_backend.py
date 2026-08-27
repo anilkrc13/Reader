@@ -7,6 +7,7 @@ mutation.
 
 from __future__ import annotations
 
+import collections
 import os
 import shutil
 import tempfile
@@ -40,6 +41,7 @@ MAX_ENTRIES = 4000
 PROBE_DEPTH = 6
 PROBE_NODES = 4000
 PROBE_SECONDS = 1.5
+
 PROBE_SKIP = {
     "node_modules", "__pycache__", "venv", ".venv", "site-packages",
     "Photos Library.photoslibrary", "Music Library.musiclibrary",
@@ -50,6 +52,46 @@ PROBE_SKIP = {
 # Downloads is an explicit user choice. Music is not a Reader data source and
 # is never accessed.
 HOME_AUTOSCAN_SKIP = {"Desktop", "Documents", "Downloads", "Music"}
+
+# A name search may reach further than the "does this folder hold anything"
+# probe, because the reader is waiting on the answer to a question they asked
+# rather than to a tree being drawn. It is still bounded on all three axes.
+SEARCH_DEPTH = 8
+SEARCH_NODES = 120000
+SEARCH_SECONDS = 3.0
+SEARCH_RESULTS = 200
+
+# Folder names a document search must not spend its budget on: build output,
+# dependency and tool caches, version-control internals, and the parts of
+# ~/Library that hold application state rather than documents. A Home-wide
+# search used to exhaust its whole allowance on these and report three matches
+# where there were thirty-four.
+#
+# Cloud folders are deliberately absent from this list. Google Drive, OneDrive
+# and iCloud Drive all live under ~/Library, and they hold the reader's own
+# documents -- skipping Library wholesale would lose them.
+SEARCH_SKIP = PROBE_SKIP | {
+    ".git", ".svn", ".hg", ".Trash",
+    "Caches", "CachedData", "Containers", "Group Containers",
+    "Developer", "DerivedData", "Application Support",
+    "dist", "build", "target", "vendor", "Pods",
+    ".cache", ".next", ".nuxt", ".parcel-cache", ".turbo", ".svelte-kit",
+    ".gradle", ".m2", ".cargo", ".rustup", ".npm", ".yarn", ".pnpm-store",
+    ".tox", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".terraform",
+}
+
+# Music is never a Reader source -- the access policy refuses the path outright,
+# so the walk must not waste a descent discovering that. Desktop, Documents and
+# Downloads are deliberately NOT here: a search the reader typed is an explicit
+# request to look inside them, which is exactly the distinction
+# HOME_AUTOSCAN_SKIP draws for a tree being drawn on its own initiative.
+SEARCH_NEVER_IN_HOME = {"Music"}
+
+
+def _is_package_cache(parent: str, name: str) -> bool:
+    """The Go module cache is a very large tree under an unremarkable name.
+    Matching on the pair avoids blacklisting every folder called "mod"."""
+    return name == "mod" and os.path.basename(parent) == "pkg"
 
 
 class FileAccessPolicy:
@@ -192,6 +234,84 @@ class DocumentStore:
             except OSError:
                 continue
         return False
+
+    def find_files(self, root: Path, query: str, include_hidden: bool = False,
+                   include_files: bool = False) -> dict:
+        """Documents anywhere under `root` whose filename contains `query`.
+
+        Bounded on depth, entries examined and elapsed time, for the same reason
+        the tree's own walk is: a search must never become the thing that makes
+        the panel stop answering. The walk is breadth-first so that when a bound
+        is hit, what survives is the matches nearest the folder being browsed
+        rather than whichever branch happened to be descended first.
+
+        Unlike the tree's own walk, this one does enter Desktop, Documents and
+        Downloads: a typed query is an explicit request to look there. macOS may
+        raise its folder-consent prompt the first time, which is the correct
+        moment for it -- the reader asked.
+        """
+        if not root.is_dir():
+            raise NotADirectoryError(str(root))
+        needle = query.strip().lower()
+        if not needle:
+            return {"path": str(root), "query": "", "matches": [], "truncated": False}
+
+        matches: list[dict] = []
+        truncated = False
+        deadline = time.monotonic() + SEARCH_SECONDS
+        budget = SEARCH_NODES
+        queue = collections.deque([(str(root), 0)])
+
+        while queue and not truncated:
+            folder, depth = queue.popleft()
+            if time.monotonic() > deadline or budget <= 0:
+                truncated = True
+                break
+            try:
+                scan = os.scandir(folder)
+            except OSError:
+                continue
+            with scan as it:
+                for entry in it:
+                    budget -= 1
+                    if budget <= 0:
+                        truncated = True
+                        break
+                    name = entry.name
+                    if name.startswith(".") and not include_hidden:
+                        continue
+                    if folder == str(self.policy.home) and name in SEARCH_NEVER_IN_HOME:
+                        continue
+                    try:
+                        if entry.is_dir(follow_symlinks=False):
+                            if (depth < SEARCH_DEPTH and name not in SEARCH_SKIP
+                                    and not _is_package_cache(folder, name)):
+                                queue.append((entry.path, depth + 1))
+                            continue
+                        if not entry.is_file(follow_symlinks=False):
+                            continue
+                        supported = os.path.splitext(name)[1].lower() in LISTABLE_SUFFIXES
+                        if not supported and not include_files:
+                            continue
+                        if needle not in name.lower():
+                            continue
+                        item = {"name": name, "path": entry.path,
+                                "dir": folder, "type": "file"}
+                        if not supported:
+                            item["supported"] = False
+                        matches.append(item)
+                        if len(matches) >= SEARCH_RESULTS:
+                            truncated = True
+                            break
+                    except OSError:
+                        continue
+
+        # A name that begins with what was typed is the likelier target, then the
+        # shallower path, then alphabetical so the order never wobbles.
+        matches.sort(key=lambda m: (0 if m["name"].lower().startswith(needle) else 1,
+                                    m["path"].count(os.sep), m["name"].lower()))
+        return {"path": str(root), "query": query.strip(),
+                "matches": matches, "truncated": truncated}
 
     def read_text_file(self, path: Path) -> dict:
         if not path.is_file():

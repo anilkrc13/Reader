@@ -21,6 +21,11 @@ const el = {
   save: $("btn-save"), footnote: $("footnote"),
   back: $("btn-back"), fwd: $("btn-fwd"), fmtbar: $("fmtbar"),
   dragbar: $("dragbar"), diskbar: $("diskbar"), diskmsg: null,
+  findbar: $("findbar"), findQ: $("find-q"), findCount: $("find-count"),
+  findPrev: $("find-prev"), findNext: $("find-next"), findClose: $("find-close"),
+  sidebar: $("sidebar"),
+  fileFind: $("filefind"), fileFindQ: $("filefind-q"),
+  fileFindList: $("filefind-list"), fileFindClose: $("filefind-close"),
   recents: $("recentlist"), recentsCount: $("recents-count"),
   recentsToggle: $("recents-toggle"),
   pinned: $("pinnedlist"), pinnedToggle: $("pinned-toggle"), pinnedSec: $("pinned"),
@@ -125,6 +130,11 @@ const state = {
   trail: [], trailAt: -1,
   /* undo history for the open document, reset when a different one is opened */
   past: [], pastAt: -1,
+  /* Which half of the window the reader last acted in, so ⌘F knows whether it
+     was asked to search the document or the file panel. Live focus cannot
+     answer this: clicking a row redraws the tree, which removes the very
+     button that had focus and leaves document.activeElement as <body>. */
+  surface: "document",
 };
 
 const TRAIL_MAX = 100;
@@ -535,6 +545,9 @@ function wrapCapRuns(rootEl) {
 function render(text) {
   state.lineAnchors = null;
   invalidateSyncMaps();
+  /* Whatever this render produces, the find marks in the old document are gone
+     with it, so the search is laid back over the new one. */
+  queueMicrotask(findRefresh);
   const kind = state.file ? state.file.kind : "md";
   if (kind === "code") return renderCode(text);
   if (kind === "csv") return renderCSV(text);
@@ -2290,12 +2303,29 @@ function overlayOpen() {
 }
 
 document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape" && fileFind.open) { ev.preventDefault(); fileFindCloseBar(); return; }
+  if (ev.key === "Escape" && find.open) { ev.preventDefault(); findCloseBar(); return; }
   if (ev.key === "Escape" && !el.fmtbar.hidden) { ev.preventDefault(); hideFmtBar(); return; }
   if (ev.key === "Escape" && !el.menu.hidden) { ev.preventDefault(); closeMenu(); return; }
   if (ev.key === "Escape" && renamerOpen()) { ev.preventDefault(); closeRenamer(); return; }
   if (ev.key === "Escape" && confirmOpen()) { ev.preventDefault(); closeConfirm(); return; }
   if (ev.key === "Escape" && settingsOpen()) { ev.preventDefault(); closeSettings(); return; }
   const meta = ev.metaKey || ev.ctrlKey;
+
+  /* Find. Claimed before the native-text bail below so it still works while the
+     caret is sitting in the find field. ⌃⌘F is full screen and stays that way. */
+  if (meta && !ev.ctrlKey && ev.key.toLowerCase() === "f" && !ev.altKey && !overlayOpen()) {
+    /* Which search you get depends on what you were working in. Focus inside
+       the file panel -- including its own search field -- means "find a file";
+       anywhere else means "find in this document". */
+    if (state.surface === "panel" || fileFind.open) {
+      ev.preventDefault(); fileFindOpen(); return;
+    }
+    if (findOpen()) { ev.preventDefault(); return; }
+  }
+  if (meta && ev.key.toLowerCase() === "g" && find.open) {
+    ev.preventDefault(); findStep(ev.shiftKey ? -1 : 1); return;
+  }
 
   /* Let the browser/WebKit own standard text commands completely. In
      particular, paste's native default action must survive the event path;
@@ -2353,6 +2383,365 @@ document.addEventListener("keydown", (ev) => {
     toast(S.showHidden ? "Hidden files shown" : "Hidden files hidden");
   }
 });
+
+/* ==========================================================================
+   Find a file -- the panel's own search
+   --------------------------------------------------------------------------
+   Names are matched by the server, because the answer has to include files in
+   folders that were never expanded. The walk there is bounded; a truncated
+   result says so rather than quietly pretending to be the whole answer.
+   ========================================================================== */
+
+function noteSurface(ev) {
+  const node = ev.target;
+  if (!(node instanceof Node)) return;
+  state.surface = el.sidebar.contains(node) ? "panel" : "document";
+}
+document.addEventListener("pointerdown", noteSurface, true);
+document.addEventListener("focusin", noteSurface, true);
+
+const fileFind = {open: false, results: [], at: -1, seq: 0};
+let fileFindTimer = null;
+
+function fileFindOpen() {
+  fileFind.open = true;
+  el.fileFind.hidden = false;
+  el.fileFindQ.focus();
+  el.fileFindQ.select();
+  if (el.fileFindQ.value.trim()) fileFindRun();
+  else fileFindShowTree();
+}
+
+function fileFindShowTree() {
+  el.fileFindList.hidden = true;
+  el.fileFindList.innerHTML = "";
+  el.tree.hidden = false;
+  el.fileFindQ.setAttribute("aria-expanded", "false");
+  fileFind.results = [];
+  fileFind.at = -1;
+}
+
+function fileFindCloseBar() {
+  fileFind.open = false;
+  el.fileFind.hidden = true;
+  el.fileFindQ.value = "";
+  fileFindShowTree();
+}
+
+async function fileFindRun() {
+  const q = el.fileFindQ.value.trim();
+  if (!q) { fileFindShowTree(); return; }
+  const mine = ++fileFind.seq;         // a slower earlier reply must not land
+  let data;
+  try {
+    data = await api("/api/search", {query: fileFindQuery(q)});
+  } catch (err) {
+    if (mine !== fileFind.seq) return;
+    fileFindMessage(err.message);
+    return;
+  }
+  if (mine !== fileFind.seq) return;
+  fileFind.results = data.matches || [];
+  fileFind.at = fileFind.results.length ? 0 : -1;
+  fileFindDraw(data.truncated);
+}
+
+function fileFindQuery(q) {
+  const query = {path: state.root || HOME, q};
+  if (S.showAllFiles) query.files = "1";
+  if (S.showHidden) query.hidden = "1";
+  return query;
+}
+
+function fileFindMessage(text) {
+  el.tree.hidden = true;
+  el.fileFindList.hidden = false;
+  el.fileFindList.innerHTML = "";
+  const li = document.createElement("li");
+  li.className = "msg";
+  li.textContent = text;
+  el.fileFindList.appendChild(li);
+}
+
+function fileFindDraw(truncated) {
+  el.tree.hidden = true;
+  el.fileFindList.hidden = false;
+  el.fileFindQ.setAttribute("aria-expanded", "true");
+  el.fileFindList.innerHTML = "";
+
+  if (!fileFind.results.length) {
+    fileFindMessage("No file matches that name.");
+    return;
+  }
+
+  fileFind.results.forEach((entry, i) => {
+    const li = document.createElement("li");
+    li.setAttribute("role", "option");
+    const btn = document.createElement("button");
+    btn.className = "row" + (entry.supported === false ? " unsupported" : "");
+    btn.dataset.path = entry.path;
+    btn.dataset.hit = String(i);
+    btn.title = entry.path;
+    btn.setAttribute("aria-selected", i === fileFind.at ? "true" : "false");
+    btn.innerHTML = ICONS.spacer + iconFor(entry.path) +
+                    '<span class="grow"><span class="nm"></span>' +
+                    '<span class="where"></span></span>';
+    btn.querySelector(".nm").textContent = entry.name;
+    btn.querySelector(".where").textContent = prettyDir(entry.dir);
+    li.appendChild(btn);
+    el.fileFindList.appendChild(li);
+  });
+
+  if (truncated) {
+    const li = document.createElement("li");
+    li.className = "msg";
+    li.textContent = "Showing the first matches — narrow the name for more.";
+    el.fileFindList.appendChild(li);
+  }
+  fileFindScrollTo();
+}
+
+/* The folder a match lives in, kept short enough to read. Trimmed from the
+   left, because the end of a path is what tells two same-named files apart --
+   done here rather than with direction:rtl, which reorders the leading "~/" to
+   the far end and makes the path read as nonsense. */
+const DIR_BUDGET = 44;
+function prettyDir(dir) {
+  if (!dir) return "";
+  let shown = dir;
+  if (HOME && dir === HOME) return "Home";
+  if (HOME && dir.startsWith(HOME + "/")) shown = "~/" + dir.slice(HOME.length + 1);
+  if (shown.length <= DIR_BUDGET) return shown;
+  const tail = shown.slice(shown.length - DIR_BUDGET);
+  const cut = tail.indexOf("/");                 // start at a folder boundary
+  return "…/" + (cut >= 0 ? tail.slice(cut + 1) : tail);
+}
+
+function fileFindPaint() {
+  el.fileFindList.querySelectorAll(".row").forEach((row) => {
+    row.setAttribute("aria-selected", Number(row.dataset.hit) === fileFind.at ? "true" : "false");
+  });
+  fileFindScrollTo();
+}
+
+function fileFindScrollTo() {
+  const row = el.fileFindList.querySelector('.row[aria-selected=true]');
+  if (row) row.scrollIntoView({block: "nearest"});
+}
+
+function fileFindStep(delta) {
+  if (!fileFind.results.length) return;
+  fileFind.at = (fileFind.at + delta + fileFind.results.length) % fileFind.results.length;
+  fileFindPaint();
+}
+
+/* Opening a match also moves the tree to the folder that holds it, so the panel
+   is showing where you have just arrived rather than where you started. */
+async function fileFindPick(index) {
+  const entry = fileFind.results[index];
+  if (!entry) return;
+  if (entry.supported === false) {
+    if (EXT_APP.has(extOf(entry.path))) openExternal(entry.path);
+    else toast("Reader cannot open that file.", true);
+    return;
+  }
+  const dir = entry.dir || entry.path.split("/").slice(0, -1).join("/");
+  fileFindCloseBar();
+  if (dir && dir !== state.root) {
+    await setRoot(dir, {redraw: false});
+    await drawTree();
+  }
+  await openFile(entry.path);
+}
+
+el.fileFindQ.addEventListener("input", () => {
+  clearTimeout(fileFindTimer);
+  fileFindTimer = setTimeout(fileFindRun, 160);
+});
+el.fileFindQ.addEventListener("keydown", (ev) => {
+  if (ev.key === "ArrowDown") { ev.preventDefault(); fileFindStep(1); }
+  else if (ev.key === "ArrowUp") { ev.preventDefault(); fileFindStep(-1); }
+  else if (ev.key === "Enter") { ev.preventDefault(); fileFindPick(fileFind.at); }
+  else if (ev.key === "Escape") { ev.preventDefault(); fileFindCloseBar(); }
+});
+el.fileFindClose.addEventListener("click", () => fileFindCloseBar());
+el.fileFindList.addEventListener("click", (ev) => {
+  const row = ev.target.closest(".row");
+  if (row) fileFindPick(Number(row.dataset.hit));
+});
+
+/* ==========================================================================
+   Find in document
+   --------------------------------------------------------------------------
+   Matches are wrapped in <mark> after the document is rendered. The Custom
+   Highlight API would avoid touching the DOM at all, but it only arrived in
+   Safari 17.2 and Reader supports macOS 13, so wrapping is what works
+   everywhere. Every wrap is undone before a re-render, so nothing downstream
+   ever meets these nodes.
+   ========================================================================== */
+
+const find = {open: false, hits: [], at: -1};
+let findTimer = null;
+
+/* Undo every wrap and stitch the split text nodes back together, so repeated
+   searches cannot leave the document a shrapnel of fragments. */
+function findClear() {
+  const marks = el.preview.querySelectorAll("mark.find-hit");
+  const parents = new Set();
+  marks.forEach((mark) => {
+    const parent = mark.parentNode;
+    if (!parent) return;
+    while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+    parent.removeChild(mark);
+    parents.add(parent);
+  });
+  parents.forEach((parent) => parent.normalize());
+  find.hits = [];
+  find.at = -1;
+}
+
+/* Flatten the preview's text so a match can span inline mark-up -- "**one** two"
+   is two text nodes, and searching for "one two" should still find it. */
+function findWrap(needle) {
+  const nodes = [];
+  let flat = "";
+  const walker = document.createTreeWalker(el.preview, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) =>
+      node.parentElement && node.parentElement.closest(".gutter")
+        ? NodeFilter.FILTER_REJECT      // code view line numbers are not content
+        : NodeFilter.FILTER_ACCEPT,
+  });
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    nodes.push({node, from: flat.length});
+    flat += node.nodeValue;
+  }
+
+  const hay = flat.toLowerCase();
+  const cuts = [];
+  let at = 0, index = 0, cursor = 0;
+  for (;;) {
+    const start = hay.indexOf(needle, at);
+    if (start < 0) break;
+    const stop = start + needle.length;
+    /* Matches arrive in order, so the node cursor only ever moves forward --
+       this stays linear over the document instead of rescanning every node. */
+    while (cursor < nodes.length &&
+           nodes[cursor].from + nodes[cursor].node.nodeValue.length <= start) cursor++;
+    for (let i = cursor; i < nodes.length && nodes[i].from < stop; i++) {
+      const {node, from} = nodes[i];
+      cuts.push({
+        node, index,
+        start: Math.max(start - from, 0),
+        end: Math.min(stop - from, node.nodeValue.length),
+      });
+    }
+    index++;
+    at = stop;                          // matches never overlap
+  }
+
+  /* Applied back to front within each node: splitting the tail first leaves
+     every earlier offset in that node still valid. */
+  const perNode = new Map();
+  cuts.forEach((cut) => {
+    if (!perNode.has(cut.node)) perNode.set(cut.node, []);
+    perNode.get(cut.node).push(cut);
+  });
+  const made = new Map();
+  perNode.forEach((list, node) => {
+    list.sort((a, b) => b.start - a.start);
+    list.forEach((cut) => {
+      const tail = node.splitText(cut.start);
+      if (cut.end - cut.start < tail.nodeValue.length) tail.splitText(cut.end - cut.start);
+      const mark = document.createElement("mark");
+      mark.className = "find-hit";
+      tail.parentNode.insertBefore(mark, tail);
+      mark.appendChild(tail);
+      if (!made.has(cut.index)) made.set(cut.index, []);
+      made.get(cut.index).push(mark);
+    });
+  });
+
+  return [...made.keys()].sort((a, b) => a - b).map((key) => made.get(key));
+}
+
+function findPaint() {
+  el.preview.querySelectorAll("mark.find-hit.is-current")
+    .forEach((mark) => mark.classList.remove("is-current"));
+  if (find.at >= 0 && find.hits[find.at]) {
+    find.hits[find.at].forEach((mark) => mark.classList.add("is-current"));
+  }
+  const typed = el.findQ.value.trim();
+  el.findCount.textContent = find.hits.length
+    ? `${find.at + 1} of ${find.hits.length}`
+    : (typed ? "No matches" : "");
+  el.findPrev.disabled = el.findNext.disabled = find.hits.length < 2;
+}
+
+function findRun({keepPlace = false} = {}) {
+  const was = keepPlace ? find.at : -1;
+  findClear();
+  const needle = el.findQ.value.trim().toLowerCase();
+  if (needle) find.hits = findWrap(needle);
+  find.at = find.hits.length ? Math.min(Math.max(was, 0), find.hits.length - 1) : -1;
+  findPaint();
+  if (!keepPlace && find.hits.length) findReveal();
+}
+
+function findReveal() {
+  const mark = find.hits[find.at] && find.hits[find.at][0];
+  if (mark) mark.scrollIntoView({block: "center", behavior: "smooth"});
+}
+
+function findStep(delta) {
+  if (!find.hits.length) return;
+  find.at = (find.at + delta + find.hits.length) % find.hits.length;
+  findPaint();
+  findReveal();
+}
+
+/* Only meaningful where there is a rendered document to search: in Edit mode
+   the preview is not on screen, so the key is left to the browser. */
+function findAvailable() {
+  return !!state.file && state.file.kind !== "pdf" &&
+         root.dataset.mode !== "edit" && root.dataset.empty !== "yes";
+}
+
+function findOpen() {
+  if (!findAvailable()) return false;
+  find.open = true;
+  el.findbar.hidden = false;
+  el.findQ.focus();
+  el.findQ.select();
+  if (el.findQ.value.trim()) findRun();
+  else findPaint();
+  return true;
+}
+
+function findCloseBar() {
+  find.open = false;
+  el.findbar.hidden = true;
+  findClear();
+  findPaint();
+}
+
+/* A re-render replaces the preview wholesale, taking the marks with it. */
+function findRefresh() {
+  if (!find.open) return;
+  if (!findAvailable()) { findCloseBar(); return; }
+  findRun({keepPlace: true});
+}
+
+el.findQ.addEventListener("input", () => {
+  clearTimeout(findTimer);
+  findTimer = setTimeout(() => findRun(), 110);
+});
+el.findQ.addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter") { ev.preventDefault(); findStep(ev.shiftKey ? -1 : 1); }
+  else if (ev.key === "Escape") { ev.preventDefault(); findCloseBar(); }
+});
+el.findNext.addEventListener("click", () => findStep(1));
+el.findPrev.addEventListener("click", () => findStep(-1));
+el.findClose.addEventListener("click", () => findCloseBar());
 
 /* ==========================================================================
    Quick edit -- format a selection in the preview
