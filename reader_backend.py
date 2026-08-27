@@ -27,11 +27,16 @@ CODE_SUFFIXES = {
 TEXT_SUFFIXES = MARKDOWN_SUFFIXES | CODE_SUFFIXES
 PDF_SUFFIXES = {".pdf"}
 LISTABLE_SUFFIXES = TEXT_SUFFIXES | PDF_SUFFIXES
+IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif", ".bmp", ".ico"}
+# Types Reader does not render itself but will hand to the app that owns them.
+# This stays a whitelist on purpose: `open` on an arbitrary path would just as
+# happily launch a .app, .command or .sh, so "anything Reader cannot display"
+# is not a safe rule. Images are here because a link to one has to lead
+# somewhere, and Preview is where it belongs.
 EXTERNAL_APP_SUFFIXES = {
     ".doc", ".docx", ".xls", ".xlsx", ".xlsm", ".ppt", ".pptx",
     ".pages", ".numbers", ".key", ".rtf", ".odt", ".ods",
-}
-IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif", ".bmp", ".ico"}
+} | IMAGE_SUFFIXES
 
 MAX_TEXT_BYTES = 8 * 1024 * 1024
 MAX_IMAGE_BYTES = 32 * 1024 * 1024

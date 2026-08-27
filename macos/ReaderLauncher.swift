@@ -69,8 +69,8 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
     private func deliver(path: String) {
         guard let data = try? JSONSerialization.data(withJSONObject: [path], options: []),
               let array = String(data: data, encoding: .utf8) else { return }
-        let script = "window.reader && window.reader.openExternal ? "
-            + "(window.reader.openExternal(\(array)[0]), true) : false"
+        let script = "window.reader && window.reader.openFromOS ? "
+            + "(window.reader.openFromOS(\(array)[0]), true) : false"
         webView.evaluateJavaScript(script) { [weak self] result, _ in
             // app.js publishes `window.reader` as the page finishes booting;
             // one bounded retry covers the case where we win that race.
@@ -78,8 +78,8 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                     guard let self, self.isPageLoaded else { return }
                     self.webView.evaluateJavaScript(
-                        "window.reader && window.reader.openExternal && "
-                        + "window.reader.openExternal(\(array)[0])", completionHandler: nil)
+                        "window.reader && window.reader.openFromOS && "
+                        + "window.reader.openFromOS(\(array)[0])", completionHandler: nil)
                 }
             }
         }
