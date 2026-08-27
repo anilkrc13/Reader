@@ -157,12 +157,24 @@ const TYPING_PAUSE_MS = 400;
    position is dropped, so opening a document after going back replaces the
    forward trail rather than branching -- the behaviour a browser has. */
 function trailPush(path) {
-  if (state.trail[state.trailAt] === path) return;      // re-opening the same doc
+  const here = state.trail[state.trailAt];
+  if (here && here.path === path) return;               // re-opening the same doc
   state.trail.splice(state.trailAt + 1);
-  state.trail.push(path);
+  state.trail.push({path, top: 0, editorTop: 0, caret: 0});
   if (state.trail.length > TRAIL_MAX) state.trail.shift();
   state.trailAt = state.trail.length - 1;
   syncTrailButtons();
+}
+
+/* Record the current position into the trail entry being left behind. Called on
+   the way out of a document, while state.file still refers to it -- by the time
+   trailPush runs, the incoming document has already taken its place. */
+function trailMark() {
+  const here = state.trail[state.trailAt];
+  if (!here || !state.file || here.path !== state.file.path) return;
+  here.top = el.previewpane.scrollTop;
+  here.editorTop = el.editor.scrollTop;
+  here.caret = el.editor.selectionStart;
 }
 
 /* --- undo history ------------------------------------------------------- */
@@ -232,10 +244,12 @@ function syncTrailButtons() {
 async function trailGo(delta) {
   const next = state.trailAt + delta;
   if (next < 0 || next >= state.trail.length) return;
-  /* Move only if the document actually opens. A file deleted since it was
+  const target = state.trail[next];
+  /* openFile banks the outgoing position itself, before it replaces state.file.
+     Move only if the document actually opens. A file deleted since it was
      visited, or a discard prompt the user cancels, would otherwise leave the
      position pointing somewhere the reader is not. */
-  if (await openFile(state.trail[next], {record: false})) {
+  if (await openFile(target.path, {record: false, restore: target})) {
     state.trailAt = next;
     syncTrailButtons();
   }
@@ -782,6 +796,40 @@ function scheduleRender() {
 const maxScroll = (n) => Math.max(1, n.scrollHeight - n.clientHeight);
 const scrollRatio = (n) => n.scrollTop / maxScroll(n);
 
+/* Events that mean "I am scrolling this myself". */
+const SCROLL_INTENT = ["wheel", "touchstart", "pointerdown", "keydown"];
+
+/* Put a pane back to a remembered offset. Setting scrollTop once is not enough:
+   images and web fonts land after the first paint, and until they do the
+   document is a different height, so the offset either clamps short or gets
+   nudged along by the browser's scroll anchoring. It is re-applied as the layout
+   settles.
+   The reader taking over cannot be detected from the position -- an anchoring
+   nudge and a real scroll look identical, and treating the nudge as a takeover
+   left the document 13px off the place it was asked to return to. Intent is read
+   from the input events instead, so a genuine scroll stops the correction and
+   the browser's own adjustments do not. */
+function restoreScroll(pane, top) {
+  const target = Math.max(0, top || 0);
+  const apply = () => { pane.scrollTop = Math.min(target, maxScroll(pane)); };
+  apply();
+  if (!target) return;
+
+  let live = true;
+  const release = () => {
+    if (!live) return;
+    live = false;
+    SCROLL_INTENT.forEach((type) => window.removeEventListener(type, release, true));
+  };
+  SCROLL_INTENT.forEach((type) => window.addEventListener(type, release, true));
+
+  const again = () => { if (live) apply(); };
+  requestAnimationFrame(again);
+  setTimeout(again, 80);
+  setTimeout(again, 320);
+  setTimeout(release, 400);
+}
+
 function setDirty(on) {
   state.dirty = on;
   el.dirty.hidden = !on;
@@ -797,8 +845,12 @@ function hideDiskBar() {
 /* Returns the opened path, or null if nothing was opened -- the trail relies on
    knowing the difference. `record` is false for reloads of the current document
    and for trail navigation itself, neither of which is a new visit. */
-async function openFile(path, {keepScroll = false, silent = false, record = true} = {}) {
+async function openFile(path, {keepScroll = false, silent = false, record = true,
+                              restore = null} = {}) {
   if (!silent && state.dirty && !confirm("Discard unsaved changes?")) return null;
+  /* Where the reader is in the document being left, banked before it is replaced
+     so that back and forward return to the paragraph rather than to the top. */
+  trailMark();
   const kind = kindOf(path);
 
   if (kind === "pdf") {
@@ -849,9 +901,17 @@ async function openFile(path, {keepScroll = false, silent = false, record = true
   hideDiskBar();
   render(data.text);
 
-  el.previewpane.scrollTop = keepScroll ? pRatio * maxScroll(el.previewpane) : 0;
-  el.editor.scrollTop = keepScroll ? eRatio * maxScroll(el.editor) : 0;
-  if (keepScroll) el.editor.setSelectionRange(caret, caret);
+  if (restore) {
+    /* Back and forward: an absolute offset, not a ratio, because the reader is
+       returning to a specific place and the document has not changed shape. */
+    restoreScroll(el.previewpane, restore.top);
+    restoreScroll(el.editor, restore.editorTop);
+    el.editor.setSelectionRange(restore.caret || 0, restore.caret || 0);
+  } else {
+    el.previewpane.scrollTop = keepScroll ? pRatio * maxScroll(el.previewpane) : 0;
+    el.editor.scrollTop = keepScroll ? eRatio * maxScroll(el.editor) : 0;
+    if (keepScroll) el.editor.setSelectionRange(caret, caret);
+  }
 
   S.lastFile = data.path;
   pushRecent(state.file);
@@ -1488,7 +1548,10 @@ async function moveFileToFolder(path, targetDir) {
          dir: np.split("/").slice(0, -1).join("/") || "/"};
   });
   if (S.lastFile === from) S.lastFile = to;
-  state.trail = state.trail.map(moved);
+  state.trail = state.trail.map((entry) => {
+    const np = moved(entry.path);
+    return np === entry.path ? entry : {...entry, path: np};
+  });
 
   if (state.file && state.file.path === from) {
     state.file.path = to;

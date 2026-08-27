@@ -156,6 +156,7 @@ your last document.
 | **Auto-refresh** | While you read, the open document is watched. If something else rewrites it, the app reloads it and keeps your place. If you have unsaved edits it never overwrites them — it shows a bar offering **Reload from disk** or **Keep mine**. |
 | **Refresh** | `⌘R`, or the circular arrow, to reload by hand. |
 | **Full screen** | The corners icon, or `⌃⌘F`. `Esc` leaves it. |
+| **Back and forward** | The `‹` and `›` arrows, `⌘[` / `⌘]`, or bare `←` / `→` while reading. Each document in the trail remembers where you were in it, so going back returns you to the paragraph you left rather than to the top — and going forward again returns you to where you were reading there. In Edit mode the editor's scroll and caret come back with it. |
 | **Find** | `⌘F` opens a find bar above the document. It highlights every match, counts them, and `⌘G` / `⇧⌘G` — or `↵` / `⇧↵` — step between them; `Esc` closes it. A match is found even where it spans styling, so searching `one two` finds **one** two. There is no toolbar button: the shortcut is the whole interface. |
 | **Find a file** | `⌘F` while the file panel has focus searches names instead, anywhere below the folder you are browsing — including folders you never expanded. Each hit shows the folder holding it, `↑`/`↓` move, `↵` opens it and takes the tree with it. |
 | **Settings** | `⌘,` or the gear. See below. |
