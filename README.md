@@ -200,7 +200,14 @@ python3 -m unittest discover -s tests -v
 
 GitHub-flavoured markdown: tables, task lists, footnotes, fenced code with
 syntax highlighting, and inline HTML. Relative image paths resolve against the
-document's folder, and relative links to other markdown files open in the app.
+document's folder.
+
+A link follows the same rules as clicking the file in the panel, so where it
+leads does not depend on how you got there. Markdown, code and CSV open in
+place; a PDF opens in the built-in viewer; Word, Excel, Keynote, Pages and
+images are handed to the app that owns them. A link to something Reader neither
+renders nor hands on says so rather than failing silently, and a link to a file
+that has since moved reports that instead.
 
 ## Notes on how it works
 

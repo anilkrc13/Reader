@@ -1300,8 +1300,14 @@ const listQuery = (path) => {
 
 /* Files that open in the app that owns them (Word, Excel, ...). Mirrors the
    server's EXTERNAL_APP_SUFFIXES, which is the set actually enforced. */
+/* Handed to the app that owns them rather than rendered here. Images are in the
+   set because Reader lists none of them in the tree and renders none as a
+   document, so a link to one would otherwise dead-end; Preview is where it
+   belongs. Mirrors EXTERNAL_APP_SUFFIXES on the server, which enforces it. */
 const EXT_APP = new Set(["doc", "docx", "xls", "xlsx", "xlsm", "ppt", "pptx",
-                         "pages", "numbers", "key", "rtf", "odt", "ods"]);
+                         "pages", "numbers", "key", "rtf", "odt", "ods",
+                         "png", "jpg", "jpeg", "gif", "svg", "webp", "avif",
+                         "bmp", "ico"]);
 
 function openExternal(path) {
   api("/api/open-external", {method: "POST", body: {path}})
@@ -3500,8 +3506,12 @@ async function boot() {
 /* A document the OS asked for — a Reader.app double-click, or `open -a Reader`.
    Unlike open(), it moves the tree to the file's folder when the file sits
    outside the folder being browsed, because revealInTree can only reach paths
-   below the current root. */
-async function openExternal(path) {
+   below the current root.
+   Named for what it does, not "openExternal": that name already belonged to
+   handing a file to the app that owns it, and declaring a second function of
+   the same name silently replaced the first one for every caller. Word and
+   Excel then tried to open as text, in links and in the row menu alike. */
+async function openFromOS(path) {
   await bootReady;
   if (typeof path !== "string" || !path.startsWith("/")) return null;
   const dir = path.slice(0, path.lastIndexOf("/")) || "/";
@@ -3514,7 +3524,7 @@ async function openExternal(path) {
 }
 
 /* small automation hook (same-origin pages only) — used by the test suite */
-window.reader = {goto: (p) => setRoot(p), open: (p) => openFile(p), openExternal};
+window.reader = {goto: (p) => setRoot(p), open: (p) => openFile(p), openFromOS};
 window.mdview = window.reader;        // pre-2.0 name; drop once tests are updated
 
 boot().finally(bootDone);
