@@ -391,6 +391,12 @@ class Handler(BaseHTTPRequestHandler):
                 show_hidden = (query.get("hidden") or ["0"])[0] == "1"
                 return self._json(store.list_dir(store.policy.resolve(arg),
                                                  show_all, show_files, show_hidden))
+            if route == "/api/search":
+                show_files = (query.get("files") or ["0"])[0] == "1"
+                show_hidden = (query.get("hidden") or ["0"])[0] == "1"
+                return self._json(store.find_files(
+                    store.policy.resolve(arg), (query.get("q") or [""])[0],
+                    include_hidden=show_hidden, include_files=show_files))
             if route == "/api/file":
                 return self._json(store.read_text_file(store.policy.resolve(arg)))
             if route == "/api/stat":

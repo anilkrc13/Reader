@@ -400,6 +400,74 @@ html[data-full=on] #btn-full .ic-exit{display:block}
 /* ------------------------------------------------------------------ panes */
 #panes{flex:1;display:flex;min-height:0}
 #editorpane{flex:1;min-width:0;display:flex;overflow:hidden;background:var(--surface)}
+/* Find a file: the panel's own search, sharing the loc-bar's proportions so it
+   reads as part of the panel rather than something dropped on top of it. */
+#filefind{
+  display:flex;align-items:center;gap:6px;flex:none;
+  padding:5px 8px 5px 10px;border-bottom:1px solid var(--border-soft);
+}
+#filefind[hidden]{display:none}
+#filefind>svg{
+  width:13px;height:13px;flex:none;fill:none;stroke:var(--text-3);
+  stroke-width:1.7;stroke-linecap:round;
+}
+#filefind-q{
+  flex:1;min-width:0;border:0;background:transparent;
+  font:inherit;font-size:13px;color:var(--text);padding:2px 0;
+}
+#filefind-q:focus{outline:none}
+#filefind-q::placeholder{color:var(--text-3)}
+/* The result rows reuse .row wholesale, so a match looks like the same file it
+   would be in the tree. Only the second line -- its folder -- is new. */
+#filefind-list .row{height:auto;padding-top:4px;padding-bottom:4px}
+#filefind-list .row .nm{display:block}
+#filefind-list .row .grow{flex:1;min-width:0;overflow:hidden;text-align:left}
+#filefind-list .where{
+  display:block;font-size:11px;color:var(--text-3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+#filefind-list .row[aria-selected=true]{background:var(--panel-hi)}
+#filefind-list .msg{padding:10px 12px;font-size:12px;color:var(--text-3)}
+
+/* ------------------------------------------------------------------ find --
+   Same bar language as #diskbar: it belongs to the document area rather than
+   floating over the text it is searching. */
+#findbar{
+  display:flex;align-items:center;gap:8px;flex:none;
+  padding:7px 12px;background:var(--panel);
+  border-bottom:1px solid var(--border);
+}
+#findbar[hidden]{display:none}
+#findbar>svg{
+  width:15px;height:15px;flex:none;fill:none;stroke:var(--text-3);
+  stroke-width:1.7;stroke-linecap:round;
+}
+#find-q{
+  flex:1;min-width:0;border:0;background:transparent;
+  font:inherit;color:var(--text);padding:2px 0;
+}
+#find-q:focus{outline:none}
+#find-q::placeholder{color:var(--text-3)}
+.find-count{
+  font-size:12px;color:var(--text-2);font-variant-numeric:tabular-nums;
+  flex:none;white-space:nowrap;
+}
+#findbar .mini-btn{padding:3px 6px;line-height:0}
+#findbar .mini-btn svg{
+  width:14px;height:14px;fill:none;stroke:currentColor;
+  stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;
+}
+#findbar .mini-btn:disabled{opacity:.4;cursor:default}
+/* Every hit is tinted; the one you are on takes the accent. Padding is avoided
+   so wrapping a match cannot reflow the line it sits on. */
+.prose mark.find-hit{
+  background:color-mix(in srgb,var(--accent) 26%,transparent);
+  color:inherit;border-radius:2px;
+}
+.prose mark.find-hit.is-current{
+  background:var(--accent-fill);color:var(--accent-on);
+}
+
 #previewpane{flex:1;min-width:0;overflow:auto;overscroll-behavior:contain}
 #gutter{width:1px;background:var(--border);flex:none}
 html[data-mode=preview] #editorpane,html[data-mode=preview] #gutter{display:none}
