@@ -2371,18 +2371,56 @@ function overlayOpen() {
   return !el.menu.hidden || renamerOpen() || confirmOpen() || settingsOpen();
 }
 
+/* ⌘+ and ⌘- resize whatever text the main pane is showing. For markdown that
+   is the body size: headings, inline code and fences are all sized in em, so
+   the whole page scales together. Code documents and the editor share the
+   monospace size instead. ⌘0 returns to the default. The sliders in Settings
+   move live, since this drives the same setting. */
+const SIZE_STEP = 1;
+const SIZE_RANGE = {fontSize: {min: 13, max: 26}, editorSize: {min: 11, max: 22}};
+
+function sizeTarget() {
+  if (!state.file || state.file.kind === "pdf") return null;
+  const codeDoc = el.preview.classList.contains("codeview");
+  return codeDoc || root.dataset.mode === "edit" ? "editorSize" : "fontSize";
+}
+
+function adjustTextSize(delta) {
+  const key = sizeTarget();
+  if (!key) return;
+  const {min, max} = SIZE_RANGE[key];
+  const value = delta == null ? DEFAULTS[key]
+                              : Math.min(max, Math.max(min, S[key] + delta));
+  setValue(key, value);
+  toast((key === "fontSize" ? "Text size " : "Code size ") + value + " px");
+}
+
+/* --------------------------------------------------------------------------
+   Global shortcuts. One listener, in claim order:
+     1. Escape        -- closes the topmost open surface, nothing else
+     2. Find          -- ⌘F / ⌘G, claimed even while the find field has focus
+     3. Native text   -- standard editing commands pass through untouched
+     4. Navigation    -- arrows and ⌘[ ⌘] move through the document trail
+     5. Formatting    -- ⌘B/I/U on a selection, in preview or editor
+     6. History       -- ⌘Z / ⇧⌘Z / ⌘Y on our own undo stack
+     7. App chords    -- everything else ⌘-something, one else-if chain
+   -------------------------------------------------------------------------- */
+
 document.addEventListener("keydown", (ev) => {
-  if (ev.key === "Escape" && fileFind.open) { ev.preventDefault(); fileFindCloseBar(); return; }
-  if (ev.key === "Escape" && find.open) { ev.preventDefault(); findCloseBar(); return; }
-  if (ev.key === "Escape" && !el.fmtbar.hidden) { ev.preventDefault(); hideFmtBar(); return; }
-  if (ev.key === "Escape" && !el.menu.hidden) { ev.preventDefault(); closeMenu(); return; }
-  if (ev.key === "Escape" && renamerOpen()) { ev.preventDefault(); closeRenamer(); return; }
-  if (ev.key === "Escape" && confirmOpen()) { ev.preventDefault(); closeConfirm(); return; }
-  if (ev.key === "Escape" && settingsOpen()) { ev.preventDefault(); closeSettings(); return; }
+  /* 1. Escape closes the topmost open surface. */
+  if (ev.key === "Escape") {
+    if (fileFind.open) { ev.preventDefault(); fileFindCloseBar(); return; }
+    if (find.open) { ev.preventDefault(); findCloseBar(); return; }
+    if (!el.fmtbar.hidden) { ev.preventDefault(); hideFmtBar(); return; }
+    if (!el.menu.hidden) { ev.preventDefault(); closeMenu(); return; }
+    if (renamerOpen()) { ev.preventDefault(); closeRenamer(); return; }
+    if (confirmOpen()) { ev.preventDefault(); closeConfirm(); return; }
+    if (settingsOpen()) { ev.preventDefault(); closeSettings(); return; }
+  }
   const meta = ev.metaKey || ev.ctrlKey;
 
-  /* Find. Claimed before the native-text bail below so it still works while the
-     caret is sitting in the find field. ⌃⌘F is full screen and stays that way. */
+  /* 2. Find. Claimed before the native-text bail below so it still works while
+     the caret is sitting in the find field. ⌃⌘F is full screen and stays so. */
   if (meta && !ev.ctrlKey && ev.key.toLowerCase() === "f" && !ev.altKey && !overlayOpen()) {
     /* Which search you get depends on what you were working in. Focus inside
        the file panel -- including its own search field -- means "find a file";
@@ -2396,13 +2434,13 @@ document.addEventListener("keydown", (ev) => {
     ev.preventDefault(); findStep(ev.shiftKey ? -1 : 1); return;
   }
 
-  /* Let the browser/WebKit own standard text commands completely. In
+  /* 3. Let the browser/WebKit own standard text commands completely. In
      particular, paste's native default action must survive the event path;
      stopping propagation at the textarea prevents it in WKWebView. */
   if (meta && editingText() && isNativeTextCommand(ev)) return;
 
-  /* Back and forward. Bare arrows while reading; they are left alone when the
-     caret owns them or a dialog is up. ⌘[ and ⌘] work everywhere, including in
+  /* 4. Back and forward. Bare arrows while reading; they are left alone when
+     the caret owns them or a dialog is up. ⌘[ and ⌘] work everywhere, incl.
      the editor -- unlike ⌘←/⌘→, which macOS uses for start and end of line. */
   const arrow = ev.key === "ArrowLeft" ? -1 : ev.key === "ArrowRight" ? 1 : 0;
   if (arrow && !meta && !ev.altKey && !ev.shiftKey && !editingText() && !overlayOpen()) {
@@ -2415,8 +2453,8 @@ document.addEventListener("keydown", (ev) => {
   if (!meta) return;
   const k = ev.key.toLowerCase();
 
-  /* ⌘B/I/U format a preview or editor selection. Only claimed when there is
-     one to format, so the browser keeps these keys the rest of the time. */
+  /* 5. ⌘B/I/U format a preview or editor selection. Only claimed when there
+     is one to format, so the browser keeps these keys the rest of the time. */
   if ("biu".includes(k) && quickEditable() && previewSelection()) {
     ev.preventDefault();
     applyInline(k === "b" ? "bold" : k === "i" ? "italic" : "underline");
@@ -2428,9 +2466,9 @@ document.addEventListener("keydown", (ev) => {
     return;
   }
 
-  /* Undo and redo, in any mode -- a quick edit made in the preview is undone by
-     the same key as a keystroke in the editor. Left alone while a rename box or
-     a settings field has the caret, where undo belongs to that field. */
+  /* 6. Undo and redo, in any mode -- a quick edit made in the preview is
+     undone by the same key as a keystroke in the editor. Left alone while a
+     rename box or a settings field has the caret, where undo is the field's. */
   const ownField = editingText() && document.activeElement !== el.editor;
   if ((k === "z" || k === "y") && !ownField && !overlayOpen()) {
     ev.preventDefault();         // our stack owns undo; the native one is stale
@@ -2438,12 +2476,21 @@ document.addEventListener("keydown", (ev) => {
     return;
   }
 
-  if (k === ",") { ev.preventDefault(); settingsOpen() ? closeSettings() : openSettings(); }
-  else if (k === "s") { ev.preventDefault(); saveFile(); }
+  /* 7. App chords. */
+  /* file */
+  if (k === "s") { ev.preventDefault(); saveFile(); }
   else if (k === "r" && !ev.shiftKey) { ev.preventDefault(); refresh(); }
+  /* view */
   else if (k === "e") { ev.preventDefault(); setMode(root.dataset.mode === "edit" ? "preview" : "edit"); }
   else if (k === "\\") { ev.preventDefault(); toggleSidebar(); }
   else if (k === "f" && ev.ctrlKey && ev.metaKey) { ev.preventDefault(); toggleFullscreen(); }
+  /* text size: ⌘= is the physical ⌘+ key, and both ⌘⇧= and the keypad send
+     "+"; ⌘- reads "_" with shift held. ⌘0 goes back to the default size. */
+  else if (k === "=" || k === "+") { ev.preventDefault(); adjustTextSize(SIZE_STEP); }
+  else if (k === "-" || k === "_") { ev.preventDefault(); adjustTextSize(-SIZE_STEP); }
+  else if (k === "0") { ev.preventDefault(); adjustTextSize(null); }
+  /* app */
+  else if (k === ",") { ev.preventDefault(); settingsOpen() ? closeSettings() : openSettings(); }
   /* ⌘⇧. mirrors Finder's shortcut for hidden files. Shift turns "." into ">"
      on most layouts, so match the physical key as well as both characters. */
   else if (ev.shiftKey && (k === "." || k === ">" || ev.code === "Period")) {
