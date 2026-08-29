@@ -971,6 +971,14 @@ kbd.k{
 .about b{color:var(--text)}
 .about code{font-family:var(--font-mono);font-size:12px;background:var(--panel-hi);padding:.12em .4em;border-radius:5px}
 
+.mermaid-diagram{
+  margin:1.35em 0;padding:14px 10px;border:1px solid var(--border-soft);
+  border-radius:var(--radius);background:var(--paper);overflow:auto;text-align:center;
+}
+.mermaid-diagram svg{display:block;max-width:100%;height:auto;margin:0 auto}
+.mermaid-error{margin:-.65em 0 1.35em;color:var(--text-3);font-size:12px;font-style:italic}
+.mermaid-source-error{margin-bottom:.8em}
+
 /* ----------------------------------------------------------------- scroll */
 *::-webkit-scrollbar{width:11px;height:11px}
 *::-webkit-scrollbar-track{background:transparent}
