@@ -209,6 +209,18 @@ images are handed to the app that owns them. A link to something Reader neither
 renders nor hands on says so rather than failing silently, and a link to a file
 that has since moved reports that instead.
 
+A link to the web — a Google Doc, a ticket, anything `http` or `https` — opens in
+your default browser, along with `mailto:` and `tel:`. That is deliberate rather
+than a shortcut: your browser is where you are already signed in, Google refuses
+to accept a sign-in from inside an embedded web view at all, and it keeps
+arbitrary web pages out of the process holding Reader's folder permissions. Only
+these four schemes are handed on; a document cannot start a program merely by
+linking to it. Reader's own window never navigates away from its local server,
+so a link cannot replace the app with a web page and leave you with no way back.
+
+Links live in the rendered document, so they are clickable in Preview and on the
+preview side of Split. The editor shows the source, where a link is just text.
+
 ## Notes on how it works
 
 - The server binds to `127.0.0.1` only, on port 8737. Requests must carry a

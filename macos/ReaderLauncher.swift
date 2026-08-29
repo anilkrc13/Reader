@@ -15,7 +15,7 @@ private enum ReaderProbe {
     case unreachable
 }
 
-private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate {
+private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate {
     private var window: NSWindow!
     private var webView: WKWebView!
     private var statusLabel: NSTextField!
@@ -191,6 +191,10 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
 
         webView = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
         webView.navigationDelegate = self
+        /* Without a UI delegate, WebKit answers a target="_blank" link by
+           silently dropping it -- which is why a link to a Google Doc did
+           nothing at all in the app while working in a browser. */
+        webView.uiDelegate = self
         webView.translatesAutoresizingMaskIntoConstraints = false
         webView.isHidden = true
         content.addSubview(webView)
@@ -389,6 +393,61 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         statusLabel.textColor = .systemRed
         statusLabel.maximumNumberOfLines = 4
         statusLabel.lineBreakMode = .byWordWrapping
+    }
+
+    // -- links out of the document ------------------------------------------
+
+    /* Reader's window only ever shows Reader's own local server. A document can
+       link anywhere, and those links go to the browser the reader already uses:
+       it is where they are signed in, and it keeps arbitrary web pages out of
+       the process that holds Reader's Desktop/Documents/Downloads consent. */
+    private func isReaderItself(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased() else { return false }
+        guard scheme == "http" || scheme == "https" else { return false }
+        guard let host = url.host?.lowercased() else { return false }
+        let loopback = host == "127.0.0.1" || host == "localhost" || host == "::1"
+        return loopback && (url.port ?? -1) == readerPort
+    }
+
+    /* A deliberately short list. A markdown document is untrusted content, and
+       NSWorkspace opens whatever it is handed -- a file:// URL to an .app, or a
+       custom scheme wired to another program, would be a way for a document to
+       start something merely by being clicked. The same reasoning keeps
+       /api/open-external on a whitelist. */
+    private static let handOffSchemes: Set<String> = ["http", "https", "mailto", "tel"]
+
+    @discardableResult
+    private func handOff(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased(),
+              ReaderAppDelegate.handOffSchemes.contains(scheme) else { return false }
+        return NSWorkspace.shared.open(url)
+    }
+
+    /* target="_blank", and window.open. Returning nil means no view is created;
+       the destination has already gone to the browser. */
+    func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
+                 for navigationAction: WKNavigationAction,
+                 windowFeatures: WKWindowFeatures) -> WKWebView? {
+        if let url = navigationAction.request.url, !isReaderItself(url) {
+            handOff(url)
+        }
+        return nil
+    }
+
+    /* A link without target="_blank" would otherwise replace Reader's entire
+       window with a web page, and there is no back button to return from that. */
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.allow)
+            return
+        }
+        if isReaderItself(url) {
+            decisionHandler(.allow)
+            return
+        }
+        handOff(url)
+        decisionHandler(.cancel)
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
