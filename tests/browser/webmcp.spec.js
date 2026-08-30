@@ -229,6 +229,187 @@ test("automatically refreshes document text, Mermaid source, and a local image",
   expect(servedImage).toContain("#00ff00");
 });
 
+test("a delayed open cannot replace a newer document session", async ({page}) => {
+  const alpha = path.join(workspace, "alpha.md");
+  const gamma = path.join(workspace, "gamma.md");
+  let releaseAlpha;
+  const alphaReleased = new Promise((resolve) => { releaseAlpha = resolve; });
+  let sawAlpha;
+  const alphaSeen = new Promise((resolve) => { sawAlpha = resolve; });
+
+  await page.route("**/api/file?*", async (route) => {
+    const requestPath = new URL(route.request().url()).searchParams.get("path");
+    if (requestPath === alpha) {
+      sawAlpha();
+      await alphaReleased;
+    }
+    await route.continue();
+  });
+
+  await page.evaluate((file) => {
+    window.__delayedReaderOpen = window.reader.open(file);
+  }, alpha);
+  await alphaSeen;
+  expect((await open(page, gamma)).status).toBe("opened");
+  releaseAlpha();
+  await page.evaluate(() => window.__delayedReaderOpen);
+
+  const current = await state(page);
+  expect(current.activeDocument.path).toBe(gamma);
+  expect(current.sourceText).toContain("Third document");
+});
+
+test("an open result cannot discard edits made after that revision started", async ({page}) => {
+  const alpha = path.join(workspace, "alpha.md");
+  const gamma = path.join(workspace, "gamma.md");
+  await open(page, alpha);
+  await invoke(page, "reader_set_preferences", {changes: {autoSave: false}});
+  let releaseGamma;
+  const gammaReleased = new Promise((resolve) => { releaseGamma = resolve; });
+  let sawGamma;
+  const gammaSeen = new Promise((resolve) => { sawGamma = resolve; });
+
+  await page.route("**/api/file?*", async (route) => {
+    const requestPath = new URL(route.request().url()).searchParams.get("path");
+    if (requestPath === gamma) {
+      sawGamma();
+      await gammaReleased;
+    }
+    await route.continue();
+  });
+
+  await page.evaluate((file) => {
+    window.__revisionReaderOpen = window.reader.open(file);
+  }, gamma);
+  await gammaSeen;
+  await invoke(page, "reader_replace_document_text", {text: "# Edit made while opening\n"});
+  releaseGamma();
+  await page.evaluate(() => window.__revisionReaderOpen);
+
+  const current = await state(page);
+  expect(current.activeDocument.path).toBe(alpha);
+  expect(current.sourceText).toBe("# Edit made while opening\n");
+  expect(current.dirty).toBe(true);
+});
+
+test("an external OS-open on a reused server is explicitly read-only", async ({page}) => {
+  const external = path.join(outside, "external.md");
+  await fs.writeFile(external, "# External\n\nRead only here.\n", "utf8");
+
+  await page.evaluate((file) => window.reader.openFromOS(file), external);
+  const current = await state(page);
+  expect(current.activeDocument.path).toBe(external);
+  expect(current.activeDocument.writable).toBe(false);
+  await expect(page.locator("#editor")).toHaveAttribute("readonly", "");
+  await expect(invoke(page, "reader_replace_document_text", {text: "changed"}))
+    .rejects.toThrow(/read-only/);
+  expect(await fs.readFile(external, "utf8")).toContain("Read only here");
+});
+
+test("a stale watcher result cannot mark the newer document missing", async ({page}) => {
+  const alpha = path.join(workspace, "alpha.md");
+  const gamma = path.join(workspace, "gamma.md");
+  await invoke(page, "reader_set_preferences", {changes: {autoRefresh: false}});
+  await open(page, alpha);
+  let releaseStat;
+  const statReleased = new Promise((resolve) => { releaseStat = resolve; });
+  let sawStat;
+  const statSeen = new Promise((resolve) => { sawStat = resolve; });
+
+  await page.route("**/api/stat?*", async (route) => {
+    const requestPath = new URL(route.request().url()).searchParams.get("path");
+    if (requestPath === alpha) {
+      sawStat();
+      await statReleased;
+      await route.fulfill({status: 404, contentType: "application/json",
+        body: JSON.stringify({error: "no such file or folder"})});
+      return;
+    }
+    await route.continue();
+  });
+
+  await invoke(page, "reader_set_preferences", {
+    changes: {autoRefresh: true, watchMs: 1000, watchToast: false},
+  });
+  await statSeen;
+  expect((await open(page, gamma)).status).toBe("opened");
+  releaseStat();
+  await page.waitForTimeout(100);
+
+  const current = await state(page);
+  expect(current.activeDocument.path).toBe(gamma);
+  expect(current.externalChange).toBe(false);
+  expect(await page.locator("html").getAttribute("data-watch")).toBe("on");
+});
+
+test("client saves are serialized and preserve edits made in flight", async ({page}) => {
+  const alpha = path.join(workspace, "alpha.md");
+  await open(page, alpha);
+  await invoke(page, "reader_set_preferences", {changes: {autoSave: false}});
+
+  let releaseFirst;
+  const firstReleased = new Promise((resolve) => { releaseFirst = resolve; });
+  let sawFirst;
+  const firstSeen = new Promise((resolve) => { sawFirst = resolve; });
+  let saveRequests = 0;
+  await page.route("**/api/save", async (route) => {
+    saveRequests += 1;
+    if (saveRequests === 1) {
+      sawFirst();
+      await firstReleased;
+    }
+    await route.continue();
+  });
+
+  await invoke(page, "reader_replace_document_text", {text: "# First\n"});
+  await page.evaluate(() => {
+    window.__firstReaderSave = window.__readerWebMCPTools.reader_save_document.execute({});
+  });
+  await firstSeen;
+  await invoke(page, "reader_replace_document_text", {text: "# Second\n"});
+  await page.evaluate(() => {
+    window.__secondReaderSave = window.__readerWebMCPTools.reader_save_document.execute({});
+  });
+  await page.waitForTimeout(100);
+  expect(saveRequests).toBe(1);
+
+  releaseFirst();
+  await page.evaluate(() => Promise.all([window.__firstReaderSave, window.__secondReaderSave]));
+  expect(await fs.readFile(alpha, "utf8")).toBe("# Second\n");
+  expect((await state(page)).dirty).toBe(false);
+});
+
+test("a delayed save response cannot mutate a newer document session", async ({page}) => {
+  const alpha = path.join(workspace, "alpha.md");
+  const gamma = path.join(workspace, "gamma.md");
+  await open(page, alpha);
+  await invoke(page, "reader_set_preferences", {changes: {autoSave: false}});
+  let releaseSave;
+  const saveReleased = new Promise((resolve) => { releaseSave = resolve; });
+  let sawSave;
+  const saveSeen = new Promise((resolve) => { sawSave = resolve; });
+
+  await page.route("**/api/save", async (route) => {
+    sawSave();
+    await saveReleased;
+    await route.continue();
+  });
+  await invoke(page, "reader_replace_document_text", {text: "# Saved alpha\n"});
+  await page.evaluate(() => {
+    window.__staleReaderSave = window.__readerWebMCPTools.reader_save_document.execute({});
+  });
+  await saveSeen;
+  expect((await open(page, gamma, "discard")).status).toBe("opened");
+  releaseSave();
+  const result = await page.evaluate(() => window.__staleReaderSave);
+
+  expect(result.status).toBe("stale");
+  const current = await state(page);
+  expect(current.activeDocument.path).toBe(gamma);
+  expect(current.sourceText).toContain("Third document");
+  expect(current.dirty).toBe(false);
+});
+
 test("applies representative preview formatting, persists it, and resets defaults", async ({page}) => {
   const alpha = path.join(workspace, "alpha.md");
   await open(page, alpha);

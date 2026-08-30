@@ -124,7 +124,8 @@ const S = Object.assign({}, DEFAULTS, SESSION_DEFAULTS);
 const state = {
   root: null, file: null, saved: "",
   expanded: new Set(), children: new Map(),
-  dirty: false, polling: false, diskSeen: null, lastFocus: null,
+  dirty: false, polling: null, diskSeen: null, lastFocus: null,
+  documentSession: 0, documentController: null,
   imageGeneration: 0,
   imageMtimes: new Map(),
   mermaidGeneration: 0,
@@ -139,6 +140,9 @@ const state = {
      button that had focus and leaves document.activeElement as <body>. */
   surface: "document",
 };
+
+const documentIsWritable = () =>
+  !!state.file && state.file.kind !== "pdf" && state.file.writable !== false;
 
 const TRAIL_MAX = 100;
 
@@ -226,7 +230,7 @@ function historySettle() {
 }
 
 function historyGo(delta) {
-  if (!state.file || state.file.kind === "pdf") return;
+  if (!documentIsWritable()) return;
   historySettle();
   const to = state.pastAt + delta;
   if (to < 0 || to >= state.past.length) return;
@@ -450,7 +454,7 @@ mq.addEventListener("change", () => { if (S.theme === "auto") applySettings(); }
    2. Server API
    ======================================================================== */
 
-async function api(path, {method = "GET", body = null, query = {}} = {}) {
+async function api(path, {method = "GET", body = null, query = {}, signal = null} = {}) {
   const qs = new URLSearchParams(query).toString();
   const res = await fetch(path + (qs ? "?" + qs : ""), {
     method,
@@ -458,6 +462,7 @@ async function api(path, {method = "GET", body = null, query = {}} = {}) {
                            body ? {"Content-Type": "application/json"} : {}),
     body: body ? JSON.stringify(body) : undefined,
     cache: "no-store",
+    signal,
   });
   let data = null;
   try { data = await res.json(); } catch (_) {}
@@ -892,10 +897,40 @@ function restoreScroll(pane, top) {
 }
 
 function setDirty(on) {
-  state.dirty = on;
-  el.dirty.hidden = !on;
-  el.save.disabled = !on;
-  document.title = (on ? "• " : "") + (state.file ? state.file.name : "Reader");
+  state.dirty = documentIsWritable() && on;
+  el.dirty.hidden = !state.dirty;
+  el.save.disabled = !state.dirty;
+  document.title = (state.dirty ? "• " : "") + (state.file ? state.file.name : "Reader");
+}
+
+function beginDocumentSession(targetPath) {
+  if (state.documentController) state.documentController.abort();
+  state.documentController = new AbortController();
+  state.documentSession += 1;
+  state.polling = null;
+  clearInterval(watchTimer);
+  watchTimer = null;
+  root.dataset.watch = "off";
+  return {
+    id: state.documentSession,
+    targetPath,
+    sourcePath: state.file?.path || null,
+    sourceRevision: el.editor.value,
+    signal: state.documentController.signal,
+  };
+}
+
+const sessionIsCurrent = (session, path = null) =>
+  session === state.documentSession && (!path || state.file?.path === path);
+
+function openMayApply(context) {
+  return context.id === state.documentSession &&
+    (state.file?.path || null) === context.sourcePath &&
+    el.editor.value === context.sourceRevision;
+}
+
+function staleOrAborted(err, context) {
+  return context.id !== state.documentSession || err?.name === "AbortError";
 }
 
 function hideDiskBar() {
@@ -913,18 +948,26 @@ async function openFile(path, {keepScroll = false, silent = false, record = true
      so that back and forward return to the paragraph rather than to the top. */
   trailMark();
   const kind = kindOf(path);
+  const context = beginDocumentSession(path);
 
   if (kind === "pdf") {
     let info;
-    try { info = await api("/api/stat", {query: {path}}); }
-    catch (err) { toast(err.message, true); return null; }
-    state.file = {path, kind: "pdf",
-                  name: path.split("/").pop(),
-                  dir: path.split("/").slice(0, -1).join("/") || "/",
+    try { info = await api("/api/stat", {query: {path}, signal: context.signal}); }
+    catch (err) {
+      if (!staleOrAborted(err, context)) toast(err.message, true);
+      if (context.id === state.documentSession) restartWatch();
+      return null;
+    }
+    if (!openMayApply(context)) { restartWatch(); return null; }
+    state.file = {path: info.path, kind: "pdf", writable: false,
+                  name: info.path.split("/").pop(),
+                  dir: info.path.split("/").slice(0, -1).join("/") || "/",
                   mtime: info.mtime};
     state.saved = "";
     state.diskSeen = info.mtime;
     el.editor.value = "";
+    el.editor.readOnly = true;
+    root.dataset.readonly = "yes";
     el.docname.textContent = state.file.name;
     root.dataset.empty = "no";
     root.dataset.doc = "pdf";
@@ -946,12 +989,18 @@ async function openFile(path, {keepScroll = false, silent = false, record = true
   const caret = keepScroll ? el.editor.selectionStart : 0;
 
   let data;
-  try { data = await api("/api/file", {query: {path}}); }
-  catch (err) { toast(err.message, true); return null; }
+  try { data = await api("/api/file", {query: {path}, signal: context.signal}); }
+  catch (err) {
+    if (!staleOrAborted(err, context)) toast(err.message, true);
+    if (context.id === state.documentSession) restartWatch();
+    return null;
+  }
+  if (!openMayApply(context)) { restartWatch(); return null; }
 
   clearPDF();
   root.dataset.doc = kind;
-  state.file = {path: data.path, name: data.name, dir: data.dir, mtime: data.mtime, kind};
+  state.file = {path: data.path, name: data.name, dir: data.dir, mtime: data.mtime,
+                kind, writable: data.writable !== false};
   state.saved = data.text;
   state.diskSeen = data.mtime;
   /* A local image can change without its Markdown document changing. Bump the
@@ -961,13 +1010,16 @@ async function openFile(path, {keepScroll = false, silent = false, record = true
   state.imageGeneration += 1;
   state.imageMtimes.clear();
   el.editor.value = data.text;
+  el.editor.readOnly = !state.file.writable;
+  root.dataset.readonly = state.file.writable ? "no" : "yes";
   el.docname.textContent = data.name;
   root.dataset.empty = "no";
   historyReset();                 // a different document, a different history
   setDirty(false);
   hideDiskBar();
   render(data.text);
-  await pollLocalImages();
+  await pollLocalImages(context.id, data.path);
+  if (!sessionIsCurrent(context.id, data.path)) return null;
 
   if (restore) {
     /* Back and forward: an absolute offset, not a ratio, because the reader is
@@ -987,6 +1039,9 @@ async function openFile(path, {keepScroll = false, silent = false, record = true
   markActive();
   restartWatch();
   if (!silent) revealInTree(data.path);
+  if (!silent && !state.file.writable) {
+    toast("Opened read-only; restart Reader with this file to edit it.", true);
+  }
   if (record) trailPush(data.path);
   return data.path;
 }
@@ -1014,34 +1069,63 @@ function scheduleAutosave() {
 
 /* `auto` marks a save the reader did not ask for: it stays quiet on success and
    never raises a dialog, because an automatic save must not interrupt. */
-async function saveFile({auto = false, conflict = "prompt", quiet = false,
-                         throwOnError = false} = {}) {
+let saveTail = Promise.resolve();
+
+async function saveFile(options = {}) {
   if (!state.file || !state.dirty) return {status: "unchanged"};
+  if (state.file.writable === false) {
+    const result = {status: "read_only", path: state.file.path};
+    if (options.throwOnError) throw new Error("this document is read-only");
+    if (!options.quiet) toast("This document is read-only", true);
+    return result;
+  }
   cancelAutosave();                    // whatever was pending, this covers it
-  const text = el.editor.value;
+  const snapshot = {
+    session: state.documentSession,
+    path: state.file.path,
+    text: el.editor.value,
+  };
+  const run = () => saveSnapshot(snapshot, options);
+  const result = saveTail.then(run, run);
+  saveTail = result.catch(() => {});
+  return result;
+}
+
+/* The queue is the browser-side half of optimistic concurrency. Each job takes
+   the mtime left by the preceding successful job, while keeping the exact text
+   revision captured when this save was requested. */
+async function saveSnapshot(snapshot, {auto = false, conflict = "prompt", quiet = false,
+                                       throwOnError = false} = {}) {
+  if (!sessionIsCurrent(snapshot.session, snapshot.path)) return {status: "stale"};
+  if (state.saved === snapshot.text) {
+    setDirty(el.editor.value !== state.saved);
+    return {status: "unchanged"};
+  }
   try {
     const res = await api("/api/save", {
       method: "POST",
-      body: {path: state.file.path, text, mtime: state.file.mtime},
+      body: {path: snapshot.path, text: snapshot.text, mtime: state.file.mtime},
     });
+    if (!sessionIsCurrent(snapshot.session, snapshot.path)) return {status: "stale"};
     state.file.mtime = res.mtime;
     state.diskSeen = res.mtime;
-    state.saved = text;
+    state.saved = snapshot.text;
     /* Keystrokes may have landed while the request was in flight; those are
        still unsaved, so compare against the text that was actually written. */
-    setDirty(el.editor.value !== text);
+    setDirty(el.editor.value !== snapshot.text);
     if (state.dirty) scheduleAutosave();
     hideDiskBar();
     if (!auto && !quiet) toast("Saved");
-    return {status: "saved", path: state.file.path, mtime: res.mtime};
+    return {status: "saved", path: snapshot.path, mtime: res.mtime};
   } catch (err) {
+    if (!sessionIsCurrent(snapshot.session, snapshot.path)) return {status: "stale"};
     if (/changed on disk/i.test(err.message)) {
       /* The file moved under us. An automatic save says so in the disk bar and
          leaves the choice alone -- overwriting on a timer is not its call. */
       if (auto) {
         el.diskmsg.textContent = "This file changed on disk, so your edits are not being saved automatically.";
         el.diskbar.hidden = false;
-        return {status: "conflict", path: state.file.path};
+        return {status: "conflict", path: snapshot.path};
       }
       el.diskmsg.textContent = "This file changed on disk while you were editing.";
       el.diskbar.hidden = false;
@@ -1049,24 +1133,26 @@ async function saveFile({auto = false, conflict = "prompt", quiet = false,
         (conflict === "prompt" && confirm("This file changed on disk since you opened it.\n\nOverwrite it with your version?"));
       if (overwrite) {
         const res = await api("/api/save", {
-          method: "POST", body: {path: state.file.path, text: el.editor.value},
+          method: "POST", body: {path: snapshot.path, text: snapshot.text},
         }).catch((e) => {
           if (throwOnError) throw e;
           if (!quiet) toast(e.message, true);
           return null;
         });
         if (res) {
+          if (!sessionIsCurrent(snapshot.session, snapshot.path)) return {status: "stale"};
           state.file.mtime = res.mtime;
           state.diskSeen = res.mtime;
-          state.saved = el.editor.value;
-          setDirty(false);
+          state.saved = snapshot.text;
+          setDirty(el.editor.value !== snapshot.text);
+          if (state.dirty) scheduleAutosave();
           hideDiskBar();
           if (!quiet) toast("Saved");
-          return {status: "saved", path: state.file.path, mtime: res.mtime,
+          return {status: "saved", path: snapshot.path, mtime: res.mtime,
                   overwritten: true};
         }
       }
-      return {status: "conflict", path: state.file.path};
+      return {status: "conflict", path: snapshot.path};
     }
     if (throwOnError) throw err;
     if (!quiet) toast(err.message, true);
@@ -1104,9 +1190,13 @@ function restartWatch() {
 
 async function pollOpenFile() {
   if (document.hidden || state.polling || !state.file) return;
-  state.polling = true;
+  const session = state.documentSession;
+  const path = state.file.path;
+  const signal = state.documentController?.signal || null;
+  state.polling = session;
   try {
-    const info = await api("/api/stat", {query: {path: state.file.path}});
+    const info = await api("/api/stat", {query: {path}, signal});
+    if (!sessionIsCurrent(session, path)) return;
     const documentChanged = info.mtime !== state.file.mtime && info.mtime !== state.diskSeen;
     if (documentChanged) {
       if (state.file.kind === "pdf") {
@@ -1121,12 +1211,13 @@ async function pollOpenFile() {
         el.diskbar.hidden = false;
         return;
       }
-      await openFile(state.file.path, {keepScroll: true, silent: true, record: false});
-      if (S.watchToast) toast("Refreshed from disk");
+      const opened = await openFile(path, {keepScroll: true, silent: true, record: false});
+      if (opened && S.watchToast) toast("Refreshed from disk");
       return;
     }
-    await pollLocalImages();
+    await pollLocalImages(session, path);
   } catch (err) {
+    if (!sessionIsCurrent(session, path) || err?.name === "AbortError") return;
     if (/no such/i.test(err.message)) {
       el.diskmsg.textContent = "This file is no longer on disk.";
       el.diskbar.hidden = false;
@@ -1135,7 +1226,7 @@ async function pollOpenFile() {
       root.dataset.watch = "off";
     }
   } finally {
-    state.polling = false;
+    if (state.polling === session) state.polling = null;
   }
 }
 
@@ -1143,7 +1234,8 @@ async function pollOpenFile() {
    embedded image is a separate file, though, so it needs its own lightweight
    stat check. Only images in the currently rendered preview are observed, and
    /api/stat applies the same path policy as every other Reader file request. */
-async function pollLocalImages() {
+async function pollLocalImages(session = state.documentSession, documentPath = state.file?.path) {
+  if (!sessionIsCurrent(session, documentPath)) return;
   const paths = [...new Set([...el.preview.querySelectorAll("img[data-local-path]")]
     .map((img) => img.dataset.localPath).filter(Boolean))];
   if (!paths.length) {
@@ -1159,14 +1251,19 @@ async function pollLocalImages() {
   let changed = false;
   await Promise.all(paths.map(async (path) => {
     try {
-      const info = await api("/api/stat", {query: {path}});
+      const info = await api("/api/stat", {
+        query: {path}, signal: state.documentController?.signal || null,
+      });
+      if (!sessionIsCurrent(session, documentPath)) return;
       const prior = state.imageMtimes.get(path);
       state.imageMtimes.set(path, info.mtime);
       if (prior != null && prior !== info.mtime) changed = true;
-    } catch (_) {
+    } catch (err) {
+      if (!sessionIsCurrent(session, documentPath) || err?.name === "AbortError") return;
       state.imageMtimes.delete(path);
     }
   }));
+  if (!sessionIsCurrent(session, documentPath)) return;
   if (!changed) return;
 
   state.imageGeneration += 1;
@@ -3277,7 +3374,8 @@ function nthIndexOf(haystack, needle, n) {
 /* Quick edit only makes sense on markdown being previewed: code and CSV are
    rendered from something that is not markdown, and Edit mode has a real caret. */
 const quickEditable = () =>
-  !!state.file && state.file.kind === "md" && root.dataset.mode !== "edit";
+  documentIsWritable() && state.file.kind === "md" &&
+  root.dataset.mode !== "edit";
 
 function editorSelection() {
   const start = el.editor.selectionStart;
@@ -3352,7 +3450,7 @@ function taskLines(text) {
    caller can put the checkbox back rather than show a state the file does
    not have. */
 function toggleTask(box) {
-  if (!state.file || state.file.kind !== "md") return false;
+  if (!documentIsWritable() || state.file.kind !== "md") return false;
   const boxes = [...el.preview.querySelectorAll(".task-list-item > input[type=checkbox]")];
   const nth = boxes.indexOf(box);
   if (nth < 0) return false;
@@ -3686,7 +3784,7 @@ function hideFmtBar() { el.fmtbar.hidden = true; }
 /* The editor pane is on screen in both Edit and Split modes; the selection
    lives in the textarea whenever it has focus. */
 const editorActive = () =>
-  !!state.file && state.file.kind === "md" &&
+  documentIsWritable() && state.file.kind === "md" &&
   root.dataset.mode !== "preview" && document.activeElement === el.editor;
 
 /* Viewport position of a character in the textarea. A textarea exposes no
@@ -3954,6 +4052,7 @@ function readerState() {
 
 function replaceDocumentText(text) {
   if (!state.file || state.file.kind === "pdf") throw new Error("no editable document is open");
+  if (!documentIsWritable()) throw new Error("the open document is read-only");
   if (new TextEncoder().encode(text).length > 8 * 1024 * 1024) {
     throw new Error("document text is too large");
   }

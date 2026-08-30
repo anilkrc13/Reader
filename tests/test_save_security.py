@@ -2,11 +2,13 @@ import json
 import tempfile
 import threading
 import unittest
+from unittest import mock
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 import reader
+import reader_backend
 from reader_backend import MAX_TEXT_BYTES, DocumentStore, FileAccessPolicy
 
 
@@ -112,6 +114,38 @@ class SaveAuthorizationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             store.write_text_file(self.allowed, "x" * (MAX_TEXT_BYTES + 1), None)
         self.assertEqual(self.allowed.read_text(encoding="utf-8"), "before")
+
+    def test_two_saves_cannot_both_pass_one_mtime_precondition(self):
+        expected_mtime = str(self.allowed.stat().st_mtime_ns)
+        barrier = threading.Barrier(2)
+        original_replace = reader_backend.os.replace
+        outcomes = []
+
+        def interleaved_replace(source, target):
+            try:
+                barrier.wait(timeout=0.5)
+            except threading.BrokenBarrierError:
+                pass
+            return original_replace(source, target)
+
+        def save(text):
+            try:
+                self.server.documents.write_text_file(self.allowed, text, expected_mtime)
+                outcomes.append("saved")
+            except FileExistsError:
+                outcomes.append("conflict")
+
+        with mock.patch.object(reader_backend.os, "replace", side_effect=interleaved_replace):
+            threads = [threading.Thread(target=save, args=(text,))
+                       for text in ("first", "second")]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join(timeout=3)
+
+        self.assertFalse(any(thread.is_alive() for thread in threads))
+        self.assertCountEqual(outcomes, ["saved", "conflict"])
+        self.assertIn(self.allowed.read_text(encoding="utf-8"), {"first", "second"})
 
 
 if __name__ == "__main__":

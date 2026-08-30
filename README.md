@@ -114,6 +114,10 @@ Control-click → *Open With*. Double-clicking then hands the file to Reader:
 if Reader is not running it starts and opens straight into that document, and if
 it is already running the open window switches to it, moving the file tree to the
 document's folder when the document sits outside the folder you were browsing.
+An outside document handed to a newly started server is editable because its
+folder becomes an initial server grant. The same handoff to an already-running
+server opens read-only unless that folder was already granted; Reader never lets
+the page grant itself a new write root.
 
 All six markdown extensions Reader treats as markdown (`.md .markdown .mdown
 .mkd .mdx .mdc`) are covered, along with every other type Reader reads that macOS
@@ -265,7 +269,12 @@ preview side of Split. The editor shows the source, where a link is just text.
   interrupted save cannot truncate your document. Saves are limited to
   supported text documents in the active workspace; Reader's own project files
   and paths outside that workspace are protected. If the file changed on disk
-  since you opened it, you are asked before anything is overwritten.
+  since you opened it, you are asked before anything is overwritten. Browser
+  saves are queued, and each document path serializes its mtime check with its
+  atomic replace, so overlapping operations cannot both pass one precondition.
+- The server owns the write grants used by save, create, rename, move and Trash.
+  The page may browse and read other folders, but it cannot promote one into a
+  writable workspace; symlinks are resolved before the grant check.
 - Deleting never unlinks anything, and only ever applies to single files —
   the server refuses to trash a folder at all, and refuses to rename or touch
   your home folder, the root of the disk, or any folder containing Markdown
