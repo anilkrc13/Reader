@@ -7,22 +7,7 @@
 <meta name="referrer" content="no-referrer">
 <title>Reader</title>
 <link rel="icon" href="/static/icon.svg">
-<script>
-/* Apply saved appearance before first paint so there is no flash. */
-(function(){try{
-  var p=JSON.parse(localStorage.getItem("mdview.v2")||localStorage.getItem("mdview.v1")||"{}"),
-      r=document.documentElement,t=p.theme||"auto";
-  r.dataset.themepref=t;
-  r.dataset.theme=t==="auto"?(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):t;
-  if(p.side)r.dataset.side=p.side;
-  if(p.mode)r.dataset.mode=p.mode;
-  if(p.paper)r.dataset.paper=p.paper;
-  if(p.paperDark)r.dataset.paperDark=p.paperDark;
-  if(p.codeTheme)r.dataset.code=p.codeTheme;
-  r.dataset.sidebar=p.hidden?"hidden":"shown";
-  if(p.width)r.style.setProperty("--sidebar-w",p.width+"px");
-}catch(e){}})();
-</script>
+<script src="/static/prepaint.js"></script>
 <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
@@ -251,6 +236,48 @@
     <div class="cf-actions">
       <button class="btn" id="rn-cancel">Cancel</button>
       <button class="btn primary" id="rn-ok">Rename</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================= new document -->
+<div id="newdoc" class="scrim" hidden>
+  <div class="dialog-sm" role="dialog" aria-modal="true" aria-labelledby="nd-title">
+    <div class="cf-mark neutral" aria-hidden="true">
+      <svg viewBox="0 0 20 20"><path d="M4.8 2.8h6.4L15.6 7.2v10a.8.8 0 0 1-.8.8H4.8a.8.8 0 0 1-.8-.8V3.6a.8.8 0 0 1 .8-.8z"/><path d="M11 2.9v4.4h4.4"/><path d="M9.8 10.4v4.2M7.7 12.5h4.2"/></svg>
+    </div>
+    <h3 id="nd-title">New document</h3>
+
+    <div id="nd-form">
+      <input id="nd-input" class="dlg-input" type="text" spellcheck="false" autocomplete="off"
+             placeholder="Name" aria-label="Name for the new document">
+      <!-- Where it lands, said plainly rather than left to be inferred. -->
+      <div class="nd-where">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.8 4.2A1.2 1.2 0 0 1 3 3h2.9l1.4 1.7h5.7A1.2 1.2 0 0 1 14.2 6v6a1.2 1.2 0 0 1-1.2 1.2H3A1.2 1.2 0 0 1 1.8 12z"/></svg>
+        <span class="nd-where-path" id="nd-where"></span>
+        <button type="button" class="nd-change" id="nd-change"
+                aria-label="Choose a different folder">Change</button>
+      </div>
+      <p class="cf-note" id="nd-note">Leave the extension off and it will be a .md file.</p>
+      <div class="cf-actions">
+        <button class="btn" id="nd-cancel">Cancel</button>
+        <button class="btn primary" id="nd-ok">Create</button>
+      </div>
+    </div>
+
+    <div id="nd-picker" hidden>
+      <div class="nd-pick-bar">
+        <button type="button" class="icon-mini" id="nd-up"
+                title="Up to the enclosing folder" aria-label="Up to the enclosing folder">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 12.8V3.6M4.2 7.2 8 3.4l3.8 3.8"/></svg>
+        </button>
+        <span class="nd-pick-here" id="nd-pick-here"></span>
+      </div>
+      <ul class="nd-pick-list" id="nd-pick-list" aria-label="Folders"></ul>
+      <div class="cf-actions">
+        <button class="btn" id="nd-pick-back">Back</button>
+        <button class="btn primary" id="nd-pick-use">Use this folder</button>
+      </div>
     </div>
   </div>
 </div>
@@ -692,6 +719,7 @@
                 <tr><td>Back / forward through documents</td><td><kbd class="k">←</kbd> <kbd class="k">→</kbd> or <kbd class="k">⌘[</kbd> <kbd class="k">⌘]</kbd></td></tr>
                 <tr><td>Larger / smaller text</td><td><kbd class="k">⌘+</kbd> <kbd class="k">⌘−</kbd></td></tr>
                 <tr><td>Default text size</td><td><kbd class="k">⌘0</kbd></td></tr>
+                <tr><td>New document, beside the open one</td><td><kbd class="k">⌘N</kbd></td></tr>
                 <tr><td>Find in the document</td><td><kbd class="k">⌘F</kbd></td></tr>
                 <tr><td>Next / previous match</td><td><kbd class="k">⌘G</kbd> <kbd class="k">⇧⌘G</kbd> or <kbd class="k">↵</kbd> <kbd class="k">⇧↵</kbd></td></tr>
               </tbody>
