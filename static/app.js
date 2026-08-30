@@ -46,7 +46,7 @@ const DEFAULTS = {
   fontSize: 16.5, bodyWeight: 400, lineHeight: 1.75, measure: 65, paraGap: 1.1, listGap: .32,
   titleSize: 48, titleWeight: 700, titleLineHeight: 1.08,
   titleSpacing: -.035, titleCapScale: 1, headSizeScale: 1, headCapScale: 1, headWeight: null, headLineHeight: null,
-  headSpacing: null, headGap: null,
+  headSpacing: null, headGap: null, headGapAfter: null,
   /* code */
   codeTheme: "brand", monoFont: "system", codeScale: 0.82, codeWrap: false,
   /* editor */
@@ -68,7 +68,7 @@ const SESSION_DEFAULTS = {
 const NUMERIC = new Set(["fontSize", "bodyWeight", "lineHeight", "measure", "paraGap", "listGap",
                          "titleSize", "titleWeight", "titleLineHeight", "titleSpacing", "titleCapScale",
                          "headSizeScale", "headCapScale", "headWeight", "headLineHeight", "headSpacing",
-                         "headGap", "codeScale",
+                         "headGap", "headGapAfter", "codeScale",
                          "editorSize", "tabSize", "recentCount", "watchMs", "width"]);
 
 /* Line width is a percentage of the reading pane, so it follows the window
@@ -433,6 +433,7 @@ function applySettings() {
   st.setProperty("--head-lh-override", S.headLineHeight != null ? String(S.headLineHeight) : "");
   st.setProperty("--head-spacing-override", S.headSpacing != null ? (S.headSpacing + "em") : "");
   st.setProperty("--head-gap-override", S.headGap != null ? (S.headGap + "em") : "");
+  st.setProperty("--head-gap-after-override", S.headGapAfter != null ? (S.headGapAfter + "em") : "");
   st.setProperty("--fs-code", S.codeScale + "em");
   st.setProperty("--fs-editor", S.editorSize + "px");
   st.setProperty("--tab-size", String(S.tabSize));
@@ -2069,6 +2070,7 @@ function labelFor(key, v) {
     case "headLineHeight": return v == null ? "Default" : Number(v).toFixed(2);
     case "headSpacing": return v == null ? "Default" : Number(v).toFixed(3) + " em";
     case "headGap": return v == null ? "Default" : Number(v).toFixed(2) + " em";
+    case "headGapAfter": return v == null ? "Default" : Number(v).toFixed(2) + " em";
     case "codeScale": return Math.round(v * 100) + " %";
     default: return String(v);
   }
