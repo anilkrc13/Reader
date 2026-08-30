@@ -15,7 +15,7 @@ private enum ReaderProbe {
     case unreachable
 }
 
-private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate {
+private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandlerWithReply {
     private var window: NSWindow!
     private var webView: WKWebView!
     private var statusLabel: NSTextField!
@@ -29,6 +29,7 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
        here until there is somewhere to send it. */
     private var pendingOpenPath: String?
     private var isPageLoaded = false
+    private var isChoosingFolder = false
 
     /* Window and menus are built in `will` rather than `did` so that an
        open-document request, which AppKit sends between the two, always finds
@@ -189,7 +190,13 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         content.wantsLayer = true
         content.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
 
-        webView = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
+        /* The page asks for native things through this one channel. It is the
+           only route from the page into the app; everything else is one-way. */
+        let configuration = WKWebViewConfiguration()
+        configuration.userContentController.addScriptMessageHandler(
+            self, contentWorld: .page, name: "reader")
+
+        webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = self
         /* Without a UI delegate, WebKit answers a target="_blank" link by
            silently dropping it -- which is why a link to a Google Doc did
@@ -393,6 +400,96 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         statusLabel.textColor = .systemRed
         statusLabel.maximumNumberOfLines = 4
         statusLabel.lineBreakMode = .byWordWrapping
+    }
+
+    // -- requests from the page ----------------------------------------------
+
+    /* One handler, dispatching on an action name, so a second native affordance
+       later does not mean a second bridge.
+
+       WKScriptMessageHandlerWithReply rather than the plain handler: WebKit ties
+       the answer to the call that asked for it, so postMessage resolves a
+       Promise on the page. A single global callback would have had to correlate
+       replies itself, and would happily deliver a stale answer to a page that
+       had since reloaded -- silently changing a destination under a reopened
+       dialog. The reply must be made exactly once on every path. */
+    func userContentController(_ controller: WKUserContentController,
+                               didReceive message: WKScriptMessage,
+                               replyHandler: @escaping (Any?, String?) -> Void) {
+        /* Only Reader's own page may ask. Documents cannot currently create a
+           subframe -- the sanitiser strips them -- but that is a setting away
+           from being untrue, and this is two lines. */
+        guard message.frameInfo.isMainFrame,
+              isReaderOrigin(message.frameInfo.securityOrigin) else {
+            replyHandler(nil, "not Reader's own page")
+            return
+        }
+        guard let body = message.body as? [String: Any],
+              let action = body["action"] as? String else {
+            replyHandler(nil, "malformed request")
+            return
+        }
+        switch action {
+        case "chooseFolder":
+            chooseFolder(startingAt: body["current"] as? String, reply: replyHandler)
+        default:
+            replyHandler(nil, "unknown action")
+        }
+    }
+
+    private func isReaderOrigin(_ origin: WKSecurityOrigin) -> Bool {
+        let host = origin.host.lowercased()
+        let loopback = host == "127.0.0.1" || host == "localhost" || host == "::1"
+        // port 0 is what WebKit reports for a scheme's default port, which
+        // Reader never uses; accepted so a future default-port run still works.
+        return (origin.protocol == "http" || origin.protocol == "https")
+            && loopback && (origin.port == readerPort || origin.port == 0)
+    }
+
+    /* Finder's own folder chooser: the sidebar, favourites, ⌘⇧G to type a path,
+       and New Folder, none of which a picker drawn in the page can offer.
+       Cancelling replies with null, which the page reads as "keep what you had". */
+    private func chooseFolder(startingAt current: String?,
+                              reply: @escaping (Any?, String?) -> Void) {
+        guard let window else {
+            reply(nil, "Reader has no window to attach the chooser to")
+            return
+        }
+        /* A person cannot click Change twice, but a script can post twice, and
+           two sheets would queue behind one another on the same window. */
+        guard !isChoosingFolder else {
+            reply(nil, "a folder is already being chosen")
+            return
+        }
+        isChoosingFolder = true
+
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Choose"
+        panel.message = "Choose a folder for the new document"
+        if let current, !current.isEmpty {
+            panel.directoryURL = URL(fileURLWithPath: current, isDirectory: true)
+        }
+
+        // A sheet on a minimised window is invisible, and the page would wait
+        // on a dialog nobody can see.
+        window.makeKeyAndOrderFront(nil)
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard let self else { return }
+            self.isChoosingFolder = false
+            /* Standardised for the same reason application(_:open:) does it: the
+               page compares this path against its own notion of home and of the
+               folder being browsed, and a firmlinked /System/Volumes/Data path
+               matches neither. */
+            let chosen = (response == .OK) ? panel.url?.standardizedFileURL.path : nil
+            // The sheet took first responder; the page cannot focus its field back
+            // until the web view has it again.
+            self.window.makeFirstResponder(self.webView)
+            reply(chosen, nil)
+        }
     }
 
     // -- links out of the document ------------------------------------------

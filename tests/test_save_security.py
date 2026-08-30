@@ -11,6 +11,13 @@ from reader_backend import MAX_TEXT_BYTES, DocumentStore, FileAccessPolicy
 
 
 class SaveAuthorizationTests(unittest.TestCase):
+    """These assert the refusal itself -- the 403 and the file left untouched --
+    and, separately, that the reason given names the cause. The refusals used to
+    arrive as a bare "permission denied", which a reader could not act on and
+    which was indistinguishable from the operating system refusing. The messages
+    are author-written constants and name no path.
+    """
+
     def setUp(self):
         self.tempdir = tempfile.TemporaryDirectory(prefix="reader-save-tests-")
         root = Path(self.tempdir.name)
@@ -73,7 +80,7 @@ class SaveAuthorizationTests(unittest.TestCase):
         status, result = self.post_save(self.protected, "overwritten")
 
         self.assertEqual(status, 403)
-        self.assertEqual(result["error"], "permission denied")
+        self.assertIn("Reader project file is protected", result["error"])
         self.assertEqual(self.protected.read_text(encoding="utf-8"), original)
 
     def test_unsupported_type_is_rejected(self):
@@ -87,7 +94,7 @@ class SaveAuthorizationTests(unittest.TestCase):
         status, result = self.post_save(self.out_of_scope, "outside")
 
         self.assertEqual(status, 403)
-        self.assertEqual(result["error"], "permission denied")
+        self.assertIn("outside Reader's allowed folders", result["error"])
         self.assertFalse(self.out_of_scope.exists())
 
     def test_symlink_cannot_reach_protected_project_file(self):
@@ -97,7 +104,7 @@ class SaveAuthorizationTests(unittest.TestCase):
         status, result = self.post_save(link, "through the link")
 
         self.assertEqual(status, 403)
-        self.assertEqual(result["error"], "permission denied")
+        self.assertIn("Reader project file is protected", result["error"])
         self.assertEqual(self.protected.read_text(encoding="utf-8"), "print('protected')\n")
 
     def test_text_byte_limit_is_enforced_by_storage(self):
