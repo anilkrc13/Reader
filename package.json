@@ -1,0 +1,10 @@
+{
+  "name": "reader-integration-tests",
+  "private": true,
+  "scripts": {
+    "test:webmcp": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1"
+  }
+}
