@@ -46,7 +46,7 @@ const DEFAULTS = {
   fontSize: 16.5, bodyWeight: 400, lineHeight: 1.75, measure: 65, paraGap: 1.1, listGap: .32,
   titleSize: 48, titleWeight: 700, titleLineHeight: 1.08,
   titleSpacing: -.035, titleCapScale: 1, headSizeScale: 1, headCapScale: 1, headWeight: null, headLineHeight: null,
-  headSpacing: null, headGap: null,
+  headSpacing: null, headGap: null, headGapAfter: null,
   /* code */
   codeTheme: "brand", monoFont: "system", codeScale: 0.82, codeWrap: false,
   /* editor */
@@ -68,7 +68,7 @@ const SESSION_DEFAULTS = {
 const NUMERIC = new Set(["fontSize", "bodyWeight", "lineHeight", "measure", "paraGap", "listGap",
                          "titleSize", "titleWeight", "titleLineHeight", "titleSpacing", "titleCapScale",
                          "headSizeScale", "headCapScale", "headWeight", "headLineHeight", "headSpacing",
-                         "headGap", "codeScale",
+                         "headGap", "headGapAfter", "codeScale",
                          "editorSize", "tabSize", "recentCount", "watchMs", "width"]);
 
 /* Line width is a percentage of the reading pane, so it follows the window
@@ -125,6 +125,8 @@ const state = {
   root: null, file: null, saved: "",
   expanded: new Set(), children: new Map(),
   dirty: false, polling: false, diskSeen: null, lastFocus: null,
+  imageGeneration: 0,
+  mermaidGeneration: 0,
   /* documents visited this session, and where we are in that trail. Deliberately
      not persisted: like a browser window, closing it forgets the trail. */
   trail: [], trailAt: -1,
@@ -431,6 +433,7 @@ function applySettings() {
   st.setProperty("--head-lh-override", S.headLineHeight != null ? String(S.headLineHeight) : "");
   st.setProperty("--head-spacing-override", S.headSpacing != null ? (S.headSpacing + "em") : "");
   st.setProperty("--head-gap-override", S.headGap != null ? (S.headGap + "em") : "");
+  st.setProperty("--head-gap-after-override", S.headGapAfter != null ? (S.headGapAfter + "em") : "");
   st.setProperty("--fs-code", S.codeScale + "em");
   st.setProperty("--fs-editor", S.editorSize + "px");
   st.setProperty("--tab-size", String(S.tabSize));
@@ -462,7 +465,9 @@ async function api(path, {method = "GET", body = null, query = {}} = {}) {
 }
 /* the session cookie authorises this; the token is only a fallback */
 const rawURL = (p) =>
-  "/api/raw?" + new URLSearchParams(TOKEN ? {path: p, t: TOKEN} : {path: p});
+  "/api/raw?" + new URLSearchParams(TOKEN
+    ? {path: p, v: state.imageGeneration, t: TOKEN}
+    : {path: p, v: state.imageGeneration});
 
 let toastTimer = null;
 function toast(msg, isError = false) {
@@ -478,6 +483,57 @@ function toast(msg, isError = false) {
    ======================================================================== */
 
 marked.use({gfm: true, breaks: false});
+
+let mermaidConfigured = false;
+
+function configureMermaid() {
+  if (mermaidConfigured) return true;
+  if (!window.mermaid || typeof window.mermaid.initialize !== "function") return false;
+  window.mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: "strict",
+    htmlLabels: false,
+    theme: "neutral",
+    flowchart: {useMaxWidth: true},
+  });
+  mermaidConfigured = true;
+  return true;
+}
+
+function mermaidError(pre) {
+  if (pre.nextElementSibling?.classList.contains("mermaid-error")) return;
+  const note = document.createElement("p");
+  note.className = "mermaid-error";
+  note.textContent = "This Mermaid diagram could not be rendered; showing its source.";
+  pre.after(note);
+}
+
+async function renderMermaidBlocks(scope, generation) {
+  const blocks = [...scope.querySelectorAll("pre > code.language-mermaid")];
+  if (!blocks.length || !configureMermaid()) return;
+
+  for (const [index, code] of blocks.entries()) {
+    const pre = code.parentElement;
+    if (!pre) continue;
+    try {
+      const result = await window.mermaid.render(`mermaid-diagram-${generation}-${index}`, code.textContent || "");
+      if (generation !== state.mermaidGeneration || !pre.isConnected) return;
+      const host = document.createElement("div");
+      host.className = "mermaid-diagram";
+      host.setAttribute("role", "img");
+      host.setAttribute("aria-label", "Mermaid diagram");
+      host.innerHTML = DOMPurify.sanitize(result.svg, {
+        USE_PROFILES: {svg: true, svgFilters: true},
+      });
+      if (!host.querySelector("svg")) throw new Error("Mermaid returned no SVG");
+      pre.replaceWith(host);
+      if (typeof result.bindFunctions === "function") result.bindFunctions(host);
+    } catch (_) {
+      if (generation !== state.mermaidGeneration || !pre.isConnected) return;
+      mermaidError(pre);
+    }
+  }
+}
 
 function slugify(text, seen) {
   const base = text.toLowerCase().trim()
@@ -557,6 +613,7 @@ function wrapCapRuns(rootEl) {
 }
 
 function render(text) {
+  const mermaidGeneration = ++state.mermaidGeneration;
   state.lineAnchors = null;
   invalidateSyncMaps();
   /* Whatever this render produces, the find marks in the old document are gone
@@ -572,6 +629,7 @@ function render(text) {
     ALLOW_DATA_ATTR: false,
   });
   el.preview.innerHTML = html;
+  renderMermaidBlocks(el.preview, mermaidGeneration);
   /* A document that opens with an H1 is treating it as its title. Mark it
      separately so the title can be displayed prominently without redefining
      the shared H1-H6 hierarchy used by the rest of the document. */
@@ -625,7 +683,7 @@ function render(text) {
     const list = item.parentElement;
     if (list) list.classList.add("contains-task-list");
   });
-  el.preview.querySelectorAll("pre code").forEach((block) => {
+  el.preview.querySelectorAll("pre code:not(.language-mermaid)").forEach((block) => {
     try { hljs.highlightElement(block); } catch (_) {}
   });
   listifyCells(el.preview);
@@ -893,6 +951,11 @@ async function openFile(path, {keepScroll = false, silent = false, record = true
   state.file = {path: data.path, name: data.name, dir: data.dir, mtime: data.mtime, kind};
   state.saved = data.text;
   state.diskSeen = data.mtime;
+  /* A local image can change without its Markdown document changing. Bump the
+     URL version whenever the document is loaded from disk so WebKit cannot
+     reuse an image response from the previous preview. Renders caused by
+     typing keep the same version and do not refetch every image. */
+  state.imageGeneration += 1;
   el.editor.value = data.text;
   el.docname.textContent = data.name;
   root.dataset.empty = "no";
@@ -2238,6 +2301,7 @@ function labelFor(key, v) {
     case "headLineHeight": return v == null ? "Default" : Number(v).toFixed(2);
     case "headSpacing": return v == null ? "Default" : Number(v).toFixed(3) + " em";
     case "headGap": return v == null ? "Default" : Number(v).toFixed(2) + " em";
+    case "headGapAfter": return v == null ? "Default" : Number(v).toFixed(2) + " em";
     case "codeScale": return Math.round(v * 100) + " %";
     default: return String(v);
   }
