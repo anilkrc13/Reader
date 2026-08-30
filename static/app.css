@@ -573,10 +573,14 @@ html[data-mode=split] .prose{padding:28px 34px 28vh;font-size:calc(var(--fs-body
 .prose h4{--hs:1.05em;--hw:650;--hlh:1.32;--hsp:-.014em}
 .prose h5{--hs:.94em;--hw:650;--hlh:1.38;--hsp:-.008em;color:var(--text-2)}
 .prose h6{--hs:.86em;--hw:600;--hlh:1.42;--hsp:.004em;color:var(--text-3)}
-/* Saved heading gap replaces each level's default space above; the document
-   title and a leading H1 keep their own tighter margins. */
+/* Saved heading gaps replace each level's default surrounding space. The
+   document title keeps its own tighter margins. */
+.prose h1:not(.doc-heading){
+  margin-bottom:var(--head-gap-after-override,.45em);
+}
 .prose h2,.prose h3,.prose h4,.prose h5,.prose h6{
   margin-top:var(--head-gap-override,var(--hg,1.9em));
+  margin-bottom:var(--head-gap-after-override,.55em);
 }
 /* Letter proportions: capital runs inside headings (wrapped at render time)
    scale around the shared baseline, tuning cap height against x-height
