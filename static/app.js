@@ -1470,6 +1470,237 @@ function openRenamer(path, kind) {
   renEls.input.setSelectionRange(0, stem > 0 ? stem : name.length);
 }
 
+/* --- new document ------------------------------------------------------- */
+
+const newEls = {
+  scrim: $("newdoc"), title: $("nd-title"), input: $("nd-input"), note: $("nd-note"),
+  ok: $("nd-ok"), cancel: $("nd-cancel"),
+  form: $("nd-form"), where: $("nd-where"), change: $("nd-change"),
+  picker: $("nd-picker"), pickHere: $("nd-pick-here"), pickList: $("nd-pick-list"),
+  pickUp: $("nd-up"), pickBack: $("nd-pick-back"), pickUse: $("nd-pick-use"),
+};
+/* The folder the document will go in, and -- while the picker is up -- the
+   folder being looked through, which is not the same thing until Use is
+   pressed. */
+let newDocDir = null;
+let pickDir = null;
+const newDocOpen = () => !newEls.scrim.hidden;
+const NEW_DOC_HINT = "Leave the extension off and it will be a .md file.";
+
+/* Where a new document belongs: beside the one being read, because that is the
+   folder you are working in even when the tree is showing somewhere else
+   entirely -- opening a document from Recent, from a link or from the file
+   search all leave the panel pointing elsewhere. With nothing open, the folder
+   the panel is showing is the only answer there is.
+   Either way the dialog names it, so it is never a guess. */
+function newDocFolder() {
+  if (state.file && state.file.dir) return state.file.dir;
+  return state.root || HOME;
+}
+
+function showNewDocDir() {
+  newEls.where.textContent = prettyDir(newDocDir);
+  newEls.where.title = newDocDir;
+}
+
+function openNewDoc() {
+  const folder = newDocFolder();
+  if (!folder) return false;
+  newDocDir = folder;
+  showNewDocDir();
+  newEls.input.value = "";
+  newEls.note.textContent = NEW_DOC_HINT;
+  newEls.ok.disabled = true;
+  showNewDocForm();
+  state.lastFocus = document.activeElement;
+  newEls.scrim.hidden = false;
+  newEls.input.focus();
+  return true;
+}
+
+function showNewDocForm() {
+  newEls.title.textContent = "New document";
+  newEls.picker.hidden = true;
+  newEls.form.hidden = false;
+}
+
+/* --- choosing the folder ------------------------------------------------ */
+
+/* Two ways to choose, one contract: chooseFolder(startDir) settles with a path
+   or with null for "kept what I had". The native panel is the one people know --
+   sidebar, favourites, ⌘⇧G, New Folder -- and it is what the app uses. A page in
+   a browser cannot open it, so the picker drawn in the dialog stays for that,
+   and stays the only implementation a test can drive. */
+const nativeBridge = () => (window.webkit && window.webkit.messageHandlers &&
+                            window.webkit.messageHandlers.reader) || null;
+
+function chooseFolderNatively(startDir) {
+  return nativeBridge()
+    .postMessage({action: "chooseFolder", current: startDir})
+    .then((path) => (typeof path === "string" && path ? path : null));
+}
+
+/* Whatever was chosen still has to be somewhere Reader may write. The server is
+   the only thing that knows -- the policy, the Music rule, symlinks and the
+   operating system's own permission all live there -- so it is asked before the
+   folder is accepted, rather than after a name has been typed. */
+async function folderUsable(dir) {
+  try {
+    const verdict = await api("/api/can-create", {query: {path: dir}});
+    return verdict.ok ? {ok: true} : {ok: false, reason: verdict.reason};
+  } catch (err) {
+    return {ok: false, reason: err.message};
+  }
+}
+
+/* The one place a chosen folder is taken up, so the two implementations cannot
+   drift on what happens afterwards. */
+async function adoptFolder(dir) {
+  if (!dir || dir === newDocDir) return;
+  const verdict = await folderUsable(dir);
+  if (!verdict.ok) {
+    newEls.note.textContent = verdict.reason;
+    return;
+  }
+  newDocDir = dir;
+  showNewDocDir();
+  newEls.note.textContent = NEW_DOC_HINT;   // an older complaint no longer applies
+}
+
+async function startChoosingFolder() {
+  if (!nativeBridge()) { openPicker(); return; }
+  newEls.change.disabled = true;
+  let chosen = null;
+  try { chosen = await chooseFolderNatively(newDocDir); }
+  catch (err) { newEls.note.textContent = String(err && err.message || err); }
+  newEls.change.disabled = false;
+  await adoptFolder(chosen);
+  newEls.input.focus();
+}
+
+const pickerOpen = () => !newEls.picker.hidden;
+
+function openPicker() {
+  pickDir = newDocDir;
+  newEls.title.textContent = "Choose a folder";
+  newEls.form.hidden = true;
+  newEls.picker.hidden = false;
+  drawPicker();
+  newEls.pickUse.focus();
+}
+
+async function drawPicker() {
+  newEls.pickHere.textContent = prettyDir(pickDir);
+  newEls.pickHere.title = pickDir;
+  newEls.pickUp.disabled = pickDir === "/";
+  newEls.pickList.innerHTML = "";
+
+  let info;
+  try {
+    /* all=1 matters here: the tree hides folders that hold no readable
+       document, and an empty folder is a perfectly good place to put the first
+       one. */
+    const query = {path: pickDir, all: "1"};
+    if (S.showHidden) query.hidden = "1";
+    info = await api("/api/list", {query});
+  } catch (err) {
+    pickerMessage(err.message);
+    return;
+  }
+  if (pickDir !== info.path) pickDir = info.path;
+
+  const dirs = (info.entries || []).filter((e) => e.type === "dir");
+  if (!dirs.length) {
+    pickerMessage("No folders inside this one.");
+    return;
+  }
+  dirs.forEach((entry) => {
+    const li = document.createElement("li");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.dataset.path = entry.path;
+    btn.title = entry.path;
+    btn.innerHTML = ICONS.folder + '<span class="nm"></span>';
+    btn.querySelector(".nm").textContent = entry.name;
+    li.appendChild(btn);
+    newEls.pickList.appendChild(li);
+  });
+}
+
+function pickerMessage(text) {
+  newEls.pickList.innerHTML = "";
+  const li = document.createElement("li");
+  li.className = "nd-pick-msg";
+  li.textContent = text;
+  newEls.pickList.appendChild(li);
+}
+
+function closeNewDoc() {
+  newEls.scrim.hidden = true;
+  newEls.ok.disabled = false;
+  if (state.lastFocus && state.lastFocus.focus) state.lastFocus.focus();
+}
+
+/* The document itself is written only here, by Create or by Return in the field,
+   which is the same button. The one thing that can touch the disk earlier is the
+   native chooser's own New Folder button, which is a deliberate separate act. */
+async function doCreateNewDoc() {
+  const name = newEls.input.value.trim();
+  if (!name) return;
+  const dir = newDocDir || newDocFolder();
+
+  newEls.ok.disabled = true;
+  let res;
+  try { res = await api("/api/create", {method: "POST", body: {dir, name}}); }
+  catch (err) {
+    newEls.ok.disabled = false;
+    newEls.note.textContent = err.message;      // stays open to be corrected
+    newEls.input.focus();
+    newEls.input.select();
+    return;
+  }
+  closeNewDoc();
+
+  /* The tree is holding a listing from before the file existed, so drop it or
+     the new document will not appear in the redraw. */
+  state.children.delete(dir);
+  await drawTree();
+  await openFile(res.path);
+  toast("Created " + res.name);
+}
+
+newEls.input.addEventListener("input", () => {
+  newEls.ok.disabled = !newEls.input.value.trim();
+  if (newEls.note.textContent !== NEW_DOC_HINT) newEls.note.textContent = NEW_DOC_HINT;
+});
+newEls.input.addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter") { ev.preventDefault(); doCreateNewDoc(); }
+});
+newEls.ok.addEventListener("click", () => doCreateNewDoc());
+newEls.cancel.addEventListener("click", () => closeNewDoc());
+newEls.change.addEventListener("click", () => startChoosingFolder());
+newEls.pickBack.addEventListener("click", () => { showNewDocForm(); newEls.input.focus(); });
+newEls.pickUse.addEventListener("click", async () => {
+  const chosen = pickDir;
+  showNewDocForm();
+  newEls.input.focus();
+  await adoptFolder(chosen);
+});
+newEls.pickUp.addEventListener("click", () => {
+  const parent = pickDir.split("/").slice(0, -1).join("/") || "/";
+  pickDir = parent;
+  drawPicker();
+});
+newEls.pickList.addEventListener("click", (ev) => {
+  const btn = ev.target.closest("button[data-path]");
+  if (!btn) return;
+  pickDir = btn.dataset.path;
+  drawPicker();
+});
+newEls.scrim.addEventListener("mousedown", (ev) => {
+  if (ev.target === newEls.scrim) closeNewDoc();
+});
+
 function closeRenamer() {
   renEls.scrim.hidden = true;
   pendingRename = null;
@@ -2368,7 +2599,8 @@ function editingText() {
 }
 
 function overlayOpen() {
-  return !el.menu.hidden || renamerOpen() || confirmOpen() || settingsOpen();
+  return !el.menu.hidden || renamerOpen() || confirmOpen() || settingsOpen()
+         || newDocOpen();
 }
 
 /* ⌘+ and ⌘- resize whatever text the main pane is showing. For markdown that
@@ -2413,6 +2645,10 @@ document.addEventListener("keydown", (ev) => {
     if (find.open) { ev.preventDefault(); findCloseBar(); return; }
     if (!el.fmtbar.hidden) { ev.preventDefault(); hideFmtBar(); return; }
     if (!el.menu.hidden) { ev.preventDefault(); closeMenu(); return; }
+    if (newDocOpen() && pickerOpen()) {
+      ev.preventDefault(); showNewDocForm(); newEls.input.focus(); return;
+    }
+    if (newDocOpen()) { ev.preventDefault(); closeNewDoc(); return; }
     if (renamerOpen()) { ev.preventDefault(); closeRenamer(); return; }
     if (confirmOpen()) { ev.preventDefault(); closeConfirm(); return; }
     if (settingsOpen()) { ev.preventDefault(); closeSettings(); return; }
@@ -2491,6 +2727,7 @@ document.addEventListener("keydown", (ev) => {
   else if (k === "0") { ev.preventDefault(); adjustTextSize(null); }
   /* app */
   else if (k === ",") { ev.preventDefault(); settingsOpen() ? closeSettings() : openSettings(); }
+  else if (k === "n" && !ev.shiftKey && !ev.altKey) { ev.preventDefault(); openNewDoc(); }
   /* ⌘⇧. mirrors Finder's shortcut for hidden files. Shift turns "." into ">"
      on most layouts, so match the physical key as well as both characters. */
   else if (ev.shiftKey && (k === "." || k === ">" || ev.code === "Period")) {

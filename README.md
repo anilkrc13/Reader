@@ -156,6 +156,7 @@ your last document.
 | **Auto-refresh** | While you read, the open document is watched. If something else rewrites it, the app reloads it and keeps your place. If you have unsaved edits it never overwrites them — it shows a bar offering **Reload from disk** or **Keep mine**. |
 | **Refresh** | `⌘R`, or the circular arrow, to reload by hand. |
 | **Full screen** | The corners icon, or `⌃⌘F`. `Esc` leaves it. |
+| **New document** | `⌘N` asks for a name and creates an empty markdown file next to the document you are reading — or, with nothing open, in the folder you are browsing. Either way the dialog shows the folder and offers **Change** to pick another one. In the app that opens Finder's own folder chooser, with your sidebar, favourites, `⌘⇧G` and **New Folder**; in a browser, which cannot open a Mac panel, a small folder list appears in the dialog instead. A folder Reader may not write to is refused the moment you choose it, saying why, rather than failing later. Nothing is written until you press **Create**. Leave the extension off and it is a `.md`. Only markdown can be created, an existing file is never overwritten, and the new document opens ready to edit. |
 | **Back and forward** | The `‹` and `›` arrows, `⌘[` / `⌘]`, or bare `←` / `→` while reading. Each document in the trail remembers where you were in it, so going back returns you to the paragraph you left rather than to the top — and going forward again returns you to where you were reading there. In Edit mode the editor's scroll and caret come back with it. |
 | **Find** | `⌘F` opens a find bar above the document. It highlights every match, counts them, and `⌘G` / `⇧⌘G` — or `↵` / `⇧↵` — step between them; `Esc` closes it. A match is found even where it spans styling, so searching `one two` finds **one** two. There is no toolbar button: the shortcut is the whole interface. |
 | **Find a file** | `⌘F` while the file panel has focus searches names instead, anywhere below the folder you are browsing — including folders you never expanded. Each hit shows the folder holding it, `↑`/`↓` move, `↵` opens it and takes the tree with it. |
@@ -223,6 +224,15 @@ preview side of Split. The editor shows the source, where a link is just text.
 
 ## Notes on how it works
 
+- The page carries a Content Security Policy that refuses inline script and any
+  script from elsewhere. Reader already sanitises every document it renders; the
+  policy is the second, independent lock, so that a flaw in the sanitiser is not
+  by itself enough to run code inside Reader. Documents may still reference
+  pictures on the web and carry their own inline styling, both of which have
+  always worked.
+- The app and the page talk over one named channel, used so far only to open the
+  folder chooser. It answers the main frame of Reader's own page and nothing
+  else.
 - The server binds to `127.0.0.1` only, on port 8737. Requests must carry a
   session cookie set from a secret stored in `.reader-token` (readable only by
   you), the `Host` header must be a loopback name, and cross-origin API calls
