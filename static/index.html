@@ -541,6 +541,12 @@
                 <input type="range" data-set="headGap" min="0" max="3" step="0.05" aria-label="Heading margin override">
                 <span class="val" data-val="headGap"></span></div></div>
             </div>
+            <div class="set-row">
+              <div class="set-label"><b>Gap below</b><span>Vertical space below headings; leave at minimum for built-in defaults.</span></div>
+              <div class="set-control"><div class="slider" data-nullmin="headGapAfter">
+                <input type="range" data-set="headGapAfter" min="0" max="3" step="0.05" aria-label="Heading bottom margin override">
+                <span class="val" data-val="headGapAfter"></span></div></div>
+            </div>
             </details>
           </div>
 
@@ -767,7 +773,7 @@
                machine or network can read your files through it. Rendered HTML is sanitised,
                and saves are atomic.</p>
             <p>Bundled offline: <b>marked</b> (markdown), <b>DOMPurify</b> (sanitising),
-               <b>highlight.js</b> (code), and the <b>Poppins</b>, <b>Lora</b>, <b>Inter</b>,
+               <b>highlight.js</b> (code), <b>Mermaid</b> (diagrams), and the <b>Poppins</b>, <b>Lora</b>, <b>Inter</b>,
                <b>Source Serif 4</b> and <b>JetBrains Mono</b> typefaces. Licences are in the
                <code>licenses</code> folder next to the app.</p>
             <p id="about-where"></p>
@@ -782,6 +788,7 @@
 <script src="/static/marked.min.js"></script>
 <script src="/static/purify.min.js"></script>
 <script src="/static/highlight.min.js"></script>
+<script src="/static/mermaid.min.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

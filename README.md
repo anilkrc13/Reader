@@ -200,8 +200,10 @@ python3 -m unittest discover -s tests -v
 ## What it renders
 
 GitHub-flavoured markdown: tables, task lists, footnotes, fenced code with
-syntax highlighting, and inline HTML. Relative image paths resolve against the
-document's folder.
+syntax highlighting, Mermaid diagrams in `mermaid` fences, and inline HTML.
+Relative image paths resolve against the document's folder. Mermaid diagrams
+are rendered locally; malformed diagrams stay visible as source with a brief
+error note.
 
 A link follows the same rules as clicking the file in the panel, so where it
 leads does not depend on how you got there. Markdown, code and CSV open in
@@ -281,7 +283,8 @@ preview side of Split. The editor shows the source, where a link is just text.
 
 Bundled locally in `static/`, licences in `licenses/`:
 [marked](https://marked.js.org) (markdown), [DOMPurify](https://github.com/cure53/DOMPurify)
-(sanitising), [highlight.js](https://highlightjs.org) (code), and the
+(sanitising), [highlight.js](https://highlightjs.org) (code), [Mermaid](https://mermaid.js.org)
+(diagrams), and the
 [Poppins](https://fonts.google.com/specimen/Poppins),
 [EB Garamond](https://fonts.google.com/specimen/EB+Garamond),
 [Figtree](https://fonts.google.com/specimen/Figtree),
