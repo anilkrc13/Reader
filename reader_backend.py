@@ -12,6 +12,7 @@ import os
 import stat as statmod
 import shutil
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -110,14 +111,52 @@ class WorkspaceError(PermissionError):
     """
 
 
+class WorkspaceGrantStore:
+    """Server-owned roots within which document mutations may occur.
+
+    Grants are canonical filesystem paths seeded by server startup. Browser and
+    HTTP callers can observe the resulting writability but cannot add grants; a
+    future native grant flow needs its own authenticated capability contract.
+    """
+
+    def __init__(self, roots: list[Path] | tuple[Path, ...]):
+        self._guard = threading.Lock()
+        self._roots: tuple[Path, ...] = ()
+        for root in roots:
+            self.grant(root)
+
+    @property
+    def roots(self) -> tuple[Path, ...]:
+        with self._guard:
+            return self._roots
+
+    def grant(self, root: Path) -> Path:
+        canonical = Path(root).expanduser().resolve()
+        with self._guard:
+            if canonical not in self._roots:
+                self._roots = self._roots + (canonical,)
+        return canonical
+
+    def allows(self, path: Path) -> bool:
+        canonical = Path(path).expanduser().resolve()
+        return any(canonical == root or root in canonical.parents for root in self.roots)
+
+
 class FileAccessPolicy:
     """Resolve paths and enforce the boundaries for filesystem mutations."""
 
-    def __init__(self, app_dir: Path, allowed_roots: list[Path] | tuple[Path, ...],
+    def __init__(self, app_dir: Path,
+                 allowed_roots: WorkspaceGrantStore | list[Path] | tuple[Path, ...],
                  home: Path | None = None):
         self.app_dir = Path(app_dir).expanduser().resolve()
         self.home = Path(home or Path.home()).expanduser().resolve()
-        self.allowed_roots = tuple(Path(root).expanduser().resolve() for root in allowed_roots)
+        self.grants = (allowed_roots if isinstance(allowed_roots, WorkspaceGrantStore)
+                       else WorkspaceGrantStore(allowed_roots))
+
+    @property
+    def allowed_roots(self) -> tuple[Path, ...]:
+        """Compatibility view for diagnostics; the grant store remains owner."""
+        return self.grants.roots
 
     @staticmethod
     def _inside(path: Path, root: Path) -> bool:
@@ -146,11 +185,18 @@ class FileAccessPolicy:
     def is_protected_project_path(self, path: Path) -> bool:
         return self._inside(path, self.app_dir)
 
-    def assert_mutation_allowed(self, path: Path) -> None:
-        """Preserve the existing destructive-operation guards and close the
-        gap that allowed files inside the Reader project to be changed."""
+    def assert_mutation_allowed(self, path: Path) -> Path:
+        """Return a canonical mutation target inside a server-granted root.
+
+        Every write-like operation comes through this one boundary. Resolving
+        first makes a symlink to an ungranted path no more privileged than the
+        ungranted path itself.
+        """
+        path = path.resolve()
         if self.is_protected_project_path(path):
             raise WorkspaceError("that Reader project file is protected")
+        if not self.grants.allows(path):
+            raise WorkspaceError("that path is outside Reader's allowed folders")
         rootdir = Path(path.anchor or "/")
         if path == self.home or self._ancestor(path, self.home):
             raise ValueError("your home folder is protected")
@@ -158,14 +204,18 @@ class FileAccessPolicy:
             raise ValueError("the root of the disk is protected")
         if self._ancestor(path, self.app_dir):
             raise ValueError("that folder contains Reader itself, so it is protected")
+        return path
+
+    def is_mutation_allowed(self, path: Path) -> bool:
+        try:
+            self.assert_mutation_allowed(path)
+        except (OSError, PermissionError, ValueError):
+            return False
+        return True
 
     def assert_save_allowed(self, path: Path) -> Path:
         """Return a canonical save target or raise before any file is opened."""
-        path = path.resolve()
-        if self.is_protected_project_path(path):
-            raise WorkspaceError("that Reader project file is protected")
-        if not any(self._inside(path, root) for root in self.allowed_roots):
-            raise WorkspaceError("that path is outside Reader's allowed folders")
+        path = self.assert_mutation_allowed(path)
         if path.suffix.lower() not in TEXT_SUFFIXES:
             raise ValueError("not a supported text document")
         if path.exists() and not path.is_file():
@@ -178,6 +228,13 @@ class DocumentStore:
 
     def __init__(self, policy: FileAccessPolicy):
         self.policy = policy
+        # A fixed stripe table cannot grow from arbitrarily many requested paths.
+        # The same canonical path always selects the same lock; an occasional
+        # collision only serializes unrelated saves briefly.
+        self._save_locks = tuple(threading.Lock() for _ in range(128))
+
+    def _save_lock_for(self, path: Path) -> threading.Lock:
+        return self._save_locks[hash(str(path)) % len(self._save_locks)]
 
     def list_dir(self, path: Path, include_all: bool = False,
                  include_files: bool = False, include_hidden: bool = False) -> dict:
@@ -344,6 +401,7 @@ class DocumentStore:
         return {
             "path": str(path), "name": path.name, "dir": str(path.parent),
             "text": text, "mtime": str(st.st_mtime_ns), "size": st.st_size,
+            "writable": self.policy.is_mutation_allowed(path),
         }
 
     @staticmethod
@@ -367,24 +425,29 @@ class DocumentStore:
             raise ValueError("missing text")
         if len(text.encode("utf-8")) > MAX_TEXT_BYTES:
             raise ValueError("text is too large to save")
-        if path.exists() and expected_mtime is not None:
-            if str(path.stat().st_mtime_ns) != expected_mtime:
-                raise FileExistsError("the file changed on disk since it was opened")
-        mode = path.stat().st_mode & 0o777 if path.exists() else None
-        fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
-        tmp = Path(tmp_name)
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
-                fh.write(text)
-                fh.flush()
-                os.fsync(fh.fileno())
-            if mode is not None:
-                os.chmod(tmp, mode)
-            os.replace(tmp, path)
-        except BaseException:
-            tmp.unlink(missing_ok=True)
-            raise
-        st = path.stat()
+        with self._save_lock_for(path):
+            # The precondition and replace are one serialized operation. Without
+            # this lock, two request threads can both observe the old mtime and
+            # each replace the other's successful save.
+            if path.exists() and expected_mtime is not None:
+                if str(path.stat().st_mtime_ns) != expected_mtime:
+                    raise FileExistsError("the file changed on disk since it was opened")
+            mode = path.stat().st_mode & 0o777 if path.exists() else None
+            fd, tmp_name = tempfile.mkstemp(
+                dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
+            tmp = Path(tmp_name)
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
+                    fh.write(text)
+                    fh.flush()
+                    os.fsync(fh.fileno())
+                if mode is not None:
+                    os.chmod(tmp, mode)
+                os.replace(tmp, path)
+            except BaseException:
+                tmp.unlink(missing_ok=True)
+                raise
+            st = path.stat()
         return {"path": str(path), "mtime": str(st.st_mtime_ns), "size": st.st_size}
 
     def can_create_in(self, folder: Path) -> dict:
@@ -460,9 +523,9 @@ class DocumentStore:
                 "mtime": str(st.st_mtime_ns), "size": st.st_size}
 
     def rename_path(self, path: Path, new_name: str) -> dict:
+        path = self.policy.assert_mutation_allowed(path)
         if not path.exists():
             raise FileNotFoundError(str(path))
-        self.policy.assert_mutation_allowed(path)
 
         new_name = (new_name or "").strip()
         if not new_name or new_name in (".", "..") or "/" in new_name or "\x00" in new_name:
@@ -488,11 +551,13 @@ class DocumentStore:
             return {"path": str(path), "newPath": str(path), "name": path.name}
         if target.exists():
             raise FileExistsError(f"something named {new_name} is already there")
-        self.policy.assert_mutation_allowed(target.resolve())
+        target = self.policy.assert_mutation_allowed(target)
         path.rename(target)
         return {"path": str(path), "newPath": str(target), "name": new_name}
 
     def move_file(self, path: Path, target_dir: Path) -> dict:
+        path = self.policy.assert_mutation_allowed(path)
+        target_dir = self.policy.assert_mutation_allowed(target_dir)
         if not path.exists():
             raise FileNotFoundError(str(path))
         if path.is_dir():
@@ -504,10 +569,8 @@ class DocumentStore:
         if not target_dir.is_dir():
             raise ValueError("the destination is not a folder")
 
-        self.policy.assert_mutation_allowed(path)
-        self.policy.assert_mutation_allowed(target_dir)
         target = (target_dir / path.name).resolve()
-        self.policy.assert_mutation_allowed(target)
+        target = self.policy.assert_mutation_allowed(target)
         if target == path:
             return {"path": str(path), "newPath": str(path), "name": path.name}
         if target.exists():
@@ -521,27 +584,31 @@ class DocumentStore:
                 "mtime": str(st.st_mtime_ns), "size": st.st_size}
 
     def move_to_trash(self, path: Path) -> dict:
+        path = self.policy.assert_mutation_allowed(path)
         if not path.exists():
             raise FileNotFoundError(str(path))
         if path.is_dir():
             raise ValueError("folders cannot be deleted from this app")
-        self.policy.assert_mutation_allowed(path)
-
         mac = self.policy.home / ".Trash"
         xdg = self.policy.home / ".local" / "share" / "Trash" / "files"
         bin_dir = mac if mac.is_dir() else xdg
+        # Trash is a mutation destination too. Resolve and authorize it before
+        # creating or using it so a symlink cannot redirect an allowed source
+        # outside the server's workspace grants.
+        bin_dir = self.policy.assert_mutation_allowed(bin_dir)
         if not bin_dir.is_dir():
             try:
                 bin_dir.mkdir(parents=True, exist_ok=True)
             except OSError:
                 return self._trash_unavailable()
-        if path == bin_dir or str(path).startswith(str(bin_dir) + "/"):
+        if path == bin_dir or bin_dir in path.parents:
             raise ValueError("that item is already in the Trash")
 
         dest, n = bin_dir / path.name, 2
         while dest.exists():
             dest = bin_dir / f"{path.stem} {n}{path.suffix}"
             n += 1
+        dest = self.policy.assert_mutation_allowed(dest)
         shutil.move(str(path), str(dest))
         return {"path": str(path), "trashed": str(dest), "name": path.name}
 

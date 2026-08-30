@@ -67,6 +67,9 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
 
     /// Ask the already-loaded page to open a document. The path is passed as a
     /// JSON-encoded literal so no filename can escape into the script itself.
+    /// A reused server has no trusted launcher-to-server grant channel, so its
+    /// backend reports an out-of-workspace file as read-only. When this launcher
+    /// starts the server itself, the startup path is an initial server grant.
     private func deliver(path: String) {
         guard let data = try? JSONSerialization.data(withJSONObject: [path], options: []),
               let array = String(data: data, encoding: .utf8) else { return }

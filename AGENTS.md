@@ -1,5 +1,10 @@
 # Reader project instructions
 
+## Required contracts
+
+- `context/document-integrity.md` — read before changing document I/O,
+  filesystem mutations, workspace authorization, or native file/folder handoff.
+
 ## macOS app build gate
 
 `install/Reader.app` is a tracked deliverable and the primary way the user runs Reader.

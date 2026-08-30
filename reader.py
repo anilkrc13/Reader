@@ -34,9 +34,10 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from reader_backend import (WorkspaceError,
+from reader_backend import (
     EXTERNAL_APP_SUFFIXES, IMAGE_SUFFIXES, MAX_IMAGE_BYTES, MAX_PDF_BYTES,
     MAX_TEXT_BYTES, PDF_SUFFIXES, DocumentStore, FileAccessPolicy,
+    WorkspaceError, WorkspaceGrantStore,
 )
 
 APP_NAME = "Reader"
@@ -200,7 +201,8 @@ def quick_roots() -> list[dict]:
 # files
 # --------------------------------------------------------------------------
 
-DOCUMENT_STORE = DocumentStore(FileAccessPolicy(APP_DIR, [Path.home()]))
+DOCUMENT_STORE = DocumentStore(FileAccessPolicy(
+    APP_DIR, WorkspaceGrantStore([Path.home()])))
 
 
 def resolve_path(raw: str) -> Path:
@@ -619,9 +621,8 @@ def main(argv=None) -> int:
     # The default workspace is the user's home folder. An explicitly supplied
     # external start folder remains usable, but saves cannot wander into an
     # unrelated tree later through a forged API path.
-    httpd.documents = DocumentStore(
-        FileAccessPolicy(APP_DIR, [Path.home(), start_dir])
-    )
+    grants = WorkspaceGrantStore([Path.home(), start_dir])
+    httpd.documents = DocumentStore(FileAccessPolicy(APP_DIR, grants))
     port = httpd.server_address[1]
     home_url = f"http://127.0.0.1:{port}/"
     entry_url = home_url + f"?t={TOKEN}"
