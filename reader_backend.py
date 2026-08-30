@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import collections
 import os
+import stat as statmod
 import shutil
 import tempfile
 import time
@@ -99,6 +100,16 @@ def _is_package_cache(parent: str, name: str) -> bool:
     return name == "mod" and os.path.basename(parent) == "pkg"
 
 
+class WorkspaceError(PermissionError):
+    """A path Reader's own policy refuses, as distinct from one the operating
+    system refuses. The two used to arrive at the UI as the same three words --
+    "permission denied" -- which told a reader nothing about which it was, or
+    that the folder was the problem at all. Subclasses PermissionError so every
+    existing caller keeps working; handlers that want the distinction catch this
+    first. The messages are author-written and disclose nothing.
+    """
+
+
 class FileAccessPolicy:
     """Resolve paths and enforce the boundaries for filesystem mutations."""
 
@@ -129,7 +140,7 @@ class FileAccessPolicy:
         resolved = p.resolve()
         music = self.home / "Music"
         if self._inside(resolved, music):
-            raise PermissionError("Reader does not access the Music folder")
+            raise WorkspaceError("Reader does not access the Music folder")
         return resolved
 
     def is_protected_project_path(self, path: Path) -> bool:
@@ -139,7 +150,7 @@ class FileAccessPolicy:
         """Preserve the existing destructive-operation guards and close the
         gap that allowed files inside the Reader project to be changed."""
         if self.is_protected_project_path(path):
-            raise PermissionError("that Reader project file is protected")
+            raise WorkspaceError("that Reader project file is protected")
         rootdir = Path(path.anchor or "/")
         if path == self.home or self._ancestor(path, self.home):
             raise ValueError("your home folder is protected")
@@ -152,9 +163,9 @@ class FileAccessPolicy:
         """Return a canonical save target or raise before any file is opened."""
         path = path.resolve()
         if self.is_protected_project_path(path):
-            raise PermissionError("that Reader project file is protected")
+            raise WorkspaceError("that Reader project file is protected")
         if not any(self._inside(path, root) for root in self.allowed_roots):
-            raise PermissionError("that path is outside Reader's allowed folders")
+            raise WorkspaceError("that path is outside Reader's allowed folders")
         if path.suffix.lower() not in TEXT_SUFFIXES:
             raise ValueError("not a supported text document")
         if path.exists() and not path.is_file():
@@ -375,6 +386,78 @@ class DocumentStore:
             raise
         st = path.stat()
         return {"path": str(path), "mtime": str(st.st_mtime_ns), "size": st.st_size}
+
+    def can_create_in(self, folder: Path) -> dict:
+        """Whether a new document could be made in `folder`, and if not, why.
+
+        The dialog asks this the moment a folder is chosen, so a destination the
+        policy will refuse is reported while it can still be changed, rather
+        than after a name has been typed. Path.is_dir() is avoided deliberately:
+        it swallows OSError and returns False, which turns "Reader has no
+        permission for that folder" into "no such folder".
+        """
+        try:
+            info = os.stat(folder)
+        except PermissionError:
+            return {"ok": False, "reason": "Reader does not have permission to open that folder"}
+        except FileNotFoundError:
+            return {"ok": False, "reason": "that folder is not there any more"}
+        except OSError:
+            return {"ok": False, "reason": "Reader cannot reach that folder"}
+        if not statmod.S_ISDIR(info.st_mode):
+            return {"ok": False, "reason": "that is not a folder"}
+
+        try:
+            # A name that exercises the policy without being written anywhere.
+            self.policy.assert_save_allowed(folder / "untitled.md")
+        except WorkspaceError as exc:
+            return {"ok": False, "reason": str(exc)}
+        except (PermissionError, ValueError) as exc:
+            return {"ok": False, "reason": str(exc) or "that folder cannot be used"}
+
+        if not os.access(folder, os.W_OK | os.X_OK):
+            return {"ok": False, "reason": "that folder is read-only"}
+        return {"ok": True, "path": str(folder)}
+
+    def create_document(self, folder: Path, name: str) -> dict:
+        """Make a new, empty markdown document in `folder`.
+
+        Separate from write_text_file rather than a save to a path that happens
+        not to exist yet: creating must never land on top of something already
+        there, and a save whose whole purpose is to overwrite cannot carry that
+        rule. The name is validated the same way a rename is, so the two cannot
+        disagree about what a usable filename is.
+        """
+        verdict = self.can_create_in(folder)
+        if not verdict["ok"]:
+            raise WorkspaceError(verdict["reason"])
+
+        name = (name or "").strip()
+        if not name or name in (".", "..") or "/" in name or "\x00" in name:
+            raise ValueError("that name cannot be used")
+        if name.startswith("."):
+            raise ValueError("names starting with a dot would be hidden")
+        # An extension is optional; markdown is what this makes.
+        if "." not in name:
+            name += ".md"
+        if len(name.encode("utf-8")) > 255:
+            raise ValueError("that name is too long")
+        if os.path.splitext(name)[1].lower() not in MARKDOWN_SUFFIXES:
+            raise ValueError("new documents are markdown")
+
+        target = (folder / name).resolve()
+        # Back through the policy: a name cannot be used to climb out of the
+        # folder, and the result has to be somewhere writing is allowed at all.
+        if target.parent != folder.resolve():
+            raise ValueError("that name cannot be used")
+        self.policy.assert_save_allowed(target)
+        if target.exists():
+            raise FileExistsError(f"something named {name} is already there")
+
+        target.touch(mode=0o644)
+        st = target.stat()
+        return {"path": str(target), "name": name, "dir": str(folder),
+                "mtime": str(st.st_mtime_ns), "size": st.st_size}
 
     def rename_path(self, path: Path, new_name: str) -> dict:
         if not path.exists():

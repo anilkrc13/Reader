@@ -34,7 +34,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from reader_backend import (
+from reader_backend import (WorkspaceError, 
     EXTERNAL_APP_SUFFIXES, IMAGE_SUFFIXES, MAX_IMAGE_BYTES, MAX_PDF_BYTES,
     MAX_TEXT_BYTES, PDF_SUFFIXES, DocumentStore, FileAccessPolicy,
 )
@@ -46,6 +46,31 @@ STATIC_DIR = APP_DIR / "static"
 DEFAULT_PORT = 8737          # stable by default; falls back to a free port
 
 MAX_PREFS_BYTES = 256 * 1024          # a preferences blob should never be big
+
+# Reader's second lock on a booby-trapped document. The first is the sanitiser
+# the page runs over every rendered document; this is what holds if that ever
+# fails, because the browser refuses the script rather than trusting us to have
+# removed it. Everything Reader needs comes from Reader, so the rule can say so.
+#
+# Two deliberate looseninesses, each keeping a behaviour that already works:
+#   style-src allows inline, because a document may carry style="" on its own
+#     markup and losing that would change how existing documents render;
+#   img-src and media-src allow http/https, because a document may reference a
+#     picture on the web and that has always displayed.
+APP_CSP = (
+    "default-src 'none'; "
+    "script-src 'self'; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: https: http:; "
+    "media-src 'self' https: http:; "
+    "font-src 'self'; "
+    "connect-src 'self'; "
+    "frame-src 'self'; "
+    "object-src 'none'; "
+    "base-uri 'none'; "
+    "form-action 'none'; "
+    "frame-ancestors 'none'"
+)
 
 COOKIE = "reader_session"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 365
@@ -330,7 +355,7 @@ class Handler(BaseHTTPRequestHandler):
             "or install it as an app.</p></div>"
         )
         self._send(HTTPStatus.FORBIDDEN, body.encode("utf-8"), "text/html; charset=utf-8",
-                   {"Cache-Control": "no-store"})
+                   {"Cache-Control": "no-store", "Content-Security-Policy": APP_CSP})
 
     def do_POST(self):  # noqa: N802
         parsed = urllib.parse.urlparse(self.path)
@@ -368,7 +393,8 @@ class Handler(BaseHTTPRequestHandler):
         if ctype.startswith("text/") or ctype in ("application/json", "image/svg+xml"):
             ctype += "; charset=utf-8"
         self._send(HTTPStatus.OK, target.read_bytes(), ctype,
-                   {"Cache-Control": "no-store" if no_store else "no-cache"})
+                   {"Cache-Control": "no-store" if no_store else "no-cache",
+                    "Content-Security-Policy": APP_CSP})
 
     # -- api ---------------------------------------------------------------
 
@@ -391,6 +417,8 @@ class Handler(BaseHTTPRequestHandler):
                 show_hidden = (query.get("hidden") or ["0"])[0] == "1"
                 return self._json(store.list_dir(store.policy.resolve(arg),
                                                  show_all, show_files, show_hidden))
+            if route == "/api/can-create":
+                return self._json(store.can_create_in(store.policy.resolve(arg)))
             if route == "/api/search":
                 show_files = (query.get("files") or ["0"])[0] == "1"
                 show_hidden = (query.get("hidden") or ["0"])[0] == "1"
@@ -405,6 +433,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.serve_raw(store.policy.resolve(arg))
             if route == "/api/doc":
                 return self.serve_doc(store.policy.resolve(arg))
+        except WorkspaceError as exc:
+            return self._error(HTTPStatus.FORBIDDEN, str(exc))
         except PermissionError:
             return self._error(HTTPStatus.FORBIDDEN, "permission denied")
         except (FileNotFoundError, NotADirectoryError):
@@ -430,6 +460,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(store.write_text_file(path, text, mtime))
             if route == "/api/delete":
                 return self._json(store.move_to_trash(store.policy.resolve(payload.get("path", ""))))
+            if route == "/api/create":
+                folder = store.policy.resolve(payload.get("dir", ""))
+                return self._json(store.create_document(folder, str(payload.get("name", ""))))
             if route == "/api/rename":
                 return self._json(store.rename_path(store.policy.resolve(payload.get("path", "")),
                                                     str(payload.get("name", ""))))
@@ -460,6 +493,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self._error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "preferences too large")
                 write_prefs(payload)
                 return self._json({"ok": True})
+        except WorkspaceError as exc:
+            return self._error(HTTPStatus.FORBIDDEN, str(exc))
         except PermissionError:
             return self._error(HTTPStatus.FORBIDDEN, "permission denied")
         except FileNotFoundError:
