@@ -153,7 +153,7 @@ your last document.
 | **Modes** | **Preview**, **Split** and **Edit**. `⌘E` toggles preview and edit. In split view the two sides scroll together. |
 | **Save** | `⌘S`, or the save button. The orange dot next to the filename means unsaved changes. |
 | **Copy** | The copy icon puts the whole document on the clipboard in two flavours at once: formatted, for rich editors (Word, Docs, mail), and the raw markdown for plain-text targets. Code files copy as plain text. |
-| **Auto-refresh** | While you read, the open document is watched. If something else rewrites it, the app reloads it and keeps your place. If you have unsaved edits it never overwrites them — it shows a bar offering **Reload from disk** or **Keep mine**. |
+| **Auto-refresh** | While you read, the open document and its embedded local images are watched. If something else rewrites them, the app refreshes the relevant preview content and keeps your place. If you have unsaved edits it never overwrites them — it shows a bar offering **Reload from disk** or **Keep mine**. |
 | **Refresh** | `⌘R`, or the circular arrow, to reload by hand. |
 | **Full screen** | The corners icon, or `⌃⌘F`. `Esc` leaves it. |
 | **Back and forward** | The `‹` and `›` arrows, `⌘[` / `⌘]`, or bare `←` / `→` while reading. Each document in the trail remembers where you were in it, so going back returns you to the paragraph you left rather than to the top — and going forward again returns you to where you were reading there. In Edit mode the editor's scroll and caret come back with it. |
@@ -195,6 +195,25 @@ Run the focused server-side save and path-policy tests with:
 ```
 python3 -m unittest discover -s tests -v
 ```
+
+Reader also registers a small semantic WebMCP tool set when the page is opened
+in a browser that provides `document.modelContext`. The tools reuse Reader's
+normal document operations and remain limited to the folder currently being
+browsed; they do not expose deletion, shell commands, or arbitrary OS actions.
+
+Install the browser-test dependency once, then run the deterministic WebMCP
+integration suite and its representative UI smoke check:
+
+```
+npm install
+npm run test:webmcp
+```
+
+The suite starts Reader against an isolated temporary workspace, captures the
+tools registered by the live page, validates their schemas, and invokes them
+directly without an LLM. These tests cover the browser context; the native
+macOS bundle still needs the build, signature, resource-parity, and launch
+smoke checks described above.
 
 ## What it renders
 

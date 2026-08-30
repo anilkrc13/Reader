@@ -126,6 +126,7 @@ const state = {
   expanded: new Set(), children: new Map(),
   dirty: false, polling: false, diskSeen: null, lastFocus: null,
   imageGeneration: 0,
+  imageMtimes: new Map(),
   mermaidGeneration: 0,
   /* documents visited this session, and where we are in that trail. Deliberately
      not persisted: like a browser window, closing it forgets the trail. */
@@ -646,7 +647,9 @@ function render(text) {
   el.preview.querySelectorAll("img[src]").forEach((img) => {
     const src = img.getAttribute("src");
     if (!src || EXTERNAL.test(src) || src.startsWith("//")) return;
-    img.src = rawURL(absolutise(src, dir));
+    const localPath = absolutise(src, dir);
+    img.dataset.localPath = localPath;
+    img.src = rawURL(localPath);
     img.loading = "lazy";
   });
   el.preview.querySelectorAll("a[href]").forEach((a) => {
@@ -956,6 +959,7 @@ async function openFile(path, {keepScroll = false, silent = false, record = true
      reuse an image response from the previous preview. Renders caused by
      typing keep the same version and do not refetch every image. */
   state.imageGeneration += 1;
+  state.imageMtimes.clear();
   el.editor.value = data.text;
   el.docname.textContent = data.name;
   root.dataset.empty = "no";
@@ -963,6 +967,7 @@ async function openFile(path, {keepScroll = false, silent = false, record = true
   setDirty(false);
   hideDiskBar();
   render(data.text);
+  await pollLocalImages();
 
   if (restore) {
     /* Back and forward: an absolute offset, not a ratio, because the reader is
@@ -1009,8 +1014,9 @@ function scheduleAutosave() {
 
 /* `auto` marks a save the reader did not ask for: it stays quiet on success and
    never raises a dialog, because an automatic save must not interrupt. */
-async function saveFile({auto = false} = {}) {
-  if (!state.file || !state.dirty) return;
+async function saveFile({auto = false, conflict = "prompt", quiet = false,
+                         throwOnError = false} = {}) {
+  if (!state.file || !state.dirty) return {status: "unchanged"};
   cancelAutosave();                    // whatever was pending, this covers it
   const text = el.editor.value;
   try {
@@ -1026,7 +1032,8 @@ async function saveFile({auto = false} = {}) {
     setDirty(el.editor.value !== text);
     if (state.dirty) scheduleAutosave();
     hideDiskBar();
-    if (!auto) toast("Saved");
+    if (!auto && !quiet) toast("Saved");
+    return {status: "saved", path: state.file.path, mtime: res.mtime};
   } catch (err) {
     if (/changed on disk/i.test(err.message)) {
       /* The file moved under us. An automatic save says so in the disk bar and
@@ -1034,24 +1041,36 @@ async function saveFile({auto = false} = {}) {
       if (auto) {
         el.diskmsg.textContent = "This file changed on disk, so your edits are not being saved automatically.";
         el.diskbar.hidden = false;
-        return;
+        return {status: "conflict", path: state.file.path};
       }
-      if (confirm("This file changed on disk since you opened it.\n\nOverwrite it with your version?")) {
+      el.diskmsg.textContent = "This file changed on disk while you were editing.";
+      el.diskbar.hidden = false;
+      const overwrite = conflict === "overwrite" ||
+        (conflict === "prompt" && confirm("This file changed on disk since you opened it.\n\nOverwrite it with your version?"));
+      if (overwrite) {
         const res = await api("/api/save", {
           method: "POST", body: {path: state.file.path, text: el.editor.value},
-        }).catch((e) => { toast(e.message, true); return null; });
+        }).catch((e) => {
+          if (throwOnError) throw e;
+          if (!quiet) toast(e.message, true);
+          return null;
+        });
         if (res) {
           state.file.mtime = res.mtime;
           state.diskSeen = res.mtime;
           state.saved = el.editor.value;
           setDirty(false);
           hideDiskBar();
-          toast("Saved");
+          if (!quiet) toast("Saved");
+          return {status: "saved", path: state.file.path, mtime: res.mtime,
+                  overwritten: true};
         }
       }
-      return;
+      return {status: "conflict", path: state.file.path};
     }
-    toast(err.message, true);
+    if (throwOnError) throw err;
+    if (!quiet) toast(err.message, true);
+    return {status: "error", message: err.message};
   }
 }
 
@@ -1088,21 +1107,25 @@ async function pollOpenFile() {
   state.polling = true;
   try {
     const info = await api("/api/stat", {query: {path: state.file.path}});
-    if (info.mtime === state.file.mtime || info.mtime === state.diskSeen) return;
-    if (state.file.kind === "pdf") {
-      state.file.mtime = info.mtime;
-      state.diskSeen = info.mtime;
-      renderPDF();
+    const documentChanged = info.mtime !== state.file.mtime && info.mtime !== state.diskSeen;
+    if (documentChanged) {
+      if (state.file.kind === "pdf") {
+        state.file.mtime = info.mtime;
+        state.diskSeen = info.mtime;
+        renderPDF();
+        if (S.watchToast) toast("Refreshed from disk");
+        return;
+      }
+      if (state.dirty) {
+        state.diskSeen = info.mtime;
+        el.diskbar.hidden = false;
+        return;
+      }
+      await openFile(state.file.path, {keepScroll: true, silent: true, record: false});
       if (S.watchToast) toast("Refreshed from disk");
       return;
     }
-    if (state.dirty) {
-      state.diskSeen = info.mtime;
-      el.diskbar.hidden = false;
-      return;
-    }
-    await openFile(state.file.path, {keepScroll: true, silent: true, record: false});
-    if (S.watchToast) toast("Refreshed from disk");
+    await pollLocalImages();
   } catch (err) {
     if (/no such/i.test(err.message)) {
       el.diskmsg.textContent = "This file is no longer on disk.";
@@ -1114,6 +1137,44 @@ async function pollOpenFile() {
   } finally {
     state.polling = false;
   }
+}
+
+/* Markdown and Mermaid changes arrive through the document watcher above. An
+   embedded image is a separate file, though, so it needs its own lightweight
+   stat check. Only images in the currently rendered preview are observed, and
+   /api/stat applies the same path policy as every other Reader file request. */
+async function pollLocalImages() {
+  const paths = [...new Set([...el.preview.querySelectorAll("img[data-local-path]")]
+    .map((img) => img.dataset.localPath).filter(Boolean))];
+  if (!paths.length) {
+    state.imageMtimes.clear();
+    return;
+  }
+
+  const live = new Set(paths);
+  for (const path of [...state.imageMtimes.keys()]) {
+    if (!live.has(path)) state.imageMtimes.delete(path);
+  }
+
+  let changed = false;
+  await Promise.all(paths.map(async (path) => {
+    try {
+      const info = await api("/api/stat", {query: {path}});
+      const prior = state.imageMtimes.get(path);
+      state.imageMtimes.set(path, info.mtime);
+      if (prior != null && prior !== info.mtime) changed = true;
+    } catch (_) {
+      state.imageMtimes.delete(path);
+    }
+  }));
+  if (!changed) return;
+
+  state.imageGeneration += 1;
+  el.preview.querySelectorAll("img[data-local-path]").forEach((img) => {
+    img.src = rawURL(img.dataset.localPath);
+  });
+  state.previewTops = null;
+  if (S.watchToast) toast("Refreshed image from disk");
 }
 
 document.addEventListener("visibilitychange", () => {
@@ -1595,16 +1656,19 @@ async function doRename() {
 
 const parentPath = (path) => path.split("/").slice(0, -1).join("/") || "/";
 
-async function moveFileToFolder(path, targetDir) {
-  if (parentPath(path) === targetDir) return;
+async function moveFileToFolder(path, targetDir, {quiet = false, throwOnError = false} = {}) {
+  if (parentPath(path) === targetDir) {
+    return {path, newPath: path, name: path.split("/").pop()};
+  }
   let res;
   try {
     res = await api("/api/move", {
       method: "POST", body: {path, targetDir},
     });
   } catch (err) {
-    toast(err.message, true);
-    return;
+    if (throwOnError) throw err;
+    if (!quiet) toast(err.message, true);
+    return null;
   }
 
   const from = res.path || path;
@@ -1635,7 +1699,8 @@ async function moveFileToFolder(path, targetDir) {
   drawRecents();
   await drawTree();
   markActive();
-  toast(`${prettyName(from)} moved to ${prettyName(targetDir)}`);
+  if (!quiet) toast(`${prettyName(from)} moved to ${prettyName(targetDir)}`);
+  return res;
 }
 
 renEls.cancel.onclick = closeRenamer;
@@ -3566,7 +3631,310 @@ window.addEventListener("beforeunload", (ev) => {
 })();
 
 /* ==========================================================================
-   11. Boot
+   11. WebMCP
+   ======================================================================== */
+
+/* Reader exposes the same document operations the UI uses, expressed as a
+   narrow semantic contract. The browser owns document.modelContext; ordinary
+   browsers simply skip this registration. Paths are limited to the folder
+   currently being browsed, and no delete, arbitrary OS launch, or shell tool
+   is exposed. */
+const WEBMCP_PREF_RULES = {
+  fontSize: (v) => typeof v === "number" && v >= 13 && v <= 26,
+  headGapAfter: (v) => v === null || (typeof v === "number" && v >= 0 && v <= 3),
+  measure: (v) => Number.isInteger(v) && v >= 30 && v <= 100 && v % 5 === 0,
+  theme: (v) => ["auto", "light", "dark"].includes(v),
+  autoSave: (v) => typeof v === "boolean",
+  autoRefresh: (v) => typeof v === "boolean",
+  watchMs: (v) => [1000, 2000, 5000, 15000].includes(v),
+  watchToast: (v) => typeof v === "boolean",
+};
+const WEBMCP_PREF_KEYS = Object.keys(WEBMCP_PREF_RULES);
+
+function pathInWorkspace(path) {
+  return typeof path === "string" && path.startsWith("/") && !!state.root &&
+    (path === state.root || path.startsWith(state.root.replace(/\/$/, "") + "/"));
+}
+
+async function requireWorkspacePath(path, label = "path") {
+  if (!pathInWorkspace(path)) {
+    throw new Error(`${label} must be inside Reader's current workspace`);
+  }
+  const info = await api("/api/stat", {query: {path}});
+  if (!pathInWorkspace(info.path)) {
+    throw new Error(`${label} resolves outside Reader's current workspace`);
+  }
+  return info.path;
+}
+
+function readerState() {
+  const style = getComputedStyle(root);
+  const headings = [...el.preview.querySelectorAll("h1,h2,h3,h4,h5,h6")]
+    .map((node) => ({level: Number(node.tagName.slice(1)), text: node.textContent.trim()}));
+  const images = [...el.preview.querySelectorAll("img[data-local-path]")]
+    .map((img) => ({path: img.dataset.localPath, src: img.src,
+                   complete: img.complete, naturalWidth: img.naturalWidth}));
+  const tasks = [...el.preview.querySelectorAll(".task-list-item > input[type=checkbox]")]
+    .map((box, index) => ({index, checked: box.checked,
+                          text: box.parentElement?.querySelector(".task-text")?.textContent?.trim() || ""}));
+  const mermaidSources = [...el.editor.value.matchAll(/```mermaid\s*\n([\s\S]*?)```/gi)]
+    .map((match) => match[1].trim());
+  return {
+    contractVersion: 1,
+    workspace: state.root,
+    activeDocument: state.file ? {...state.file} : null,
+    sourceText: state.file?.kind === "pdf" ? null : el.editor.value,
+    renderedText: el.preview.textContent.trim(),
+    headings,
+    tasks,
+    images,
+    mermaid: {
+      sources: mermaidSources,
+      rendered: el.preview.querySelectorAll(".mermaid-diagram svg").length,
+      errors: el.preview.querySelectorAll(".mermaid-error").length,
+      generation: state.mermaidGeneration,
+    },
+    dirty: state.dirty,
+    externalChange: !el.diskbar.hidden,
+    externalChangeMessage: el.diskmsg.textContent,
+    mode: root.dataset.mode,
+    preferences: Object.fromEntries(WEBMCP_PREF_KEYS.map((key) => [key, S[key]])),
+    previewStyle: {
+      fontSize: style.getPropertyValue("--fs-body").trim(),
+      headingGapAfter: style.getPropertyValue("--head-gap-after-override").trim(),
+      measure: style.getPropertyValue("--measure").trim(),
+      theme: root.dataset.theme,
+    },
+    navigation: {
+      canBack: state.trailAt > 0,
+      canForward: state.trailAt >= 0 && state.trailAt < state.trail.length - 1,
+      position: state.trailAt,
+      length: state.trail.length,
+    },
+    imageGeneration: state.imageGeneration,
+  };
+}
+
+function replaceDocumentText(text) {
+  if (!state.file || state.file.kind === "pdf") throw new Error("no editable document is open");
+  if (new TextEncoder().encode(text).length > 8 * 1024 * 1024) {
+    throw new Error("document text is too large");
+  }
+  historySettle();
+  el.editor.value = text;
+  setDirty(text !== state.saved);
+  render(text);
+  historyPush();
+  if (state.dirty) scheduleAutosave();
+  return readerState();
+}
+
+async function persistPreferencesNow() {
+  clearTimeout(prefsTimer);
+  prefsTimer = null;
+  try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (_) {}
+  await api("/api/prefs", {method: "POST", body: S});
+}
+
+async function setWebMCPPreferences(changes) {
+  if (!changes || typeof changes !== "object" || Array.isArray(changes) || !Object.keys(changes).length) {
+    throw new Error("changes must contain at least one supported preference");
+  }
+  for (const [key, value] of Object.entries(changes)) {
+    const valid = WEBMCP_PREF_RULES[key];
+    if (!valid || !valid(value)) throw new Error(`invalid Reader preference: ${key}`);
+  }
+  Object.assign(S, changes);
+  applySettings();
+  syncDialog();
+  await persistPreferencesNow();
+  return readerState();
+}
+
+const noInputSchema = {type: "object", properties: {}, additionalProperties: false};
+let webMCPRegistered = false;
+
+async function registerReaderTools() {
+  if (webMCPRegistered || typeof document.modelContext?.registerTool !== "function") return;
+  webMCPRegistered = true;
+  const register = (definition) => document.modelContext.registerTool(definition);
+  const tools = [
+    {
+      name: "reader_get_state",
+      description: "Inspect the open Reader document, rendered preview, preferences, conflict state, and navigation state.",
+      inputSchema: noInputSchema,
+      annotations: {readOnlyHint: true},
+      execute: async () => readerState(),
+    },
+    {
+      name: "reader_open_document",
+      description: "Open a supported document inside Reader's current workspace. Unsaved edits are preserved unless discard is explicitly requested.",
+      inputSchema: {
+        type: "object", additionalProperties: false, required: ["path"],
+        properties: {
+          path: {type: "string", maxLength: 4096,
+                 description: "Absolute path inside the current Reader workspace."},
+          onUnsaved: {type: "string", enum: ["preserve", "discard"], default: "preserve"},
+        },
+      },
+      annotations: {destructiveHint: true},
+      execute: async ({path, onUnsaved = "preserve"}) => {
+        path = await requireWorkspacePath(path);
+        if (state.dirty && onUnsaved !== "discard") {
+          return {status: "decision_required", reason: "unsaved_changes", state: readerState()};
+        }
+        const opened = await openFile(path, {silent: onUnsaved === "discard"});
+        if (!opened) return {status: "not_opened", state: readerState()};
+        return {status: "opened", path: opened, state: readerState()};
+      },
+    },
+    {
+      name: "reader_replace_document_text",
+      description: "Replace the open editable document's source text and immediately render the resulting preview.",
+      inputSchema: {
+        type: "object", additionalProperties: false, required: ["text"],
+        properties: {text: {type: "string", maxLength: 8388608}},
+      },
+      annotations: {destructiveHint: true},
+      execute: async ({text}) => ({status: "edited", state: replaceDocumentText(text)}),
+    },
+    {
+      name: "reader_save_document",
+      description: "Save the open document. A disk conflict is preserved unless overwrite is explicitly requested.",
+      inputSchema: {
+        type: "object", additionalProperties: false,
+        properties: {onConflict: {type: "string", enum: ["preserve", "overwrite"], default: "preserve"}},
+      },
+      annotations: {destructiveHint: true},
+      execute: async ({onConflict = "preserve"} = {}) => ({
+        ...(await saveFile({conflict: onConflict, quiet: true, throwOnError: true})),
+        state: readerState(),
+      }),
+    },
+    {
+      name: "reader_resolve_external_change",
+      description: "Resolve Reader's external-change notice by reloading disk content or keeping the current Reader edit.",
+      inputSchema: {
+        type: "object", additionalProperties: false, required: ["action"],
+        properties: {action: {type: "string", enum: ["reload", "keep"]}},
+      },
+      annotations: {destructiveHint: true},
+      execute: async ({action}) => {
+        if (!state.file) throw new Error("no document is open");
+        if (action === "reload") {
+          setDirty(false);
+          hideDiskBar();
+          await openFile(state.file.path, {keepScroll: true, silent: true, record: false});
+        } else hideDiskBar();
+        return {status: action === "reload" ? "reloaded" : "kept", state: readerState()};
+      },
+    },
+    {
+      name: "reader_set_preferences",
+      description: "Apply supported Reader preview and watch preferences and persist them.",
+      inputSchema: {
+        type: "object", additionalProperties: false, required: ["changes"],
+        properties: {changes: {
+          type: "object", minProperties: 1, additionalProperties: false,
+          properties: {
+            fontSize: {type: "number", minimum: 13, maximum: 26},
+            headGapAfter: {anyOf: [
+              {type: "number", minimum: 0, maximum: 3}, {type: "null"},
+            ]},
+            measure: {type: "integer", minimum: 30, maximum: 100, multipleOf: 5},
+            theme: {type: "string", enum: ["auto", "light", "dark"]},
+            autoSave: {type: "boolean"}, autoRefresh: {type: "boolean"},
+            watchMs: {type: "integer", enum: [1000, 2000, 5000, 15000]},
+            watchToast: {type: "boolean"},
+          },
+        }},
+      },
+      annotations: {destructiveHint: false},
+      execute: async ({changes}) => ({status: "updated", state: await setWebMCPPreferences(changes)}),
+    },
+    {
+      name: "reader_reset_preferences",
+      description: "Reset selected supported Reader preferences to their defaults and persist them.",
+      inputSchema: {
+        type: "object", additionalProperties: false, required: ["keys"],
+        properties: {keys: {type: "array", minItems: 1, uniqueItems: true,
+          items: {type: "string", enum: WEBMCP_PREF_KEYS}}},
+      },
+      annotations: {destructiveHint: false},
+      execute: async ({keys}) => {
+        const changes = Object.fromEntries(keys.map((key) => [key, DEFAULTS[key]]));
+        return {status: "reset", state: await setWebMCPPreferences(changes)};
+      },
+    },
+    {
+      name: "reader_search_documents",
+      description: "Search document names inside Reader's current workspace.",
+      inputSchema: {
+        type: "object", additionalProperties: false, required: ["query"],
+        properties: {query: {type: "string", minLength: 1, maxLength: 200}},
+      },
+      annotations: {readOnlyHint: true},
+      execute: async ({query}) => {
+        const data = await api("/api/search", {query: fileFindQuery(query.trim())});
+        return {query: data.query, matches: data.matches || [], truncated: !!data.truncated};
+      },
+    },
+    {
+      name: "reader_navigate_history",
+      description: "Move backward or forward through Reader's in-session document history.",
+      inputSchema: {
+        type: "object", additionalProperties: false, required: ["direction"],
+        properties: {direction: {type: "string", enum: ["back", "forward"]}},
+      },
+      annotations: {destructiveHint: false},
+      execute: async ({direction}) => {
+        await trailGo(direction === "back" ? -1 : 1);
+        return {status: "navigated", state: readerState()};
+      },
+    },
+    {
+      name: "reader_set_task_state",
+      description: "Set one rendered Markdown task to checked or unchecked using Reader's preview task editing behavior.",
+      inputSchema: {
+        type: "object", additionalProperties: false, required: ["index", "checked"],
+        properties: {index: {type: "integer", minimum: 0}, checked: {type: "boolean"}},
+      },
+      annotations: {destructiveHint: true},
+      execute: async ({index, checked}) => {
+        const boxes = [...el.preview.querySelectorAll(".task-list-item > input[type=checkbox]")];
+        const box = boxes[index];
+        if (!box) throw new Error("task index is out of range");
+        if (box.checked !== checked) {
+          box.checked = checked;
+          if (!toggleTask(box)) throw new Error("task could not be mapped to the document source");
+        }
+        return {status: "updated", state: readerState()};
+      },
+    },
+    {
+      name: "reader_move_active_document",
+      description: "Move the active file to an existing folder inside Reader's current workspace. Existing files are never replaced.",
+      inputSchema: {
+        type: "object", additionalProperties: false, required: ["targetDirectory"],
+        properties: {targetDirectory: {type: "string", maxLength: 4096,
+          description: "Absolute folder path inside the current workspace."}},
+      },
+      annotations: {destructiveHint: true},
+      execute: async ({targetDirectory}) => {
+        if (!state.file) throw new Error("no document is open");
+        await requireWorkspacePath(state.file.path, "active document");
+        targetDirectory = await requireWorkspacePath(targetDirectory, "targetDirectory");
+        const moved = await moveFileToFolder(state.file.path, targetDirectory,
+          {quiet: true, throwOnError: true});
+        return {status: "moved", result: moved, state: readerState()};
+      },
+    },
+  ];
+  for (const tool of tools) await register(tool);
+}
+
+/* ==========================================================================
+   12. Boot
    ======================================================================== */
 
 /* Resolved once boot() has settled, so a document handed to the page by the
@@ -3638,5 +4006,11 @@ async function openFromOS(path) {
 window.reader = {goto: (p) => setRoot(p), open: (p) => openFile(p), openFromOS};
 window.mdview = window.reader;        // pre-2.0 name; drop once tests are updated
 
-boot().finally(bootDone);
+boot().finally(() => {
+  bootDone();
+  registerReaderTools().catch((err) => {
+    webMCPRegistered = false;
+    console.warn("Reader WebMCP registration failed", err);
+  });
+});
 })();
