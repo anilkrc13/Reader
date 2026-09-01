@@ -44,6 +44,7 @@ const DEFAULTS = {
   /* reading */
   bodyFont: "lora", headFont: "poppins",
   fontSize: 16.5, bodyWeight: 400, lineHeight: 1.75, measure: 65, paraGap: 1.1, listGap: .32,
+  tableBorders: false,
   titleSize: 48, titleWeight: 700, titleLineHeight: 1.08,
   titleSpacing: -.035, titleCapScale: 1, headSizeScale: 1, headCapScale: 1, headWeight: null, headLineHeight: null,
   headSpacing: null, headGap: null, headGapAfter: null,
@@ -395,6 +396,7 @@ function applySettings() {
   root.dataset.sidebar = S.hidden ? "hidden" : "shown";
   syncPanelButtons();
   root.dataset.wordcount = S.wordCount ? "on" : "off";
+  root.dataset.tableborders = S.tableBorders ? "on" : "off";
   root.dataset.glass = S.glass ? "on" : "off";
   root.dataset.recents = S.recentCount > 0 ? "on" : "off";
 
