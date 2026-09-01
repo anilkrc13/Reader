@@ -688,6 +688,14 @@ html[data-head=ebgaramond] .prose h1.doc-heading{font-size:calc(var(--title-size
   margin:1.3em 0;padding:.1em 0 .1em 1.15em;border-left:3px solid var(--accent);
   color:var(--text-2);font-style:italic;
 }
+/* A bare ">" line splits a quote into separate paragraphs, which is exactly how
+   a transcript gets written -- one speaker per turn. Given the document's own
+   paragraph gap that rendered a blank line between every turn, when what was
+   wanted was simply the next line. Enough of a gap remains to tell a new turn
+   from the wrapped continuation of the one above, which flush-to-zero cannot.
+   Deliberately not tied to --para-gap: a reader who widens their paragraph
+   spacing is talking about prose, not about the inside of a quote. */
+.prose blockquote p{margin-bottom:.3em}
 .prose blockquote p:last-child{margin-bottom:0}
 .prose hr{border:0;border-top:1px solid var(--border);margin:2.2em 0}
 .prose img{max-width:100%;height:auto;border-radius:var(--radius);margin:.4em 0}
