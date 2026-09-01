@@ -507,6 +507,7 @@ html[data-doc=pdf] #previewpane{overflow:hidden}
 }
 .codegrid .codebody{
   flex:1;min-width:0;margin:0;padding:22px 26px;overflow-x:auto;
+  background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
   font-family:var(--font-mono);font-size:var(--fs-editor);line-height:1.7;
 }
 .codegrid code{white-space:pre;background:none;border:0;padding:0;font-size:inherit;display:block}
@@ -711,16 +712,59 @@ html[data-theme=light] .prose a code{
   background:color-mix(in srgb,var(--accent) 7%,var(--paper));
   border-color:color-mix(in srgb,var(--accent) 20%,transparent);
 }
+/* A code block is a quiet slab: one hairline, a soft panel and roomy padding,
+   so a listing sits on the page as a single object rather than a boxed-in
+   sample. The radius is tighter than the app's chrome radius -- at reading
+   size a 10px corner on a full-measure block reads as a card, not as code. */
 .prose pre{
-  margin:1.3em 0;padding:15px 17px;overflow:auto;background:var(--panel);
-  border:1px solid var(--border);border-radius:var(--radius);line-height:1.65;
-  white-space:var(--code-wrap);
+  margin:1.5em 0;padding:16px 20px;overflow:auto;background:var(--panel);
+  border:1px solid var(--border-soft);border-radius:8px;line-height:1.7;
+  white-space:var(--code-wrap);font-size:var(--fs-code);
 }
-.prose pre code{background:none;border:0;padding:0;white-space:inherit;word-break:break-word}
-.prose table{border-collapse:collapse;width:100%;margin:1.4em 0;font-size:.92em;
-  font-family:var(--ui);display:block;overflow-x:auto}
-.prose th,.prose td{border:1px solid var(--border);padding:8px 12px;text-align:left;vertical-align:top}
-.prose th{background:var(--panel);font-weight:600}
+.prose pre code{background:none;border:0;padding:0;white-space:inherit;word-break:break-word;
+  font-size:1em}
+
+/* Tables read as editorial rules rather than as a boxed grid: a hairline under
+   the header, one between rows, and nothing vertical. The header is a small
+   letter-spaced label instead of a filled band, so the eye lands on the data.
+   The rule colour is mixed from --text, so every paper tint and every dark
+   shade gets a hairline of the same apparent weight instead of one tuned for
+   a single theme -- var(--border) is near-invisible on the dark palettes once
+   it is the only structure left. */
+.prose table{
+  --rule:color-mix(in srgb,var(--text) 15%,transparent);
+  border-collapse:collapse;width:100%;margin:1.6em 0;font-size:.92em;
+  font-family:var(--ui);display:block;overflow-x:auto;
+}
+.prose th,.prose td{
+  border:0;border-bottom:1px solid var(--rule);
+  padding:11px 18px;text-align:left;vertical-align:top;
+}
+/* outer columns sit flush with the text column the table interrupts */
+.prose th:first-child,.prose td:first-child{padding-left:0}
+.prose th:last-child,.prose td:last-child{padding-right:0}
+.prose thead th{
+  background:none;font-weight:600;font-size:.8em;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--text-3);
+  padding-top:0;padding-bottom:9px;
+}
+.prose tbody td{color:var(--prose-body)}
+/* Reading > Tables > Column borders. Off by default: row rules alone keep a
+   table reading as prose. On, the same hairline runs between the columns --
+   the outer edges stay open either way, so the table still starts and ends on
+   the text column rather than becoming a floating box. */
+html[data-tableborders=on] .prose th + th,
+html[data-tableborders=on] .prose td + td{border-left:1px solid var(--rule)}
+/* inline code inside a cell: the chip's own border doubles up with the row
+   rules and makes a busy grid of a table that just shed its own, so the cell
+   chip is a fill only. */
+.prose td code,.prose th code{border-color:transparent;background:var(--panel-hi)}
+
+/* A CSV or TSV file is a data surface, not prose: it keeps the full grid, the
+   filled header band and its own padding. */
+.prose.tableview table{--rule:var(--border)}
+.prose.tableview th,.prose.tableview td{border:1px solid var(--border);padding:8px 12px}
+.prose.tableview th{background:var(--panel);font-weight:600;color:var(--text)}
 /* bullets faked with <br> inside a cell, rebuilt as a real list (listifyCells).
    Indent matches .prose ul so a cell list reads like every other list in the
    document, and the marker sits outside the text column so a wrapped line stays
