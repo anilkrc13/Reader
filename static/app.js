@@ -490,7 +490,75 @@ function toast(msg, isError = false) {
    3. Rendering
    ======================================================================== */
 
-marked.use({gfm: true, breaks: false});
+const BLANK_LINE_CLASS = "md-blank-lines";
+
+function blankLineCount(raw, leading = false) {
+  const newlines = (raw.match(/\n/g) || []).length;
+  return leading ? newlines : Math.max(newlines - 2, 0);
+}
+
+function splitTrailingBlankLines(tok) {
+  if (!tok || tok.type === "space" || typeof tok.raw !== "string") return [tok];
+  const m = tok.raw.match(/\n{2,}$/);
+  if (!m) return [tok];
+  tok.raw = tok.raw.slice(0, -m[0].length) + "\n";
+  return [tok, {type: "space", raw: m[0]}];
+}
+
+function normalizeBlankLineTokens(tokens) {
+  if (!Array.isArray(tokens)) return tokens;
+  const out = [];
+  tokens.forEach((tok) => {
+    if (Array.isArray(tok?.tokens)) tok.tokens = normalizeBlankLineTokens(tok.tokens);
+    if (Array.isArray(tok?.items)) {
+      tok.items.forEach((item) => {
+        if (Array.isArray(item?.tokens)) item.tokens = normalizeBlankLineTokens(item.tokens);
+      });
+    }
+    splitTrailingBlankLines(tok).forEach((part) => out.push(part));
+  });
+  return out;
+}
+
+function annotateBlankLineTokens(tokens) {
+  if (!Array.isArray(tokens)) return tokens;
+  tokens.forEach((tok, index) => {
+    if (tok.type === "space") tok.blankLines = blankLineCount(tok.raw || "", index === 0);
+    annotateBlankLineTokenChildren(tok);
+  });
+  return tokens;
+}
+
+function markdownTokens(text) {
+  return annotateBlankLineTokens(normalizeBlankLineTokens(marked.lexer(text || "")));
+}
+
+function annotateBlankLineTokenChildren(tok) {
+  if (!tok || typeof tok !== "object") return;
+  if (Array.isArray(tok.tokens)) annotateBlankLineTokens(tok.tokens);
+  if (Array.isArray(tok.items)) tok.items.forEach((item) => annotateBlankLineTokenChildren(item));
+  if (Array.isArray(tok.header)) tok.header.forEach((cell) => annotateBlankLineTokenChildren(cell));
+  if (Array.isArray(tok.rows)) tok.rows.flat().forEach((cell) => annotateBlankLineTokenChildren(cell));
+}
+
+marked.use({
+  gfm: true,
+  breaks: false,
+  hooks: {
+    processAllTokens(tokens) {
+      return annotateBlankLineTokens(normalizeBlankLineTokens(tokens));
+    },
+  },
+  extensions: [{
+    name: "space",
+    renderer(tok) {
+      const lines = Number(tok.blankLines) || 0;
+      return lines
+        ? `<div class="${BLANK_LINE_CLASS}" aria-hidden="true" style="--blank-lines:${lines}"></div>`
+        : "";
+    },
+  }],
+});
 
 let mermaidConfigured = false;
 
@@ -2242,7 +2310,7 @@ function buildAnchors(text) {
      Top-level tokens map to the preview's top-level children in order. */
   let line = 0;
   const blocks = [];
-  for (const tok of marked.lexer(text || "")) {
+  for (const tok of markdownTokens(text || "")) {
     if (tok.type !== "space") blocks.push(line);
     line += (tok.raw.match(/\n/g) || []).length;
   }
@@ -3608,7 +3676,7 @@ function topLevelSpan(block) {
   if (idx < 0) return null;
   const text = el.editor.value;
   let offset = 0, i = 0;
-  for (const tok of marked.lexer(text)) {
+  for (const tok of markdownTokens(text)) {
     if (tok.type !== "space") {
       if (i === idx) return {token: tok, offset, length: tok.raw.length, text};
       i++;

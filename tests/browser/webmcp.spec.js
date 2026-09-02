@@ -229,6 +229,34 @@ test("automatically refreshes document text, Mermaid source, and a local image",
   expect(servedImage).toContain("#00ff00");
 });
 
+test("renders each authored markdown blank line as its own visible spacer", async ({page}) => {
+  const spaced = path.join(workspace, "spaced.md");
+  await fs.writeFile(spaced,
+    "# Above\n\n\n\n\n\nBelow\n> Quote top\n>\n>\n>\n>\n> Quote bottom\n",
+    "utf8");
+
+  await open(page, spaced);
+
+  const blanks = await page.evaluate(() => [...document.querySelectorAll(".md-blank-lines")].map((node) => ({
+    lines: Number.parseInt(node.style.getPropertyValue("--blank-lines"), 10),
+    height: Math.round(node.getBoundingClientRect().height),
+    parent: node.parentElement?.tagName || null,
+  })));
+
+  expect(blanks).toEqual([
+    {lines: 4, height: blanks[0].height, parent: "ARTICLE"},
+    {lines: 3, height: blanks[1].height, parent: "BLOCKQUOTE"},
+  ]);
+  expect(blanks[0].height).toBeGreaterThan(100);
+  expect(blanks[1].height).toBeGreaterThan(80);
+  await expect.poll(async () => (await state(page)).renderedText).toContain("Quote bottom");
+  const renderedText = (await state(page)).renderedText;
+  expect(renderedText).toContain("Above");
+  expect(renderedText).toContain("Below");
+  expect(renderedText).toContain("Quote top");
+  expect(renderedText).toContain("Quote bottom");
+});
+
 test("a delayed open cannot replace a newer document session", async ({page}) => {
   const alpha = path.join(workspace, "alpha.md");
   const gamma = path.join(workspace, "gamma.md");

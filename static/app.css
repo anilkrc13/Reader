@@ -616,6 +616,7 @@ html[data-head=ebgaramond] .prose h5{--hw:600;--hsp:-.004em}
 html[data-head=ebgaramond] .prose h6{--hw:560;--hsp:.002em}
 html[data-head=ebgaramond] .prose h1.doc-heading{font-size:calc(var(--title-size,48px) * 1.08)}
 .prose p{margin:0 0 var(--para-gap)}
+.prose .md-blank-lines{display:block;height:calc(var(--blank-lines,0) * var(--lh-body) * 1em)}
 .prose a{color:var(--accent-text);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--accent-text) 35%,transparent)}
 .prose a:hover{border-bottom-color:var(--accent-text)}
 /* Markdown strong uses a consistent 600 baseline across body font choices.
