@@ -140,6 +140,9 @@ const state = {
      answer this: clicking a row redraws the tree, which removes the very
      button that had focus and leaves document.activeElement as <body>. */
   surface: "document",
+  /* Headings collapsed in the open document, held by slug. Kept across
+     re-renders and reloads of the same file, dropped when another opens. */
+  folded: new Set(),
 };
 
 const documentIsWritable = () =>
@@ -765,6 +768,7 @@ function render(text) {
     try { hljs.highlightElement(block); } catch (_) {}
   });
   listifyCells(el.preview);
+  mountFolds();
   state.lineAnchors = buildAnchors(text);
   /* images change the page's height as they arrive, so anchor positions
      measured before a load are stale the moment it finishes */
@@ -834,6 +838,216 @@ function listifyCells(scope) {
     cell.replaceChildren(out);
   });
 }
+
+/* ==========================================================================
+   Collapsible sections
+   --------------------------------------------------------------------------
+   A heading owns everything after it up to the next heading of the same or a
+   higher level, and collapsing hides exactly that run. The blocks are hidden
+   where they stand rather than moved into a wrapper: #preview's top-level
+   children map one-to-one, in order, onto marked's top-level tokens, and both
+   scroll sync (buildAnchors) and quick edit (topLevelSpan) are built on that
+   invariant. Nesting still works, because a hidden parent hides its children
+   whatever they think of themselves.
+
+   What is collapsed is remembered by heading slug, so an edit that re-renders
+   the document -- every keystroke in split view -- does not spring it open.
+   ========================================================================== */
+
+const HEAD_TAG = /^H([1-6])$/;
+const headLevel = (node) => {
+  const m = node && node.tagName && HEAD_TAG.exec(node.tagName);
+  return m ? Number(m[1]) : 0;
+};
+
+/* Every heading in the preview with the blocks that belong to it. */
+function foldSections() {
+  const kids = [...el.preview.children];
+  const out = [];
+  kids.forEach((node, i) => {
+    const level = headLevel(node);
+    if (!level) return;
+    let end = kids.length;
+    for (let j = i + 1; j < kids.length; j++) {
+      const next = headLevel(kids[j]);
+      if (next && next <= level) { end = j; break; }
+    }
+    out.push({head: node, level, body: kids.slice(i + 1, end)});
+  });
+  return out;
+}
+
+const FOLD_CARET =
+  '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"/></svg>';
+
+/* Draws the markers and puts the remembered state back on the page. Runs at
+   the end of every markdown render, and again on every toggle. */
+function mountFolds() {
+  const sections = foldSections();
+  el.preview.querySelectorAll(".fold-hidden")
+    .forEach((node) => node.classList.remove("fold-hidden"));
+
+  for (const sec of sections) {
+    const foldable = sec.body.length > 0;
+    sec.head.classList.toggle("foldable", foldable);
+    let btn = sec.head.querySelector(":scope > .fold-toggle");
+    if (foldable && !btn) {
+      btn = document.createElement("button");
+      btn.className = "fold-toggle";
+      btn.type = "button";
+      btn.innerHTML = FOLD_CARET;
+      sec.head.prepend(btn);
+    } else if (!foldable && btn) {
+      btn.remove();
+    }
+    /* A heading whose section vanished under an edit must not stay collapsed
+       invisibly: without a body there is nothing to unfold it with. */
+    if (!foldable) state.folded.delete(sec.head.id);
+
+    const shut = foldable && state.folded.has(sec.head.id);
+    sec.head.classList.toggle("folded", shut);
+    if (btn) {
+      btn.setAttribute("aria-expanded", String(!shut));
+      btn.setAttribute("aria-label",
+                       (shut ? "Expand section: " : "Collapse section: ") + sec.head.textContent.trim());
+      btn.title = shut ? "Expand section" : "Collapse section";
+    }
+    if (shut) sec.body.forEach((node) => node.classList.add("fold-hidden"));
+  }
+  /* hidden blocks have no height, so every measured anchor position is stale */
+  invalidateSyncMaps();
+}
+
+function setFold(head, shut) {
+  if (!head || !head.id) return;
+  if (shut) state.folded.add(head.id);
+  else state.folded.delete(head.id);
+  mountFolds();
+}
+
+const foldAvailable = () =>
+  !!state.file && state.file.kind === "md" && root.dataset.mode !== "edit";
+
+/* The section being read: the last heading at or above the top of the pane.
+   Above the first heading, that is the first one. */
+function sectionAtReadingPoint(sections) {
+  const mark = el.previewpane.getBoundingClientRect().top + 4;
+  let best = null;
+  for (const sec of sections) {
+    if (sec.head.classList.contains("fold-hidden")) continue;
+    if (sec.head.getBoundingClientRect().top <= mark) best = sec;
+    else if (!best) return sec;
+  }
+  return best;
+}
+
+function parentSection(sections, sec) {
+  for (let i = sections.indexOf(sec) - 1; i >= 0; i--) {
+    if (sections[i].level < sec.level) return sections[i];
+  }
+  return null;
+}
+
+/* Keeps the heading you acted on where you can see it: collapsing a long
+   section pulls the page up under the reader otherwise. */
+function keepHeadingInView(head) {
+  const paneTop = el.previewpane.getBoundingClientRect().top;
+  const top = head.getBoundingClientRect().top;
+  if (top < paneTop + 4 || top > el.previewpane.getBoundingClientRect().bottom - 40) {
+    el.previewpane.scrollTop += top - paneTop - 8;
+  }
+}
+
+/* ⌥⌘[ and ⌥⌘]. Collapsing an already-collapsed section closes its parent, so
+   repeating the key walks up the document; expanding an open one opens what
+   is folded inside it, so repeating opens the branch. */
+function foldAtReadingPoint(shut) {
+  const sections = foldSections();
+  let sec = sectionAtReadingPoint(sections);
+  if (!sec) return;
+  if (shut) {
+    while (sec && (!sec.body.length || state.folded.has(sec.head.id))) {
+      sec = parentSection(sections, sec);
+    }
+    if (!sec) return;
+    setFold(sec.head, true);
+    keepHeadingInView(sec.head);
+    return;
+  }
+  if (state.folded.has(sec.head.id)) { setFold(sec.head, false); return; }
+  let opened = false;
+  for (const inner of sections) {
+    if (sec.body.includes(inner.head) && state.folded.delete(inner.head.id)) opened = true;
+  }
+  if (opened) mountFolds();
+}
+
+/* ⌥⌘1-6 collapse every section at that level and open everything else; ⌥⌘0
+   opens the whole document. */
+function foldToLevel(level) {
+  state.folded.clear();
+  if (level > 0) {
+    for (const sec of foldSections()) {
+      if (sec.level === level && sec.body.length) state.folded.add(sec.head.id);
+    }
+  }
+  mountFolds();
+  el.previewpane.scrollTop = Math.min(el.previewpane.scrollTop, maxScroll(el.previewpane));
+}
+
+/* Anything the reader is being sent to -- a match, an anchor link -- has to be
+   on screen when they get there, whatever was collapsed over it. */
+function revealFolds(node) {
+  if (!node || !state.folded.size) return;
+  let block = node;
+  while (block && block.parentElement !== el.preview) block = block.parentElement;
+  if (!block) return;
+  let opened = false;
+  for (const sec of foldSections()) {
+    if (!state.folded.has(sec.head.id)) continue;
+    if (sec.head === block || sec.body.includes(block)) {
+      state.folded.delete(sec.head.id);
+      opened = true;
+    }
+  }
+  if (opened) mountFolds();
+}
+
+/* Which fold key was pressed. Option rewrites ev.key into a symbol on macOS
+   ( ⌥[ is "“", ⌥1 is "¡" ), so the physical key is the reliable read -- with
+   both the plain and the rewritten character as fallbacks, because not every
+   source of a key event fills ev.code in. */
+const OPTION_DIGITS = {"º": "0", "¡": "1", "™": "2", "£": "3", "¢": "4", "∞": "5", "§": "6"};
+function altChord(ev) {
+  if (ev.code === "BracketLeft" || ev.key === "[" || ev.key === "\u201c") return "[";
+  if (ev.code === "BracketRight" || ev.key === "]" || ev.key === "\u2018") return "]";
+  const physical = /^Digit([0-6])$/.exec(ev.code || "");
+  if (physical) return physical[1];
+  if (/^[0-6]$/.test(ev.key)) return ev.key;
+  return OPTION_DIGITS[ev.key] || "";
+}
+
+el.preview.addEventListener("click", (ev) => {
+  const btn = ev.target.closest(".fold-toggle");
+  if (!btn) return;
+  ev.preventDefault();
+  const head = btn.parentElement;
+  const sections = foldSections();
+  const sec = sections.find((s) => s.head === head);
+  if (!sec) return;
+  /* ⌥-click works on the whole level at once: fold every H2 in the document,
+     or open them all again. */
+  if (ev.altKey) {
+    const peers = sections.filter((s) => s.level === sec.level && s.body.length);
+    const shut = peers.some((s) => !state.folded.has(s.head.id));
+    peers.forEach((s) => (shut ? state.folded.add(s.head.id) : state.folded.delete(s.head.id)));
+    mountFolds();
+    keepHeadingInView(head);
+    return;
+  }
+  setFold(head, !head.classList.contains("folded"));
+  keepHeadingInView(head);
+});
 
 function renderCode(text) {
   el.preview.className = "prose codeview";
@@ -974,6 +1188,7 @@ function setDirty(on) {
 }
 
 function beginDocumentSession(targetPath) {
+  if (targetPath !== (state.file ? state.file.path : null)) state.folded.clear();
   if (state.documentController) state.documentController.abort();
   state.documentController = new AbortController();
   state.documentSession += 1;
@@ -2799,7 +3014,10 @@ el.preview.addEventListener("click", (ev) => {
   if (href.startsWith("#")) {
     ev.preventDefault();
     const target = el.preview.querySelector("#" + CSS.escape(href.slice(1)));
-    if (target) target.scrollIntoView({behavior: "smooth", block: "start"});
+    if (target) {
+      revealFolds(target);
+      target.scrollIntoView({behavior: "smooth", block: "start"});
+    }
     return;
   }
   if (a.dataset.local) {
@@ -2978,11 +3196,22 @@ document.addEventListener("keydown", (ev) => {
   if (arrow && !meta && !ev.altKey && !ev.shiftKey && !editingText() && !overlayOpen()) {
     ev.preventDefault(); trailGo(arrow); return;
   }
-  if (meta && (ev.key === "[" || ev.key === "]") && !overlayOpen()) {
+  if (meta && !ev.altKey && (ev.key === "[" || ev.key === "]") && !overlayOpen()) {
     ev.preventDefault(); trailGo(ev.key === "[" ? -1 : 1); return;
   }
 
   if (!meta) return;
+
+  /* 4b. Collapsing sections. ⌥⌘[ and ⌥⌘] fold and unfold the section being
+     read, ⌥⌘1-6 fold the document to a heading level and ⌥⌘0 opens it all. */
+  if (ev.altKey && !overlayOpen() && foldAvailable()) {
+    const chord = altChord(ev);
+    if (chord === "[" || chord === "]") {
+      ev.preventDefault(); foldAtReadingPoint(chord === "["); return;
+    }
+    if (chord) { ev.preventDefault(); foldToLevel(Number(chord)); return; }
+  }
+
   const k = ev.key.toLowerCase();
 
   /* 5. ⌘B/I/U format a preview or editor selection. Only claimed when there
@@ -3338,7 +3567,11 @@ function findRun({keepPlace = false} = {}) {
 
 function findReveal() {
   const mark = find.hits[find.at] && find.hits[find.at][0];
-  if (mark) mark.scrollIntoView({block: "center", behavior: "smooth"});
+  if (!mark) return;
+  /* a match under a collapsed heading opens it: being told there are matches
+     and shown none of them is worse than losing the fold */
+  revealFolds(mark);
+  mark.scrollIntoView({block: "center", behavior: "smooth"});
 }
 
 function findStep(delta) {
