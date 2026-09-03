@@ -773,6 +773,37 @@ html[data-tableborders=on] .prose td + td{border-left:1px solid var(--rule)}
 .prose ul.cell-list{margin:0;padding-left:1.4em}
 .prose .cell-text + ul.cell-list{margin-top:.3em}
 .prose ul.cell-list + .cell-text{margin-top:.45em}
+/* ------------------------------------------------ collapsible sections */
+/* The marker lives in the left margin so a heading's text sits exactly where
+   it would without one, and it stays out of the way until the pointer is on
+   the heading -- except on a collapsed one, which has to advertise that
+   something is folded underneath it. */
+.prose .foldable{position:relative}
+.fold-toggle{
+  position:absolute;left:-24px;top:.15em;width:18px;height:1.15em;
+  display:flex;align-items:center;justify-content:center;padding:0;
+  color:var(--text-3);opacity:0;border-radius:5px;
+  transition:opacity var(--speed),color var(--speed),background var(--speed);
+}
+.fold-toggle svg{
+  width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round;
+  transform:rotate(90deg);transition:transform var(--speed);
+}
+.prose .foldable:hover .fold-toggle{opacity:1}
+.fold-toggle:hover{color:var(--text);background:var(--panel-hi)}
+.fold-toggle:focus-visible{opacity:1;outline:2px solid var(--accent);outline-offset:1px}
+.prose .folded .fold-toggle{opacity:1;color:var(--text-2)}
+.prose .folded .fold-toggle svg{transform:none}
+/* an ellipsis after a collapsed heading, so a folded document reads as folded
+   rather than as one that simply ends early */
+.prose .folded::after{content:"…";margin-left:.3em;color:var(--text-3);font-weight:400}
+/* scoped through .prose so it outranks the display rules the elements
+   themselves carry -- .prose table sets display:block for side-scrolling */
+.prose .fold-hidden{display:none}
+/* no pointer to hover with: the markers are always on */
+@media (hover:none){.fold-toggle{opacity:1}}
+
 .prose kbd{font-family:var(--font-mono);font-size:.8em;padding:.15em .45em;border-radius:5px;
   border:1px solid var(--border);border-bottom-width:2px;background:var(--panel)}
 .prose sup a{border:0}
@@ -1107,6 +1138,11 @@ kbd.k{
 }
 @media print{
   #sidebar,#dragbar,#toolbar,#diskbar,#editorpane,#gutter,#scrim{display:none!important}
+  /* paper gets the whole document: a collapsed section is a reading state, and
+     a printout silently missing it is a trap */
+  .prose .fold-hidden{display:revert}
+  .fold-toggle{display:none}
+  .prose .folded::after{content:none}
   body,#previewpane{overflow:visible}
   .prose{padding:0;max-width:none}
 }
