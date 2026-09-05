@@ -34,6 +34,19 @@ jobs:
           node-version: "22"
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      - name: Diagnose the runner's view of the server
+        run: |
+          set -x
+          mkdir -p /tmp/rstate /tmp/rws
+          READER_DATA_DIR=/tmp/rstate python3 reader.py /tmp/rws --port 8790 --no-browser > /tmp/reader.log 2>&1 &
+          sleep 3
+          cat /tmp/reader.log
+          TOKEN="$(cat /tmp/rstate/.reader-token)"
+          curl -sSi "http://127.0.0.1:8790/?t=$TOKEN" | head -20
+          curl -sSi -H "Cookie: reader_session=$TOKEN" "http://127.0.0.1:8790/" | head -20
+          curl -sSi -H "Cookie: reader_session=$TOKEN" "http://127.0.0.1:8790/api/ping"
+          python3 -c "import mimetypes,sys; print(sys.version); print(mimetypes.guess_type('index.html'), mimetypes.guess_type('app.js'), mimetypes.guess_type('app.css'))"
+          kill %1 || true
       - run: npm run test:webmcp
         env:
           READER_PLAYWRIGHT_CHANNEL: chromium
