@@ -37,6 +37,13 @@ jobs:
       - run: npm run test:webmcp
         env:
           READER_PLAYWRIGHT_CHANNEL: chromium
+      - name: Keep the failure context
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webmcp-test-results
+          path: test-results/
+          if-no-files-found: ignore
 
   macos-app:
     name: macOS app builds
