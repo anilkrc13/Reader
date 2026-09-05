@@ -24,8 +24,26 @@ ad-hoc.
    match `VERSION`, so tagging the wrong commit fails loudly instead of
    shipping the wrong build.
 5. Watch the Actions run. It builds `Reader.app`, verifies the signature,
-   zips it, writes `manifest.json`, and publishes both as a GitHub Release
-   named after the tag.
+   zips it, writes `manifest.json`, builds a `.dmg` of the same build, and
+   publishes all three as a GitHub Release named after the tag.
+
+## Two artifacts, two purposes
+
+Every release carries both a zip and a `.dmg` of the same signed
+`Reader.app`, built one after the other from the same bundle, but they serve
+different consumers and neither can stand in for the other:
+
+- **The zip** (`Reader-<version>.zip`, built by `write-release-manifest.sh`)
+  is what the in-app updater downloads. It only ever talks to `manifest.json`,
+  which points at the zip and carries its sha256 and size; the updater
+  verifies both plus the code signature before unpacking it with
+  `ditto -x -k`. Its format (`ditto -c -k --keepParent`) is load-bearing for
+  that unpack step and must not change.
+- **The `.dmg`** (`Reader-<version>.dmg`, built by `write-release-dmg.sh`) is
+  for a first-time install: mount it, and drag `Reader.app` onto the
+  `Applications` symlink inside, the familiar macOS installer gesture. The
+  updater never reads or produces a `.dmg`; it exists purely for people
+  downloading Reader for the first time from the Releases page.
 
 ## Signing releases (one-time setup)
 

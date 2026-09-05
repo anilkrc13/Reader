@@ -4,6 +4,9 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- Releases now also include a signed `Reader-<version>.dmg`, for a first-time
+  install by dragging Reader into Applications; the in-app updater keeps using
+  the zip and `manifest.json` exactly as before.
 - The macOS app updates itself from GitHub Releases: a once-a-day check, a
   checksum and code-signature verification of the download, and an install that
   keeps the previous bundle until the new one launches. Turn it off with

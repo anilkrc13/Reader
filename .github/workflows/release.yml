@@ -94,6 +94,9 @@ jobs:
       - name: Package and write manifest
         run: ./macos/write-release-manifest.sh "$VERSION"
 
+      - name: Build disk image
+        run: ./macos/write-release-dmg.sh "$VERSION"
+
       - name: Extract changelog section
         run: ./macos/extract-changelog.sh "$VERSION" > "$RUNNER_TEMP/release-notes.md"
 
@@ -103,6 +106,7 @@ jobs:
         run: |
           gh release create "v$VERSION" \
             "Reader-$VERSION.zip" \
+            "Reader-$VERSION.dmg" \
             manifest.json \
             --title "Reader $VERSION" \
             --notes-file "$RUNNER_TEMP/release-notes.md"

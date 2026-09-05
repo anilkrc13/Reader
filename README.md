@@ -11,13 +11,16 @@ check, which you can turn off in *Files & watching*.
 
 ### macOS app
 
-Download the latest `Reader.app` zip from the
-[GitHub Releases page](https://github.com/anilkrc13/Reader/releases), unzip
-it, move `Reader.app` to `~/Applications`, and open it. It needs `python3` on
-the Mac that runs it, which comes with the Xcode Command Line Tools. An app
-downloaded with a browser carries a quarantine flag, so macOS shows a
-first-launch warning the first time you open it; see
-[docs/macos.md](docs/macos.md) for how to get past it.
+Download the latest `Reader.dmg` from the
+[GitHub Releases page](https://github.com/anilkrc13/Reader/releases), open
+it, and drag Reader into Applications. Reader has to live in `/Applications`
+or `~/Applications` for it to update itself later; running it from anywhere
+else (a Downloads folder, the mounted disk image itself) still works, but
+Reader will only point you at the release page for the next update instead of
+installing it. It needs `python3` on the Mac that runs it, which comes with
+the Xcode Command Line Tools. An app downloaded with a browser carries a
+quarantine flag, so macOS shows a first-launch warning the first time you
+open it; see [docs/macos.md](docs/macos.md) for how to get past it.
 
 ### From source
 
