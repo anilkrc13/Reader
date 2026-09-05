@@ -34,6 +34,41 @@ const el = {
 };
 el.diskmsg = el.diskbar.querySelector(".grow");
 
+/* Every shortcut label in this app is authored for macOS, with ⌘. On Windows
+   and Linux the modifier is Ctrl, and there is no glyph for it worth
+   hunting down, so the convention is text: "Ctrl+". navigator.userAgentData
+   is preferred where present because navigator.platform is deprecated and
+   can be spoofed or blank in some embedded contexts; checking both keeps
+   older WebViews working. This runs once, at module load, rather than on
+   every label: the platform does not change under a running page. */
+function isMacPlatform() {
+  const uaPlatform = (navigator.userAgentData && navigator.userAgentData.platform)
+                     || navigator.platform || "";
+  return /mac/i.test(uaPlatform);
+}
+const MOD_GLYPH = isMacPlatform() ? "⌘" : "Ctrl+";
+
+/* Converts a label authored with ⌘ to this platform's modifier text. A
+   no-op on macOS -- MOD_GLYPH is ⌘ there -- so authored and rendered
+   strings are identical and macOS output cannot change. Every shortcut
+   label, static or built at runtime, is meant to pass through this rather
+   than embed ⌘ (or "Ctrl+") itself. */
+function kbdLabel(text) {
+  return MOD_GLYPH === "⌘" ? text : text.replaceAll("⌘", MOD_GLYPH);
+}
+
+/* index.html authors its static shortcut labels with ⌘ and marks the
+   elements that carry one with data-kbd, so this is the one place that
+   walks the DOM converting them -- every other label goes through
+   kbdLabel() at the point it is built. A no-op on macOS. */
+function applyKbdLabels() {
+  if (MOD_GLYPH === "⌘") return;
+  document.querySelectorAll("[data-kbd]").forEach((node) => {
+    if (node.hasAttribute("title")) node.title = kbdLabel(node.title);
+    if (node.textContent.includes("⌘")) node.textContent = kbdLabel(node.textContent);
+  });
+}
+
 /* ==========================================================================
    1. Settings model
    ======================================================================== */
@@ -2664,8 +2699,8 @@ function syncPanelButtons() {
     $(id).title = label;
     $(id).setAttribute("aria-label", label);
   };
-  set("btn-show", "Show panel (⌘\\)");
-  set("btn-panel", S.hidden ? "Pin panel open" : "Hide panel (⌘\\)");
+  set("btn-show", kbdLabel("Show panel (⌘\\)"));
+  set("btn-panel", S.hidden ? "Pin panel open" : kbdLabel("Hide panel (⌘\\)"));
 }
 
 function toggleSidebar(force) {
@@ -4582,6 +4617,7 @@ let bootDone;
 const bootReady = new Promise((resolve) => { bootDone = resolve; });
 
 async function boot() {
+  applyKbdLabels();
   loadPrefs();
   applySettings();
   syncDialog();

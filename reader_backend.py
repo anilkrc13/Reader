@@ -11,6 +11,7 @@ import collections
 import os
 import stat as statmod
 import shutil
+import sys
 import tempfile
 import threading
 import time
@@ -81,6 +82,9 @@ SEARCH_SKIP = PROBE_SKIP | {
     ".git", ".svn", ".hg", ".Trash",
     "Caches", "CachedData", "Containers", "Group Containers",
     "Developer", "DerivedData", "Application Support",
+    # AppData is Windows application state -- the same kind of folder as
+    # ~/Library/Application Support above, not a place documents live.
+    "AppData",
     "dist", "build", "target", "vendor", "Pods",
     ".cache", ".next", ".nuxt", ".parcel-cache", ".turbo", ".svelte-kit",
     ".gradle", ".m2", ".cargo", ".rustup", ".npm", ".yarn", ".pnpm-store",
@@ -147,11 +151,17 @@ class FileAccessPolicy:
 
     def __init__(self, app_dir: Path,
                  allowed_roots: WorkspaceGrantStore | list[Path] | tuple[Path, ...],
-                 home: Path | None = None):
+                 home: Path | None = None,
+                 data_dir: Path | None = None):
         self.app_dir = Path(app_dir).expanduser().resolve()
         self.home = Path(home or Path.home()).expanduser().resolve()
         self.grants = (allowed_roots if isinstance(allowed_roots, WorkspaceGrantStore)
                        else WorkspaceGrantStore(allowed_roots))
+        # The platform data directory (reader.default_data_dir()), used as the
+        # base for a Reader-owned Trash folder when no native one is
+        # available. Optional because not every caller (tests, chiefly)
+        # needs the Windows/no-native-Trash fallback path.
+        self.data_dir = Path(data_dir).expanduser().resolve() if data_dir else None
 
     @property
     def allowed_roots(self) -> tuple[Path, ...]:
@@ -589,9 +599,31 @@ class DocumentStore:
             raise FileNotFoundError(str(path))
         if path.is_dir():
             raise ValueError("folders cannot be deleted from this app")
+
+        if sys.platform == "win32":
+            # The Recycle Bin is not a folder Reader picks or authorizes: it is
+            # an OS-owned destination reached through a system call, the same
+            # way `open` on macOS hands a file to another app entirely outside
+            # Reader's write grants. What assert_mutation_allowed must still
+            # guard is the source -- and it already did, above, before this
+            # branch runs -- exactly like every other Trash destination below.
+            result = self._trash_via_recycle_bin(path)
+            if result is not None:
+                return result
+            # SHFileOperationW was unavailable or refused the file. Fall
+            # through to a Reader-owned folder, the same fallback a platform
+            # with no native Trash at all would use.
+
         mac = self.policy.home / ".Trash"
         xdg = self.policy.home / ".local" / "share" / "Trash" / "files"
-        bin_dir = mac if mac.is_dir() else xdg
+        if mac.is_dir():
+            bin_dir = mac
+        elif xdg.is_dir():
+            bin_dir = xdg
+        elif sys.platform == "win32" and self.policy.data_dir is not None:
+            bin_dir = self.policy.data_dir / "Trash"
+        else:
+            bin_dir = xdg
         # Trash is a mutation destination too. Resolve and authorize it before
         # creating or using it so a symlink cannot redirect an allowed source
         # outside the server's workspace grants.
@@ -611,6 +643,58 @@ class DocumentStore:
         dest = self.policy.assert_mutation_allowed(dest)
         shutil.move(str(path), str(dest))
         return {"path": str(path), "trashed": str(dest), "name": path.name}
+
+    @staticmethod
+    def _trash_via_recycle_bin(path: Path) -> dict | None:
+        """Move `path` to the Windows Recycle Bin via SHFileOperationW.
+
+        Returns the result dict on success, or None if the call is
+        unavailable (not actually on Windows, or the DLL entry point cannot
+        be reached) or it fails, so the caller can fall back to a
+        Reader-owned Trash folder. This is a best-effort native integration,
+        not a security boundary: the boundary is the source path, already
+        checked by assert_mutation_allowed in move_to_trash before this runs.
+        """
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            class SHFILEOPSTRUCTW(ctypes.Structure):
+                _fields_ = [
+                    ("hwnd", wintypes.HWND),
+                    ("wFunc", wintypes.UINT),
+                    ("pFrom", wintypes.LPCWSTR),
+                    ("pTo", wintypes.LPCWSTR),
+                    ("fFlags", ctypes.c_uint16),
+                    ("fAnyOperationsAborted", wintypes.BOOL),
+                    ("hNameMappings", ctypes.c_void_p),
+                    ("lpszProgressTitle", wintypes.LPCWSTR),
+                ]
+
+            FO_DELETE = 3
+            FOF_ALLOWUNDO = 0x0040
+            FOF_NOCONFIRMATION = 0x0010
+            FOF_SILENT = 0x0004
+            FOF_NOERRORUI = 0x0400
+
+            # pFrom is a list of paths and must be double-null-terminated,
+            # per the documented SHFILEOPSTRUCTW contract.
+            op = SHFILEOPSTRUCTW()
+            op.hwnd = None
+            op.wFunc = FO_DELETE
+            op.pFrom = str(path) + "\0"
+            op.pTo = None
+            op.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI
+            op.fAnyOperationsAborted = False
+            op.hNameMappings = None
+            op.lpszProgressTitle = None
+
+            result = ctypes.windll.shell32.SHFileOperationW(ctypes.byref(op))
+            if result != 0 or op.fAnyOperationsAborted:
+                return None
+        except (AttributeError, OSError, ImportError, ValueError):
+            return None
+        return {"path": str(path), "trashed": "Recycle Bin", "name": path.name}
 
     @staticmethod
     def _trash_unavailable() -> dict:
