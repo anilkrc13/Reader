@@ -85,6 +85,82 @@ security remove-trusted-cert ~/Library/Application\ Support/Reader/signing/certi
 rm -rf ~/Library/Application\ Support/Reader/signing
 ```
 
+## Updates
+
+Reader keeps itself current. Twenty seconds after launch, and then at most once
+every 24 hours, the app asks GitHub for the latest release, reads the
+`manifest.json` attached to it, and compares that version with its own. This is
+the only network request Reader makes. Nothing is sent but the request itself:
+`Accept: application/vnd.github+json` and a user agent of `Reader/<version>`.
+There is no identifier, no telemetry and no report of what you were reading.
+
+A check that fails, or a repository with no release yet, is treated as "no
+update" and says nothing. **Check for Updates…** in the Reader menu runs the
+same check immediately and does say something, including "You're up to date"
+when there is nothing newer.
+
+Versions are compared as numbers: `2.1.0` is newer than `2.0.3`. A version with
+a pre-release suffix such as `2.1.0-beta` is never offered.
+
+### When Reader can install an update itself
+
+Only when the running bundle sits directly in `/Applications` or
+`~/Applications` and is writable. A copy running from a git checkout, a disk
+image or a Downloads folder shows the same notice with a **View Release**
+button that opens the release page in your browser, and says why it is not
+installing. That rule exists so an update never quietly replaces a build you
+made yourself and were in the middle of testing.
+
+### What is checked before anything is installed
+
+In order, and any failure stops the update with an explanation:
+
+1. The downloaded zip's size and SHA-256 must match the manifest. The archive
+   is not opened until they do.
+2. It is unpacked with `ditto -x -k` and must contain exactly one application.
+3. The new bundle must pass `SecStaticCodeCheckValidity` with all architectures,
+   strict validation and nested code checked.
+4. The new bundle must satisfy the **designated requirement of the app that is
+   running**. For a certificate-signed build that requirement names the
+   certificate, so only another build signed with the same identity can replace
+   it. This is never skipped.
+
+Step 4 is why releases are signed with one shared identity. If your copy of
+Reader is ad-hoc signed, its designated requirement is a hash of its own bytes,
+which no other build can ever match; Reader refuses the update and says that
+updating in place needs the shared signing identity. Build once with
+`./macos/ensure-signing-identity.sh` in place, or download a release, and the
+problem goes away.
+
+Only then does Reader ask, with **Install and Relaunch**, **Later** and **Skip
+This Version**. Skipping records the version in `preferences.json` and that
+release is never offered again unless you ask from the menu.
+
+Installing stops Reader's own server the same way quitting does, moves the
+current bundle to `Reader.app.previous` beside itself, moves the new one into
+place, and reopens Reader. If the second move fails the previous bundle is put
+back. `Reader.app.previous` is deleted the next time the new version launches,
+so there is always one working copy on disk.
+
+### Turning it off
+
+Settings → **Files & watching** → **Check for updates**. The switch writes
+`updates.check` to `preferences.json` in
+`~/Library/Application Support/Reader`, which is where the launcher reads it.
+Off means no request is ever made, including from the menu item.
+
+### Testing the flow against a local server
+
+`READER_UPDATE_FEED` replaces the GitHub lookup with a direct URL to a manifest:
+
+```
+READER_UPDATE_FEED=http://127.0.0.1:8901/manifest.json ~/Applications/Reader.app/Contents/MacOS/ReaderLauncher
+```
+
+`tests/manual/update-feed-server.py` serves such a manifest and the zip beside
+it, computing the size and digest from the archive on disk, with flags for
+serving deliberately wrong ones. Its docstring has the full recipe.
+
 ## Opening files from Finder
 
 Reader declares the document types it renders, so it can be the app a document

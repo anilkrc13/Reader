@@ -4,7 +4,8 @@ Reader is a small, self-contained reader and editor for markdown, code, CSV
 and PDF. Markdown and code open with editing and saving; CSV renders as
 tables; PDF uses your browser's own viewer. It runs a local server on your
 own machine and opens in a native macOS window or your browser.
-Standard-library Python only, no network access.
+Standard-library Python only, no network access except the once-a-day update
+check, which you can turn off in *Files & watching*.
 
 ## Get it
 
@@ -193,6 +194,13 @@ preview side of Split. The editor shows the source, where a link is just text.
   the access policy refuses that path outright.
 - Starting the launcher while the app is already running just opens the
   existing window instead of starting a second server.
+- The macOS app makes one network request, at most once a day: it asks GitHub
+  for the latest release and compares the version with its own. No identifier
+  and nothing about your documents goes with it. Turn it off with **Check for
+  updates** in *Files & watching*. An update it offers to install is checked
+  against the checksum in the release and must satisfy the running app's own
+  code-signing requirement before it can replace it; see
+  [docs/macos.md](docs/macos.md).
 
 ## Third-party components
 
