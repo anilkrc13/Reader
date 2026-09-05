@@ -4,6 +4,10 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- The macOS app updates itself from GitHub Releases: a once-a-day check, a
+  checksum and code-signature verification of the download, and an install that
+  keeps the previous bundle until the new one launches. Turn it off with
+  **Check for updates** in *Files & watching*.
 - Reader is now open source under the MIT license.
 - Version comes from a single `VERSION` file read by the server, the app bundle
   and the release workflow.
