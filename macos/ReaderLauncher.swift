@@ -24,6 +24,7 @@ private let updateCheckInterval: TimeInterval = 24 * 60 * 60
    the page: startup is the one moment Reader is asked to be quick. */
 private let updateCheckDelay: TimeInterval = 20
 private let lastUpdateCheckKey = "ReaderLastUpdateCheck"
+private let skippedVersionKey = "ReaderSkippedUpdateVersion"
 private let previousBundleSuffix = ".previous"
 
 private enum ReaderProbe {
@@ -584,26 +585,17 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         (readPreferences()["updates.check"] as? Bool) ?? true
     }
 
+    /* The skipped version is the launcher's own state, kept in UserDefaults
+       beside the last-check time rather than in preferences.json. The page
+       holds that file's whole document in memory and writes all of it back on
+       every change, so a key the launcher added would be silently undone the
+       next time the reader touched any setting. */
     private func skippedVersion() -> String? {
-        readPreferences()["updates.skippedVersion"] as? String
+        UserDefaults.standard.string(forKey: skippedVersionKey)
     }
 
-    /// Read, change one key, write the whole file back atomically. Everything
-    /// else in there belongs to the page, which holds the same document in
-    /// memory, so losing a key here would look to the reader like a setting
-    /// undoing itself.
     private func rememberSkipped(version: String) {
-        var preferences = readPreferences()
-        preferences["updates.skippedVersion"] = version
-        guard JSONSerialization.isValidJSONObject(preferences),
-              let data = try? JSONSerialization.data(withJSONObject: preferences,
-                                                     options: [.prettyPrinted, .sortedKeys]) else { return }
-        let file = preferencesFile()
-        try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(),
-                                                 withIntermediateDirectories: true)
-        // .atomic is a write to a sibling temporary file and a rename, so a
-        // crash mid-write cannot leave a truncated preferences file behind.
-        try? data.write(to: file, options: .atomic)
+        UserDefaults.standard.set(version, forKey: skippedVersionKey)
     }
 
     // -- the check -----------------------------------------------------------
