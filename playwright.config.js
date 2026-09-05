@@ -9,7 +9,10 @@ module.exports = defineConfig({
   reporter: "line",
   use: {
     browserName: "chromium",
-    channel: "chrome",
+    // Locally the installed Chrome is the realistic target. CI sets
+    // READER_PLAYWRIGHT_CHANNEL=chromium to use Playwright's own pinned build,
+    // so a runner's Chrome auto-update cannot change what the suite tests.
+    channel: process.env.READER_PLAYWRIGHT_CHANNEL === "chromium" ? undefined : "chrome",
     headless: true,
   },
 });
