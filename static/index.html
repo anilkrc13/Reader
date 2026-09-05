@@ -23,7 +23,7 @@
            twin (#btn-show) in the same corner of the window. Only one is ever
            visible, so the button appears to stay put as the panel comes and
            goes. Which edge the panel sits on is a setting, not a button. -->
-      <button class="icon-btn" id="btn-panel" title="Hide panel (⌘\)" aria-label="Hide panel">
+      <button class="icon-btn" id="btn-panel" title="Hide panel (⌘\)" aria-label="Hide panel" data-kbd>
         <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2"/><path d="M8 3.5v13"/></svg>
       </button>
       <span class="side-title">Files</span>
@@ -95,14 +95,14 @@
   <!-- ============================================================== main -->
   <main id="main">
     <header id="toolbar">
-      <button class="icon-btn" id="btn-show" title="Show panel (⌘\)" aria-label="Show panel">
+      <button class="icon-btn" id="btn-show" title="Show panel (⌘\)" aria-label="Show panel" data-kbd>
         <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2"/><path d="M8 3.5v13"/></svg>
       </button>
 
-      <button class="icon-btn" id="btn-back" title="Back (← or ⌘[)" aria-label="Back" disabled>
+      <button class="icon-btn" id="btn-back" title="Back (← or ⌘[)" aria-label="Back" disabled data-kbd>
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11.6 4.8 6.4 10l5.2 5.2"/></svg>
       </button>
-      <button class="icon-btn" id="btn-fwd" title="Forward (→ or ⌘])" aria-label="Forward" disabled>
+      <button class="icon-btn" id="btn-fwd" title="Forward (→ or ⌘])" aria-label="Forward" disabled data-kbd>
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8.4 4.8 13.6 10l-5.2 5.2"/></svg>
       </button>
 
@@ -115,20 +115,20 @@
       <div class="spacer"></div>
 
       <div class="segmented" role="group" aria-label="View mode">
-        <button data-mode="preview" class="seg" title="Preview (⌘E)">Preview</button>
+        <button data-mode="preview" class="seg" title="Preview (⌘E)" data-kbd>Preview</button>
         <button data-mode="split" class="seg" title="Split view">Split</button>
-        <button data-mode="edit" class="seg" title="Edit (⌘E)">Edit</button>
+        <button data-mode="edit" class="seg" title="Edit (⌘E)" data-kbd>Edit</button>
       </div>
 
       <span class="tool-sep"></span>
 
-      <button class="icon-btn accent" id="btn-save" title="Save (⌘S)" aria-label="Save" disabled>
+      <button class="icon-btn accent" id="btn-save" title="Save (⌘S)" aria-label="Save" disabled data-kbd>
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.8v9.4"/><path d="M6.2 8.6 10 12.4l3.8-3.8"/><path d="M3.6 13.4v2.2a1.2 1.2 0 0 0 1.2 1.2h10.4a1.2 1.2 0 0 0 1.2-1.2v-2.2"/></svg>
       </button>
       <button class="icon-btn" id="btn-copy" title="Copy document (formatted)" aria-label="Copy document with formatting">
         <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.6"/><path d="M13 4.6V4a1.4 1.4 0 0 0-1.4-1.4H4A1.4 1.4 0 0 0 2.6 4v7.6A1.4 1.4 0 0 0 4 13h.6"/></svg>
       </button>
-      <button class="icon-btn" id="btn-refresh" title="Reload from disk (⌘R)" aria-label="Reload from disk">
+      <button class="icon-btn" id="btn-refresh" title="Reload from disk (⌘R)" aria-label="Reload from disk" data-kbd>
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.6 10a6.6 6.6 0 1 1-2-4.7"/><path d="M16.8 3.4v4h-4"/></svg>
       </button>
       <button class="icon-btn" id="btn-theme" title="Appearance: match system" aria-label="Switch theme">
@@ -136,14 +136,14 @@
         <svg class="ic-light" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.9"/><path d="M10 1.4v2.1M10 16.5v2.1M1.4 10h2.1M16.5 10h2.1M3.9 3.9l1.5 1.5M14.6 14.6l1.5 1.5M16.1 3.9l-1.5 1.5M5.4 14.6l-1.5 1.5"/></svg>
         <svg class="ic-dark" viewBox="0 0 20 20" aria-hidden="true"><path d="M16.6 12A7 7 0 0 1 8 3.4 7 7 0 1 0 16.6 12z"/></svg>
       </button>
-      <button class="icon-btn" id="btn-full" title="Full screen (⌃⌘F)" aria-label="Full screen">
+      <button class="icon-btn" id="btn-full" title="Full screen (⌃⌘F)" aria-label="Full screen" data-kbd>
         <svg class="ic-enter" viewBox="0 0 20 20" aria-hidden="true"><path d="M7.4 2.8H2.8v4.6M12.6 2.8h4.6v4.6M12.6 17.2h4.6v-4.6M7.4 17.2H2.8v-4.6"/></svg>
         <svg class="ic-exit" viewBox="0 0 20 20" aria-hidden="true"><path d="M2.8 7.4h4.6V2.8M17.2 7.4h-4.6V2.8M17.2 12.6h-4.6v4.6M2.8 12.6h4.6v4.6"/></svg>
       </button>
 
       <span class="tool-sep"></span>
 
-      <button class="icon-btn" id="btn-settings" title="Settings (⌘,)" aria-label="Settings">
+      <button class="icon-btn" id="btn-settings" title="Settings (⌘,)" aria-label="Settings" data-kbd>
         <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="2.6"/><path d="M15.9 12.2a1.3 1.3 0 0 0 .26 1.44l.05.05a1.6 1.6 0 1 1-2.26 2.26l-.05-.05a1.3 1.3 0 0 0-1.44-.26 1.3 1.3 0 0 0-.79 1.19v.13a1.6 1.6 0 0 1-3.2 0v-.07a1.3 1.3 0 0 0-.85-1.19 1.3 1.3 0 0 0-1.44.26l-.05.05a1.6 1.6 0 1 1-2.26-2.26l.05-.05a1.3 1.3 0 0 0 .26-1.44 1.3 1.3 0 0 0-1.19-.79H2.8a1.6 1.6 0 0 1 0-3.2h.07a1.3 1.3 0 0 0 1.19-.85 1.3 1.3 0 0 0-.26-1.44l-.05-.05A1.6 1.6 0 1 1 6.01 3.7l.05.05a1.3 1.3 0 0 0 1.44.26h.06a1.3 1.3 0 0 0 .79-1.19V2.8a1.6 1.6 0 0 1 3.2 0v.07a1.3 1.3 0 0 0 .79 1.19 1.3 1.3 0 0 0 1.44-.26l.05-.05a1.6 1.6 0 1 1 2.26 2.26l-.05.05a1.3 1.3 0 0 0-.26 1.44v.06a1.3 1.3 0 0 0 1.19.79h.13a1.6 1.6 0 0 1 0 3.2h-.07a1.3 1.3 0 0 0-1.19.79z"/></svg>
       </button>
     </header>
@@ -163,10 +163,10 @@
       <input id="find-q" type="text" placeholder="Find in document"
              aria-label="Find in document" autocomplete="off" spellcheck="false">
       <span class="find-count" id="find-count" role="status" aria-live="polite"></span>
-      <button class="mini-btn" id="find-prev" title="Previous match (⇧⌘G)" aria-label="Previous match">
+      <button class="mini-btn" id="find-prev" title="Previous match (⇧⌘G)" aria-label="Previous match" data-kbd>
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 12.2 10 7.7l4.5 4.5"/></svg>
       </button>
-      <button class="mini-btn" id="find-next" title="Next match (⌘G)" aria-label="Next match">
+      <button class="mini-btn" id="find-next" title="Next match (⌘G)" aria-label="Next match" data-kbd>
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 7.8 10 12.3l4.5-4.5"/></svg>
       </button>
       <button class="mini-btn" id="find-close" title="Close (Esc)" aria-label="Close find">
@@ -202,9 +202,9 @@
 
 <!-- Quick edit: appears over a selection in the preview. -->
 <div id="fmtbar" role="toolbar" aria-label="Format selection" hidden>
-  <button data-fmt="bold" title="Bold (⌘B)" aria-label="Bold" class="fmt-b">B</button>
-  <button data-fmt="italic" title="Italic (⌘I)" aria-label="Italic" class="fmt-i">I</button>
-  <button data-fmt="underline" title="Underline (⌘U)" aria-label="Underline" class="fmt-u">U</button>
+  <button data-fmt="bold" title="Bold (⌘B)" aria-label="Bold" class="fmt-b" data-kbd>B</button>
+  <button data-fmt="italic" title="Italic (⌘I)" aria-label="Italic" class="fmt-i" data-kbd>I</button>
+  <button data-fmt="underline" title="Underline (⌘U)" aria-label="Underline" class="fmt-u" data-kbd>U</button>
   <button data-fmt="strike" title="Strikethrough" aria-label="Strikethrough" class="fmt-s">S</button>
   <button data-fmt="code" title="Inline code" aria-label="Inline code" class="fmt-c">&lt;/&gt;</button>
   <span class="fmt-sep"></span>
@@ -682,7 +682,7 @@
               <div class="set-control"><button class="switch" role="switch" data-set="showAllFiles" aria-checked="false" aria-label="Show unsupported files"></button></div>
             </div>
             <div class="set-row">
-              <div class="set-label"><b>Show hidden files and folders</b><span>List names that start with a dot, like .config. Toggle from anywhere with ⇧⌘. — the same shortcut as Finder.</span></div>
+              <div class="set-label"><b>Show hidden files and folders</b><span data-kbd>List names that start with a dot, like .config. Toggle from anywhere with ⇧⌘. — the same shortcut as Finder.</span></div>
               <div class="set-control"><button class="switch" role="switch" data-set="showHidden" aria-checked="false" aria-label="Show hidden files and folders"></button></div>
             </div>
           </div>
@@ -725,15 +725,15 @@
             <p class="group-title">Reading</p>
             <table class="keys">
               <tbody>
-                <tr><td>Back / forward through documents</td><td><kbd class="k">←</kbd> <kbd class="k">→</kbd> or <kbd class="k">⌘[</kbd> <kbd class="k">⌘]</kbd></td></tr>
-                <tr><td>Larger / smaller text</td><td><kbd class="k">⌘+</kbd> <kbd class="k">⌘−</kbd></td></tr>
-                <tr><td>Default text size</td><td><kbd class="k">⌘0</kbd></td></tr>
-                <tr><td>New document, beside the open one</td><td><kbd class="k">⌘N</kbd></td></tr>
-                <tr><td>Find in the document</td><td><kbd class="k">⌘F</kbd></td></tr>
-                <tr><td>Next / previous match</td><td><kbd class="k">⌘G</kbd> <kbd class="k">⇧⌘G</kbd> or <kbd class="k">↵</kbd> <kbd class="k">⇧↵</kbd></td></tr>
-                <tr><td>Collapse / expand the section you are reading</td><td><kbd class="k">⌥⌘[</kbd> <kbd class="k">⌥⌘]</kbd></td></tr>
-                <tr><td>Collapse every heading at a level</td><td><kbd class="k">⌥⌘1</kbd> … <kbd class="k">⌥⌘6</kbd></td></tr>
-                <tr><td>Expand everything</td><td><kbd class="k">⌥⌘0</kbd></td></tr>
+                <tr><td>Back / forward through documents</td><td><kbd class="k">←</kbd> <kbd class="k">→</kbd> or <kbd class="k" data-kbd>⌘[</kbd> <kbd class="k" data-kbd>⌘]</kbd></td></tr>
+                <tr><td>Larger / smaller text</td><td><kbd class="k" data-kbd>⌘+</kbd> <kbd class="k" data-kbd>⌘−</kbd></td></tr>
+                <tr><td>Default text size</td><td><kbd class="k" data-kbd>⌘0</kbd></td></tr>
+                <tr><td>New document, beside the open one</td><td><kbd class="k" data-kbd>⌘N</kbd></td></tr>
+                <tr><td>Find in the document</td><td><kbd class="k" data-kbd>⌘F</kbd></td></tr>
+                <tr><td>Next / previous match</td><td><kbd class="k" data-kbd>⌘G</kbd> <kbd class="k" data-kbd>⇧⌘G</kbd> or <kbd class="k">↵</kbd> <kbd class="k">⇧↵</kbd></td></tr>
+                <tr><td>Collapse / expand the section you are reading</td><td><kbd class="k" data-kbd>⌥⌘[</kbd> <kbd class="k" data-kbd>⌥⌘]</kbd></td></tr>
+                <tr><td>Collapse every heading at a level</td><td><kbd class="k" data-kbd>⌥⌘1</kbd> … <kbd class="k" data-kbd>⌥⌘6</kbd></td></tr>
+                <tr><td>Expand everything</td><td><kbd class="k" data-kbd>⌥⌘0</kbd></td></tr>
               </tbody>
             </table>
           </div>
@@ -741,11 +741,11 @@
             <p class="group-title">Editing</p>
             <table class="keys">
               <tbody>
-                <tr><td>Toggle preview and edit</td><td><kbd class="k">⌘E</kbd></td></tr>
-                <tr><td>Bold / italic / underline the selection</td><td><kbd class="k">⌘B</kbd> <kbd class="k">⌘I</kbd> <kbd class="k">⌘U</kbd></td></tr>
-                <tr><td>Undo / redo</td><td><kbd class="k">⌘Z</kbd> <kbd class="k">⇧⌘Z</kbd></td></tr>
-                <tr><td>Save</td><td><kbd class="k">⌘S</kbd></td></tr>
-                <tr><td>Reload from disk</td><td><kbd class="k">⌘R</kbd></td></tr>
+                <tr><td>Toggle preview and edit</td><td><kbd class="k" data-kbd>⌘E</kbd></td></tr>
+                <tr><td>Bold / italic / underline the selection</td><td><kbd class="k" data-kbd>⌘B</kbd> <kbd class="k" data-kbd>⌘I</kbd> <kbd class="k" data-kbd>⌘U</kbd></td></tr>
+                <tr><td>Undo / redo</td><td><kbd class="k" data-kbd>⌘Z</kbd> <kbd class="k" data-kbd>⇧⌘Z</kbd></td></tr>
+                <tr><td>Save</td><td><kbd class="k" data-kbd>⌘S</kbd></td></tr>
+                <tr><td>Reload from disk</td><td><kbd class="k" data-kbd>⌘R</kbd></td></tr>
                 <tr><td>Indent in the editor</td><td><kbd class="k">Tab</kbd></td></tr>
               </tbody>
             </table>
@@ -754,9 +754,9 @@
             <p class="group-title">The file panel</p>
             <table class="keys">
               <tbody>
-                <tr><td>Show or hide the panel</td><td><kbd class="k">⌘\</kbd></td></tr>
-                <tr><td>Find a file by name (with the panel focused)</td><td><kbd class="k">⌘F</kbd></td></tr>
-                <tr><td>Show or hide hidden files and folders</td><td><kbd class="k">⇧⌘.</kbd></td></tr>
+                <tr><td>Show or hide the panel</td><td><kbd class="k" data-kbd>⌘\</kbd></td></tr>
+                <tr><td>Find a file by name (with the panel focused)</td><td><kbd class="k" data-kbd>⌘F</kbd></td></tr>
+                <tr><td>Show or hide hidden files and folders</td><td><kbd class="k" data-kbd>⇧⌘.</kbd></td></tr>
               </tbody>
             </table>
           </div>
@@ -764,8 +764,8 @@
             <p class="group-title">Window</p>
             <table class="keys">
               <tbody>
-                <tr><td>Settings</td><td><kbd class="k">⌘,</kbd></td></tr>
-                <tr><td>Full screen</td><td><kbd class="k">⌃⌘F</kbd></td></tr>
+                <tr><td>Settings</td><td><kbd class="k" data-kbd>⌘,</kbd></td></tr>
+                <tr><td>Full screen</td><td><kbd class="k" data-kbd>⌃⌘F</kbd></td></tr>
                 <tr><td>Close settings / leave full screen</td><td><kbd class="k">Esc</kbd></td></tr>
               </tbody>
             </table>

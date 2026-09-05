@@ -107,6 +107,62 @@ def resolve_path(raw: str) -> Path:
     return p.resolve()
 
 
+def open_with_default_app(path: Path) -> str | None:
+    """Hand a file to whatever application the OS has registered for it.
+
+    Returns None on success, or an error message on failure. The three
+    platforms have no shared launcher: macOS has `open`, Windows has
+    os.startfile (no subprocess, no stderr to read), and everything else
+    is expected to have xdg-open. Each branch maps its own failure mode to
+    the same error shape so the caller does not need to know which platform
+    it is running on.
+    """
+    if sys.platform == "darwin":
+        try:
+            proc = subprocess.run(["open", str(path)], capture_output=True, timeout=15)
+        except subprocess.TimeoutExpired:
+            return "timed out handing the file to the default app"
+        if proc.returncode:
+            return proc.stderr.decode("utf-8", "replace").strip() or "could not open"
+        return None
+    if sys.platform == "win32":
+        try:
+            os.startfile(str(path))  # type: ignore[attr-defined]
+        except OSError as exc:
+            return str(exc) or "could not open"
+        return None
+    try:
+        proc = subprocess.run(["xdg-open", str(path)], capture_output=True, timeout=15)
+    except subprocess.TimeoutExpired:
+        return "timed out handing the file to the default app"
+    except FileNotFoundError:
+        return "xdg-open is not installed"
+    if proc.returncode:
+        return proc.stderr.decode("utf-8", "replace").strip() or "could not open"
+    return None
+
+
+def default_data_dir() -> Path:
+    """The OS-conventional per-user data folder for Reader.
+
+    Used as a fallback when the script's own folder is not writable (an
+    installed, read-only copy) and as the base for platform state that has
+    nowhere else to live, such as the Windows Trash fallback in
+    reader_backend.move_to_trash. macOS keeps its historical path exactly;
+    Windows and everything else follow their own conventions rather than
+    reusing the macOS one, since neither has a "Library/Application Support".
+    """
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / APP_NAME
+    if sys.platform == "win32":
+        appdata = os.environ.get("APPDATA")
+        base = Path(appdata) if appdata else Path.home() / "AppData" / "Roaming"
+        return base / APP_NAME
+    xdg = os.environ.get("XDG_DATA_HOME")
+    base = Path(xdg) if xdg else Path.home() / ".local" / "share"
+    return base / "reader"
+
+
 def choose_prefs_file() -> Path:
     """Choose writable state storage without modifying a packaged app bundle."""
     data_dir = os.environ.get("READER_DATA_DIR")
@@ -122,7 +178,7 @@ def choose_prefs_file() -> Path:
     beside = APP_DIR / "preferences.json"
     if beside.exists() or os.access(APP_DIR, os.W_OK):
         return beside
-    support = Path.home() / "Library" / "Application Support" / APP_NAME
+    support = default_data_dir()
     try:
         support.mkdir(parents=True, exist_ok=True)
         if os.access(support, os.W_OK):
@@ -138,13 +194,37 @@ PREFS_LOCK = threading.Lock()
 
 def _rewrite_token(path: Path, token: str) -> None:
     """Write the token readable only by its owner. Best effort: a token we
-    cannot persist still works for this run, it just will not survive it."""
+    cannot persist still works for this run, it just will not survive it.
+
+    The 0o600 mode above is ignored on Windows: NTFS has no POSIX mode bits,
+    so os.open honours only the read-only attribute, not the owner-only part.
+    icacls is the Windows equivalent, run as a second best-effort step below.
+    """
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(token)
     except OSError:
+        return
+    if sys.platform == "win32":
+        _restrict_token_acl(path)
+
+
+def _restrict_token_acl(path: Path) -> None:
+    """Best effort: strip inherited permissions and grant only the current
+    user full control, matching the intent of the POSIX 0o600 above. Failure
+    here (icacls missing, no permission to change ACLs, etc.) is silent for
+    the same reason the write above is: the token still works this run."""
+    user = os.environ.get("USERNAME")
+    if not user:
+        return
+    try:
+        subprocess.run(
+            ["icacls", str(path), "/inheritance:r", "/grant:r", f"{user}:F"],
+            capture_output=True, timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
         pass
 
 
@@ -213,7 +293,7 @@ def quick_roots() -> list[dict]:
 # --------------------------------------------------------------------------
 
 DOCUMENT_STORE = DocumentStore(FileAccessPolicy(
-    APP_DIR, WorkspaceGrantStore([Path.home()])))
+    APP_DIR, WorkspaceGrantStore([Path.home()]), data_dir=default_data_dir()))
 
 
 def resolve_path(raw: str) -> Path:
@@ -490,14 +570,9 @@ class Handler(BaseHTTPRequestHandler):
                 if path.suffix.lower() not in EXTERNAL_APP_SUFFIXES:
                     return self._error(HTTPStatus.FORBIDDEN,
                                        "not a document Reader hands to another app")
-                try:
-                    proc = subprocess.run(["open", str(path)], capture_output=True, timeout=15)
-                except subprocess.TimeoutExpired:
-                    return self._error(HTTPStatus.INTERNAL_SERVER_ERROR,
-                                       "timed out handing the file to macOS")
-                if proc.returncode:
-                    msg = proc.stderr.decode("utf-8", "replace").strip() or "could not open"
-                    return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, msg)
+                error = open_with_default_app(path)
+                if error is not None:
+                    return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, error)
                 return self._json({"ok": True})
             if route == "/api/prefs":
                 if not isinstance(payload, dict):
@@ -633,7 +708,7 @@ def main(argv=None) -> int:
     # external start folder remains usable, but saves cannot wander into an
     # unrelated tree later through a forged API path.
     grants = WorkspaceGrantStore([Path.home(), start_dir])
-    httpd.documents = DocumentStore(FileAccessPolicy(APP_DIR, grants))
+    httpd.documents = DocumentStore(FileAccessPolicy(APP_DIR, grants, data_dir=default_data_dir()))
     port = httpd.server_address[1]
     home_url = f"http://127.0.0.1:{port}/"
     entry_url = home_url + f"?t={TOKEN}"
