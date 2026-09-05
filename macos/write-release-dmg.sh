@@ -81,7 +81,15 @@ hdiutil convert "$RW_DMG_PATH" -format UDZO -o "$DMG_PATH" -ov >/dev/null
 # to a dmg, so skip signing in that case.
 SIGNING_IDENTITY="$(codesign -dvv "$APP_BUNDLE" 2>&1 | sed -n 's/^Authority=//p' | head -n1)"
 if [ -n "$SIGNING_IDENTITY" ]; then
-  codesign --force --sign "$SIGNING_IDENTITY" "$DMG_PATH"
+  # An unsigned image beside a signed app would be a confusing release, but it
+  # is still an installable one, so say so loudly rather than failing the whole
+  # release. This is the shape of the one CI ordering mistake worth catching:
+  # the identity lives in a keychain the workflow tears down, so signing here
+  # only works while that keychain is still around.
+  if ! codesign --force --sign "$SIGNING_IDENTITY" "$DMG_PATH"; then
+    echo "warning: could not sign $DMG_NAME with \"$SIGNING_IDENTITY\"." >&2
+    echo "The signing keychain may already have been removed." >&2
+  fi
 else
   echo "App is signed ad-hoc; leaving $DMG_NAME unsigned." >&2
 fi
