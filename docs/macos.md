@@ -133,7 +133,7 @@ updating in place needs the shared signing identity. Build once with
 problem goes away.
 
 Only then does Reader ask, with **Install and Relaunch**, **Later** and **Skip
-This Version**. Skipping records the version in `preferences.json` and that
+This Version**. Skipping is remembered by the app itself, not in `preferences.json`, and that
 release is never offered again unless you ask from the menu.
 
 Installing stops Reader's own server the same way quitting does, moves the

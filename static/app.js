@@ -91,8 +91,8 @@ const DEFAULTS = {
   /* files and watching */
   recentCount: 10, autoSave: true, autoRefresh: true, watchMs: 2000, watchToast: true,
   showAllDirs: false, showAllFiles: false, showHidden: false, glass: false,
-  /* Read by the macOS launcher, which does the checking. Dotted names because
-     the preferences file is one flat object and these two belong together. */
+  /* Read by the macOS launcher, which does the checking. A dotted name because
+     the preferences file is one flat object. */
   "updates.check": true,
 };
 
@@ -102,9 +102,6 @@ const SESSION_DEFAULTS = {
   rootDir: null, lastFile: null,
   recents: [], recentsOpen: true,
   pinned: null, pinnedOpen: true,   // null = not seeded yet
-  /* The launcher writes this when someone skips a release. It is not a setting
-     anyone chose in the dialog, so "Reset all to defaults" leaves it alone. */
-  "updates.skippedVersion": null,
 };
 
 const NUMERIC = new Set(["fontSize", "bodyWeight", "lineHeight", "measure", "paraGap", "listGap",
