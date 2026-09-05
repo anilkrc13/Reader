@@ -23,6 +23,7 @@ import json
 import mimetypes
 import os
 import secrets
+import socketserver
 import subprocess
 import sys
 import tempfile
@@ -629,6 +630,25 @@ class Server(ThreadingHTTPServer):
     start_dir = str(Path.home())
     start_file = None
     documents = DOCUMENT_STORE
+
+    def server_bind(self):
+        # HTTPServer.server_bind() looks up socket.getfqdn(host) to fill in
+        # server_name, so it can stamp Location headers etc. with a real
+        # hostname. We only ever bind to 127.0.0.1, so that hostname is
+        # never used for anything, and the lookup itself can be no lookup
+        # at all: it can fall through to a real (possibly network-backed)
+        # reverse-DNS resolution, and that resolution runs *before* the
+        # socket starts listening, so a slow or hung resolver leaves the
+        # port bound-but-not-accepting for as long as it takes. On some
+        # networks (seen on GitHub's macOS runners) that stall runs past
+        # 30 seconds, long enough to blow through Playwright's navigation
+        # timeout on the very first request. Skip it and set the name
+        # directly; nothing downstream reads server_name for a loopback
+        # server anyway.
+        socketserver.TCPServer.server_bind(self)
+        host, port = self.server_address[:2]
+        self.server_name = host
+        self.server_port = port
 
 
 # --------------------------------------------------------------------------
