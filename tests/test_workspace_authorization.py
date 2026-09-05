@@ -3,6 +3,7 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -163,8 +164,13 @@ class WorkspaceMutationAuthorizationTests(unittest.TestCase):
         store = DocumentStore(FileAccessPolicy(
             self.project, [self.workspace, self.home], home=self.home))
 
-        with self.assertRaises(WorkspaceError):
-            store.move_to_trash(self.inside_file)
+        # This test pins the ~/.Trash symlink defence specifically, not the
+        # Windows Recycle Bin path -- on real Windows that native call would
+        # otherwise take the file before the symlinked bin_dir is ever
+        # reached, so the defence below would go untested there.
+        with patch.object(DocumentStore, "_trash_via_recycle_bin", return_value=None):
+            with self.assertRaises(WorkspaceError):
+                store.move_to_trash(self.inside_file)
 
         self.assertTrue(self.inside_file.exists())
         self.assertEqual(self.inside_file.read_text(encoding="utf-8"), "inside")
@@ -177,7 +183,11 @@ class WorkspaceMutationAuthorizationTests(unittest.TestCase):
         store = DocumentStore(FileAccessPolicy(
             self.project, [self.workspace, self.home], home=self.home))
 
-        result = store.move_to_trash(self.inside_file)
+        # Same reason as above: this pins the ~/.Trash file-move mechanics
+        # (the collision-avoiding rename), which the real Windows Recycle
+        # Bin would otherwise short-circuit before it runs.
+        with patch.object(DocumentStore, "_trash_via_recycle_bin", return_value=None):
+            result = store.move_to_trash(self.inside_file)
 
         moved = trash / "inside 2.md"
         self.assertEqual(Path(result["trashed"]), moved.resolve())

@@ -69,12 +69,18 @@ class OpenWithDefaultAppTests(unittest.TestCase):
     the same (message-or-None) shape regardless of platform."""
 
     def test_macos_runs_open(self):
+        # str(Path(...)), not a hardcoded literal: on a Windows test runner
+        # the same Path renders with backslashes, and this dispatch is being
+        # exercised there too (via a mocked sys.platform), so the expected
+        # argument must go through the same platform-native conversion the
+        # code under test uses.
+        target = Path("/tmp/thing.docx")
         completed = subprocess.CompletedProcess(["open"], 0, stdout=b"", stderr=b"")
         with patch("reader.sys.platform", "darwin"), \
              patch("reader.subprocess.run", return_value=completed) as run:
-            error = reader.open_with_default_app(Path("/tmp/thing.docx"))
+            error = reader.open_with_default_app(target)
         self.assertIsNone(error)
-        run.assert_called_once_with(["open", "/tmp/thing.docx"], capture_output=True, timeout=15)
+        run.assert_called_once_with(["open", str(target)], capture_output=True, timeout=15)
 
     def test_macos_reports_stderr_on_failure(self):
         completed = subprocess.CompletedProcess(["open"], 1, stdout=b"", stderr=b"no app")
@@ -100,12 +106,13 @@ class OpenWithDefaultAppTests(unittest.TestCase):
         self.assertEqual(error, "no association")
 
     def test_linux_runs_xdg_open(self):
+        target = Path("/tmp/thing.docx")  # see test_macos_runs_open for why
         completed = subprocess.CompletedProcess(["xdg-open"], 0, stdout=b"", stderr=b"")
         with patch("reader.sys.platform", "linux"), \
              patch("reader.subprocess.run", return_value=completed) as run:
-            error = reader.open_with_default_app(Path("/tmp/thing.docx"))
+            error = reader.open_with_default_app(target)
         self.assertIsNone(error)
-        run.assert_called_once_with(["xdg-open", "/tmp/thing.docx"], capture_output=True, timeout=15)
+        run.assert_called_once_with(["xdg-open", str(target)], capture_output=True, timeout=15)
 
     def test_linux_missing_xdg_open_is_reported(self):
         with patch("reader.sys.platform", "linux"), \
