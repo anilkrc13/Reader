@@ -1,25 +1,24 @@
 # Reader
 
-A small, self-contained document reader for macOS: markdown, code, CSV and
-PDF. Markdown and code open with editing and saving; CSV renders as tables;
-PDF uses your browser's own viewer. It runs a local server on your own
-machine and opens in your browser. No installation, no dependencies, no
-network access.
+Reader is a small, self-contained reader and editor for markdown, code, CSV
+and PDF. Markdown and code open with editing and saving; CSV renders as
+tables; PDF uses your browser's own viewer. It runs a local server on your
+own machine and opens in a native macOS window or your browser.
+Standard-library Python only, no network access.
 
-## Start it
+## Get it
 
-Double-click **`install/Reader.command`** in Finder.
+### macOS app
 
-It opens its sibling native app at **`install/Reader.app`**. If that bundle is
-missing, the command builds it first. Reader then manages its own local server
-and window; quitting the app stops only the server it started.
+Download the latest `Reader.app` zip from the
+[GitHub Releases page](https://github.com/anilkrc13/Reader/releases), unzip
+it, move `Reader.app` to `~/Applications`, and open it. It needs `python3` on
+the Mac that runs it, which comes with the Xcode Command Line Tools. An app
+downloaded with a browser carries a quarantine flag, so macOS shows a
+first-launch warning the first time you open it; see
+[docs/macos.md](docs/macos.md) for how to get past it.
 
-> The first time you double-click it, macOS may ask whether you're sure you
-> want to open it. Choose **Open**. If Finder opens the file in a text editor
-> instead of running it, run `chmod +x "install/Reader.command"` once in
-> Terminal.
-
-From the command line you can also do:
+### From source
 
 ```
 python3 reader.py                      # start in your home folder
@@ -27,121 +26,9 @@ python3 reader.py ~/Documents/notes    # start in a folder
 python3 reader.py ~/notes/spec.md      # open a file straight away
 ```
 
-### Native macOS app
-
-The repository includes a small native macOS launcher. It opens the existing
-Reader interface in a WebKit window, starts the bundled server only when no
-compatible Reader server is already listening, and stops only a server it
-started itself.
-
-Build it with the macOS Command Line Tools installed:
-
-```
-./macos/build-app.sh
-open install/Reader.app
-```
-
-The app is built for Apple silicon by default and includes the server, static
-UI, licenses, and the original Reader app icon. To build a universal app on a
-Mac with the required SDK support, use:
-
-```
-ARCHS="arm64 x86_64" ./macos/build-app.sh
-```
-
-The app requires `python3` on the Mac that runs it. If port 8737 already has a
-Reader server, the app reuses it and leaves it running when the app quits. If
-another service owns that port, the app reports the conflict and does not
-stop or replace it. `install/Reader.command` opens this exact same bundle; it does not
-start a second server or use separate icon assets. A saved Edge/PWA launcher
-remains browser-owned and cannot use Reader.app's adaptive Dock icon; use
-`install/Reader.command` or `install/Reader.app` for the native path. Because
-this is a local unsigned build, macOS may show a
-first-launch warning; Control-click the app, choose **Open**, and confirm.
-
-### Why macOS keeps asking for folder permissions
-
-Because an ad-hoc signature is derived from the bundle's own bytes. Its
-designated requirement is a bare content hash:
-
-```
-designated => cdhash H"26e68e53a7b3ce765be0c532a456a83f1f441ef2"
-```
-
-macOS keys folder-access consent to that requirement, and the hash changes on
-every build — even a rebuild from unchanged sources. Every build was therefore a
-new app as far as the privacy database was concerned, and every permission you
-had granted was thrown away.
-
-The fix is to sign with a certificate, which pins the requirement to the
-certificate instead of to the bundle. Reader can make its own, once per user:
-
-```
-./macos/ensure-signing-identity.sh
-```
-
-That creates a self-signed code-signing certificate in a keychain of Reader's
-own, beside Reader's preferences — no Apple developer account, and your login
-keychain is left alone. macOS asks for your login password one time, to trust the
-certificate for code signing, because `codesign` refuses an untrusted identity
-outright. Afterwards `build-app.sh` finds and reuses it automatically, so folder
-permissions you grant now outlive every later build.
-
-`build-app.sh` creates the identity on first use when you run it from a terminal.
-Run non-interactively it will not raise a password dialog on its own — it signs
-ad-hoc and says so. `READER_SIGNING=create` forces creation from a script.
-
-If you do have an Apple certificate, it takes precedence:
-
-```
-CODE_SIGN_IDENTITY="Apple Development: you@example.com (TEAMID)" ./macos/build-app.sh
-```
-
-Either way the app stays unnotarised, so the first-launch warning above is
-unchanged. To undo Reader's identity completely:
-
-```
-security delete-keychain ~/Library/Application\ Support/Reader/signing/reader-signing.keychain-db
-security remove-trusted-cert ~/Library/Application\ Support/Reader/signing/certificate.pem
-rm -rf ~/Library/Application\ Support/Reader/signing
-```
-
-### Opening files from Finder
-
-Reader declares the document types it renders, so it can be the app a document
-opens with. Select a file in Finder, press **⌘I**, and set *Open with* — or
-Control-click → *Open With*. Double-clicking then hands the file to Reader:
-if Reader is not running it starts and opens straight into that document, and if
-it is already running the open window switches to it, moving the file tree to the
-document's folder when the document sits outside the folder you were browsing.
-An outside document handed to a newly started server is editable because its
-folder becomes an initial server grant. The same handoff to an already-running
-server opens read-only unless that folder was already granted; Reader never lets
-the page grant itself a new write root.
-
-All six markdown extensions Reader treats as markdown (`.md .markdown .mdown
-.mkd .mdx .mdc`) are covered, along with every other type Reader reads that macOS
-has a declared type for — `.txt`, `.csv/.tsv`, `.pdf`, `.py`, `.json`, `.yaml`,
-`.html`, `.sh`, `.swift`, `.java`, `.c/.cpp`, `.sql` and the rest of the source
-family. Reader offers itself as an alternate handler for those, so it never
-displaces Preview or Numbers unless you choose it.
-
-A few extensions macOS has no declared type for at all — `.go .rs .kt .cs .lua
-.jsx .cjs .scss .less .conf .env` — cannot appear in *Open With* without Reader
-claiming those file kinds system-wide, which it deliberately does not do. Open
-those from inside Reader's own file tree.
-
-### Turning it into a browser app
-
-The address never changes, so you can install it:
-
-- **Chrome / Edge / Brave** — open http://127.0.0.1:8737, then
-  ⋮ menu → *Cast, save and share* → **Install page as app**.
-- **Safari** — File → **Add to Dock**.
-
-Start the launcher first so the server is running, then click the installed
-app any time. The browser stays authorised, so the app opens straight into
-your last document.
+See [docs/macos.md](docs/macos.md) for building the app yourself, signing it
+so folder permissions survive rebuilds, opening files from Finder, and
+turning Reader into a browser app.
 
 ## Using it
 
@@ -152,7 +39,7 @@ your last document.
 | **Recent** | The documents you opened most recently, newest first. Length is configurable, and you can clear the list. |
 | **Browse** | Click folders to expand them; click a `.md` file to open it. Drag a file onto another folder to move it there. Double-click a folder to make it the top of the tree. The header above the tree works like Finder's title bar: it names the folder you are in, **↑** climbs one level, and clicking the name drops down the chain of enclosing folders. Folders that hold no readable document anywhere inside are left out of the tree — *Files & watching* has a switch to show them. |
 | **Row menu** | Hover any row and press **⋯** (or right-click it). Files offer **Open**, **Rename…** and **Move to Trash…**; folders offer **Browse from here**, **Pin this folder** and **Rename…** — deliberately no delete, since too much can disappear in one click. Deleting a file always asks first and moves it to the macOS Trash, so you can put it back from Finder. Renaming without typing an extension keeps the current one, and the open document follows its own rename. |
-| **Panel side** | The panel icon at the top of the file panel flips it between the left and right edge; the reveal button follows it. The `‹` icon hides the panel and `⌘\` brings it back — or just rest the pointer on that edge and the panel floats out until you leave it, like the Claude app. |
+| **Panel side** | The panel icon at the top of the file panel flips it between the left and right edge; the reveal button follows it. The `‹` icon hides the panel and `⌘\` brings it back — or just rest the pointer on that edge and the panel floats out until you leave it, like a modern desktop app. |
 | **Hidden files** | Names beginning with a dot are left out of the tree. `⇧⌘.` shows them and hides them again, the same as in Finder, and *Files & watching* has the same switch. |
 | **Modes** | **Preview**, **Split** and **Edit**. `⌘E` toggles preview and edit. In split view the two sides scroll together. |
 | **Save** | `⌘S`, or the save button. The orange dot next to the filename means unsaved changes. |
@@ -168,7 +55,7 @@ your last document.
 
 ## Settings
 
-Seven sections, in a dialog laid out like the Claude desktop app:
+Seven sections, in a dialog laid out like a modern desktop app:
 
 - **Appearance** — colour scheme (match system / light / dark), accent colour,
   light-mode paper (cream, white, sepia, grey), dark-mode surface
@@ -190,35 +77,34 @@ Seven sections, in a dialog laid out like the Claude desktop app:
 
 Everything you choose is remembered between restarts, along with the folder you
 were browsing, the file you were reading, the panel side and width, and the
-view mode. Preferences are written to `preferences.json` beside this file, so
-moving the folder takes your setup with it.
+view mode. Preferences are stored in `~/Library/Application Support/Reader`
+when Reader runs as the app, or in `preferences.json` beside `reader.py` when
+run from source.
 
-### Verification
-
-Run the focused server-side save and path-policy tests with:
+## Development
 
 ```
 python3 -m unittest discover -s tests -v
 ```
 
-Reader also registers a small semantic WebMCP tool set when the page is opened
-in a browser that provides `document.modelContext`. The tools reuse Reader's
+runs the focused server-side save and path-policy tests. Reader also
+registers a small semantic WebMCP tool set when the page is opened in a
+browser that provides `document.modelContext`. The tools reuse Reader's
 normal document operations and remain limited to the folder currently being
 browsed; they do not expose deletion, shell commands, or arbitrary OS actions.
-
-Install the browser-test dependency once, then run the deterministic WebMCP
-integration suite and its representative UI smoke check:
 
 ```
 npm install
 npm run test:webmcp
 ```
 
-The suite starts Reader against an isolated temporary workspace, captures the
-tools registered by the live page, validates their schemas, and invokes them
-directly without an LLM. These tests cover the browser context; the native
-macOS bundle still needs the build, signature, resource-parity, and launch
-smoke checks described above.
+installs the browser-test dependency and runs the deterministic WebMCP
+integration suite and its representative UI smoke check. CI runs the server
+tests on macOS, Linux and Windows.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor guide and
+[SECURITY.md](SECURITY.md) for the security policy. The macOS app bundle is
+built by `./macos/build-app.sh` and is not committed.
 
 ## What it renders
 
@@ -277,8 +163,8 @@ preview side of Split. The editor shows the source, where a link is just text.
   writable workspace; symlinks are resolved before the grant check.
 - Deleting never unlinks anything, and only ever applies to single files —
   the server refuses to trash a folder at all, and refuses to rename or touch
-  your home folder, the root of the disk, or any folder containing Markdown
-  Viewer itself.
+  your home folder, the root of the disk, or any folder containing Reader
+  itself.
 - Listed files: markdown (`.md` family), ~40 common code and config types
   (`.py .js .ts .json .yaml .sh .sql .go .rs .java` and friends), `.csv/.tsv`,
   `.txt` and `.pdf`. Hidden files and folders are skipped unless you ask for
@@ -322,3 +208,7 @@ Bundled locally in `static/`, licences in `licenses/`:
 [Source Serif 4](https://fonts.google.com/specimen/Source+Serif+4) and
 [JetBrains Mono](https://www.jetbrains.com/lp/mono/) typefaces
 (SIL Open Font License).
+
+## License
+
+MIT, see [LICENSE](LICENSE).

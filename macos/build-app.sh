@@ -21,6 +21,7 @@ rm -rf "$APP_BUNDLE"
 mkdir -p "$RESOURCES_DIR" "$MACOS_BIN_DIR"
 
 cp "$ROOT_DIR/reader.py" "$RESOURCES_DIR/reader.py"
+cp "$ROOT_DIR/VERSION" "$RESOURCES_DIR/VERSION"
 cp "$ROOT_DIR/reader_backend.py" "$RESOURCES_DIR/reader_backend.py"
 ditto "$ROOT_DIR/static" "$RESOURCES_DIR/static"
 cp "$MACOS_DIR/Assets/ReaderDockIcon-Light.png" "$RESOURCES_DIR/ReaderDockIcon-Light.png"
@@ -74,6 +75,11 @@ else
 fi
 
 cp "$MACOS_DIR/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
+# The VERSION file is the single source of truth; stamp it into the bundle so
+# the launcher, the server and the About panel all report the same number.
+APP_VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" "$APP_BUNDLE/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $APP_VERSION" "$APP_BUNDLE/Contents/Info.plist"
 chmod +x "$MACOS_BIN_DIR/ReaderLauncher"
 rm -f "${OBJECTS[@]}"
 
