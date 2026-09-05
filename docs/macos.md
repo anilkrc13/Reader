@@ -25,9 +25,11 @@ server, the app reuses it and leaves it running when the app quits. If another
 service owns that port, the app reports the conflict and does not stop or
 replace it.
 
-`install/Reader.command` opens the sibling bundle, building it first if it is
-missing. Starting the launcher while the app is already running just opens the
-existing window instead of starting a second server.
+`install/Reader.command` installs the built bundle to `~/Applications/Reader.app`
+(building it first if it is missing, and refreshing the copy when the local build
+is newer) and opens it from there, where the in-app updater can replace it.
+Starting the launcher while the app is already running just opens the existing
+window instead of starting a second server.
 
 The built bundle is not committed. Releases are built by CI from a tag.
 
