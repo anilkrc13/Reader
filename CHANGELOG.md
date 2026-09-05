@@ -9,6 +9,8 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
   and the release workflow.
 - The built app is no longer committed; releases are built by CI.
 - Neutral wording in the settings dialog; stale "Markdown Viewer" names removed.
+- A tagged push now builds a signed `Reader.app`, zips it, and publishes it as
+  a GitHub Release with a `manifest.json` an in-app updater can read.
 
 ## 2.0
 

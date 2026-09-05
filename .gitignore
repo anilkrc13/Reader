@@ -29,3 +29,8 @@ __pycache__/
 !/install/
 !/install/Reader.command
 .reader-build.*/
+
+# Release workflow output: built by write-release-manifest.sh, one per tag,
+# uploaded to the GitHub Release rather than committed.
+/Reader-*.zip
+/manifest.json
