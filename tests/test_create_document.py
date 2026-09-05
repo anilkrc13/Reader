@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -113,6 +114,8 @@ class CanCreateInTests(unittest.TestCase):
             self.assertFalse(verdict["ok"])
             self.assertIn("not a folder", verdict["reason"])
 
+    @unittest.skipIf(os.name == "nt",
+                     "POSIX mode bits do not make a folder read-only on Windows")
     def test_a_read_only_folder_is_refused_before_a_name_is_typed(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp).resolve()
