@@ -17,7 +17,10 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 BUILT_APP="$SCRIPT_DIR/Reader.app"
 INSTALLED_APP="$HOME/Applications/Reader.app"
 
-if [ -d "$INSTALLED_APP" ]; then
+# A local build that is newer than the installed copy replaces it, so a
+# developer who has just run build-app.sh sees that build rather than the
+# release the updater last installed.
+if [ -d "$INSTALLED_APP" ] && ! [ "$BUILT_APP" -nt "$INSTALLED_APP" ]; then
   open "$INSTALLED_APP"
   exit 0
 fi
@@ -34,5 +37,6 @@ if [ ! -d "$BUILT_APP" ]; then
 fi
 
 mkdir -p "$HOME/Applications"
+rm -rf "$INSTALLED_APP"
 ditto "$BUILT_APP" "$INSTALLED_APP"
 open "$INSTALLED_APP"
