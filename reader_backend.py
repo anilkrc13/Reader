@@ -654,7 +654,16 @@ class DocumentStore:
         Reader-owned Trash folder. This is a best-effort native integration,
         not a security boundary: the boundary is the source path, already
         checked by assert_mutation_allowed in move_to_trash before this runs.
+
+        The explicit platform check below is what makes this function
+        actually behave under a mocked sys.platform: ctypes.windll only
+        raises AttributeError on a real non-Windows machine, so without this
+        check a test that mocks sys.platform to simulate "not Windows" would
+        still reach the real Windows API when the suite happens to be
+        running on an actual Windows machine (as CI does).
         """
+        if sys.platform != "win32":
+            return None
         try:
             import ctypes
             from ctypes import wintypes
