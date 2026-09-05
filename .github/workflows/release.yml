@@ -84,18 +84,18 @@ jobs:
       - name: Verify signature
         run: codesign --verify --deep --strict install/Reader.app
 
+      - name: Package and write manifest
+        run: ./macos/write-release-manifest.sh "$VERSION"
+
+      - name: Build disk image
+        run: ./macos/write-release-dmg.sh "$VERSION"
+
       - name: Delete temporary keychain
         if: always()
         run: |
           if [ -n "${{ steps.sign.outputs.keychain }}" ]; then
             security delete-keychain "${{ steps.sign.outputs.keychain }}" || true
           fi
-
-      - name: Package and write manifest
-        run: ./macos/write-release-manifest.sh "$VERSION"
-
-      - name: Build disk image
-        run: ./macos/write-release-dmg.sh "$VERSION"
 
       - name: Extract changelog section
         run: ./macos/extract-changelog.sh "$VERSION" > "$RUNNER_TEMP/release-notes.md"
