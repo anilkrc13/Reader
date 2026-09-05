@@ -41,8 +41,19 @@ from reader_backend import (
 )
 
 APP_NAME = "Reader"
-VERSION = "2.0"
 APP_DIR = Path(__file__).resolve().parent
+
+
+def _read_version() -> str:
+    """The VERSION file beside this script is the single source of truth; the
+    app bundle and the release workflow read the same file."""
+    try:
+        return (APP_DIR / "VERSION").read_text("utf-8").strip() or "0.0.0"
+    except OSError:
+        return "0.0.0"
+
+
+VERSION = _read_version()
 STATIC_DIR = APP_DIR / "static"
 DEFAULT_PORT = 8737          # stable by default; falls back to a free port
 
@@ -344,7 +355,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _unauthorised_page(self):
         body = (
-            "<!doctype html><meta charset=utf-8><title>Markdown Viewer</title>"
+            "<!doctype html><meta charset=utf-8><title>Reader</title>"
             "<style>body{font:15px/1.6 -apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif;"
             "background:#faf9f5;color:#141413;display:grid;place-items:center;height:100vh;margin:0}"
             "div{max-width:30rem;padding:2rem;text-align:center}h1{font-size:19px;margin:0 0 .6rem}"

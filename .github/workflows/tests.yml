@@ -1,0 +1,50 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  server:
+    name: Server tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
+
+  browser:
+    name: WebMCP browser suite
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:webmcp
+
+  macos-app:
+    name: macOS app builds
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Reader.app (ad-hoc signed)
+        run: ./macos/build-app.sh
+      - name: Verify bundle
+        run: |
+          codesign --verify --deep --strict install/Reader.app
+          cmp reader.py install/Reader.app/Contents/Resources/reader.py
+          cmp VERSION install/Reader.app/Contents/Resources/VERSION

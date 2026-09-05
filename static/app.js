@@ -1,5 +1,5 @@
 /* ===========================================================================
-   Markdown Viewer — front end
+   Reader — front end
    Sections: settings model · api · rendering · files · watching · recents ·
              tree · modes · settings dialog · keyboard · boot
    ======================================================================== */
@@ -9,7 +9,7 @@
 const TOKEN = new URLSearchParams(location.search).get("t") || "";
 const $ = (id) => document.getElementById(id);
 const root = document.documentElement;
-const STORE = "mdview.v2";
+const STORE = "mdview.v2";        // pre-2.0 key, kept so existing settings survive
 const OLD_STORE = "mdview.v1";
 
 const el = {
