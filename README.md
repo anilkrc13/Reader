@@ -7,6 +7,11 @@ own machine and opens in a native macOS window or your browser.
 Standard-library Python only, no network access except the once-a-day update
 check, which you can turn off in *Files & watching*.
 
+**macOS only, for now.** The app, its installer and its updater are macOS.
+The server underneath is plain portable Python and its tests run on Linux and
+Windows in CI, so a Windows version stays a realistic thing to build later, but
+no such version exists and nothing here is supported on Windows today.
+
 ## Get it
 
 ### macOS app
@@ -104,7 +109,9 @@ npm run test:webmcp
 
 installs the browser-test dependency and runs the deterministic WebMCP
 integration suite and its representative UI smoke check. CI runs the server
-tests on macOS, Linux and Windows. See [docs/releasing.md](docs/releasing.md)
+tests on macOS, Linux and Windows. Only macOS is a supported platform; the
+other two run so the server does not quietly acquire macOS-only assumptions
+before anyone ports it. See [docs/releasing.md](docs/releasing.md)
 for how a tagged push turns into a signed release.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor guide and

@@ -33,8 +33,10 @@ npm run test:webmcp
 
 ## Portability
 
-Only the macOS app ships today, but the server underneath it is meant to run
-correctly on Windows and Linux too, and CI holds it to that: `python -m
+macOS is the only supported platform: there is no Windows or Linux build, and
+a green Windows CI run is not a claim that one exists. The server underneath
+the app is nevertheless meant to run correctly on all three, so that porting
+stays possible, and CI holds it to that: `python -m
 unittest discover -s tests` runs on macOS, Ubuntu and Windows for every pull
 request. A change to `reader.py` or `reader_backend.py` must keep the Windows
 run green, not only the platform you developed on.
