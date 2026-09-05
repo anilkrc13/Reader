@@ -98,6 +98,9 @@ npm install
 npm run test:webmcp
 ```
 
+See [docs/releasing.md](docs/releasing.md) for how a tagged push turns into a
+signed release.
+
 installs the browser-test dependency and runs the deterministic WebMCP
 integration suite and its representative UI smoke check. CI runs the server
 tests on macOS, Linux and Windows.

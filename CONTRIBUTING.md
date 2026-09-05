@@ -37,6 +37,10 @@ Match what is around you. The Python is type-annotated and uses `pathlib`.
 The JavaScript is one file, in sections, with no build step. Comments explain
 why, not what.
 
+## Releasing
+
+Maintainers cutting a release should read `docs/releasing.md`.
+
 ## Agent instructions
 
 `AGENTS.md` and `context/` are instructions for AI coding agents working in this
