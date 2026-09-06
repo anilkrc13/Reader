@@ -69,6 +69,14 @@ function applyKbdLabels() {
   });
 }
 
+/* The install path is shown to a person, not parsed, so the home folder reads
+   as ~ and a long absolute path stays on one line. */
+function homePath(path, home) {
+  if (!path || !home) return path || "";
+  if (path === home) return "~";
+  return path.startsWith(home + "/") ? "~" + path.slice(home.length) : path;
+}
+
 /* ==========================================================================
    1. Settings model
    ======================================================================== */
@@ -76,6 +84,9 @@ function applyKbdLabels() {
 const DEFAULTS = {
   /* appearance */
   theme: "auto", accent: "clay", paper: "cream", paperDark: "ink", side: "left",
+  /* Size of Reader's own chrome, separate from the document's reading size so
+     one can be large while the other stays compact. */
+  uiScale: "medium",
   /* reading */
   bodyFont: "lora", headFont: "poppins",
   fontSize: 16.5, bodyWeight: 400, lineHeight: 1.75, measure: 65, paraGap: 1.1, listGap: .32,
@@ -433,6 +444,7 @@ function applySettings() {
   root.dataset.paperDark = S.paperDark;
   root.dataset.code = S.codeTheme;
   root.dataset.side = S.side;
+  root.dataset.uiscale = S.uiScale;
   root.dataset.mode = S.mode;
   root.dataset.sidebar = S.hidden ? "hidden" : "shown";
   syncPanelButtons();
@@ -4695,9 +4707,9 @@ async function boot() {
   syncDialog();
   drawRecents();
 
-  $("about-where").innerHTML =
-    `Version ${cfg.version} · running from <code></code>`;
-  $("about-where").querySelector("code").textContent = cfg.appDir;
+  $("about-version").textContent = `Version ${cfg.version}`;
+  $("about-where").innerHTML = "Running from <code></code>";
+  $("about-where").querySelector("code").textContent = homePath(cfg.appDir, cfg.home);
   setUpAboutUpdates();
 
   HOME = cfg.home;

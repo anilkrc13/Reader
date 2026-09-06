@@ -4,6 +4,26 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- Settings has an **Interface size** control in Appearance: Small, Medium or
+  Large. It scales Reader's own chrome, meaning the settings dialog, the file
+  panel, the toolbar and the menus, and it is separate from the document's
+  reading size, so a large interface can still hold compact reading text.
+  ⌘+ and ⌘− still change the document text and nothing else. One root scale
+  drives it: chrome measurements are written in rem and the root font size is
+  the only thing the setting moves.
+- The settings dialog is roomier and now follows the window. It sizes itself
+  against the viewport instead of sitting at one fixed 1020×680 box, labels and
+  headings are a step larger, rows have more air between them, and each section
+  is a titled card so groups read as separate things rather than one continuous
+  run of rows. Below 620px wide a row stacks its control under its label instead
+  of crushing it.
+- Settings → **About** was reshaped around Reader's icon: the app mark, the name,
+  the version quietly beneath it, and one sentence about what Reader does. The
+  update status and its button are now an ordinary settings row like every other
+  control, and the credits and install path are small muted text at the bottom.
+  The install path abbreviates your home folder to `~` instead of wrapping a long
+  absolute path across two lines.
+
 - File references in the docs are now clickable links, checked by a new `tests/` regression test.
 - [`install/Reader.command`](install/Reader.command) is now a one-step update action: double-clicking it
 - Settings → **About** now describes Reader to the person using it: what it
