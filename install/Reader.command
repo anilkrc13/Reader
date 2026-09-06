@@ -10,8 +10,7 @@ set -euo pipefail
 #
 # The app it opens has to live outside this git checkout, at
 # ~/Applications/Reader.app, not build/Reader.app produced by build-app.sh.
-# The in-app updater (once it lands) replaces a release's app bundle in place
-# on disk; doing that inside a git working tree would leave the checkout with
+# The in-app updater replaces a release's app bundle in place on disk; doing that inside a git working tree would leave the checkout with
 # uncommitted changes nobody made and a bundle git no longer recognises. A
 # copy in ~/Applications is free to be overwritten like any other installed
 # app, the same way Reader.app already behaves when it comes from a Release
@@ -34,7 +33,13 @@ if is_reader_running; then
   # A normal quit (not kill/pkill) lets the app stop the local server it owns
   # before it exits. Targeting the bundle id, not the process name, means a
   # different app that happens to be called Reader is never touched.
-  osascript -e "tell application id \"$BUNDLE_ID\" to quit" >/dev/null
+  # Bounded explicitly: AppleScript's own default timeout is two minutes, so a
+  # Reader sitting on a modal sheet would block here far longer than the ten
+  # second budget below. Failure is ignored on purpose, because the poll that
+  # follows is what actually decides whether the app went away.
+  osascript -e "with timeout of 5 seconds" \
+            -e "tell application id \"$BUNDLE_ID\" to quit" \
+            -e "end timeout" >/dev/null 2>&1 || true
   for _ in $(seq 1 20); do
     is_reader_running || break
     sleep 0.5
