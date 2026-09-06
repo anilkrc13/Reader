@@ -87,7 +87,7 @@ Seven sections, in a dialog laid out like a modern desktop app:
 Everything you choose is remembered between restarts, along with the folder you
 were browsing, the file you were reading, the panel side and width, and the
 view mode. Preferences are stored in `~/Library/Application Support/Reader`
-when Reader runs as the app, or in `preferences.json` beside `reader.py` when
+when Reader runs as the app, or in `preferences.json` beside [`reader.py`](reader.py) when
 run from source.
 
 ## Development
@@ -116,7 +116,7 @@ for how a tagged push turns into a signed release.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor guide and
 [SECURITY.md](SECURITY.md) for the security policy. The macOS app bundle is
-built by `./macos/build-app.sh` and is not committed.
+built by [`./macos/build-app.sh`](macos/build-app.sh) and is not committed.
 
 ## What it renders
 

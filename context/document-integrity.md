@@ -34,7 +34,7 @@ capability-design task, not a browser API.
 
 ## Regression evidence
 
-`tests/test_save_security.py` pins simultaneous compare-and-replace behavior.
-`tests/test_workspace_authorization.py` exercises every mutation route and
-symlink escapes. `tests/browser/webmcp.spec.js` delays and interleaves real page
+[`tests/test_save_security.py`](../tests/test_save_security.py) pins simultaneous compare-and-replace behavior.
+[`tests/test_workspace_authorization.py`](../tests/test_workspace_authorization.py) exercises every mutation route and
+symlink escapes. [`tests/browser/webmcp.spec.js`](../tests/browser/webmcp.spec.js) delays and interleaves real page
 requests to pin session, revision, watcher, save-queue, and read-only behavior.

@@ -20,15 +20,15 @@ npm run test:webmcp
 
 ## Before you open a pull request
 
-- Read `context/document-integrity.md` if you touch document I/O, filesystem
+- Read [`context/document-integrity.md`](context/document-integrity.md) if you touch document I/O, filesystem
   mutations, path authorisation, or the launcher-to-server handoff. Those
   invariants are what make Reader safe to point at a home folder.
 - Run the unit tests. CI runs them on macOS, Linux and Windows; the server is
   meant to stay portable even though only the macOS app ships today.
 - Keep the server dependency-free. No `pip install`.
 - Keep the page free of inline script. The Content Security Policy forbids it.
-- If you change `static/`, `reader.py`, `reader_backend.py`, `VERSION`, or
-  anything under `macos/`, rebuild the app with `./macos/build-app.sh` and check
+- If you change `static/`, [`reader.py`](reader.py), [`reader_backend.py`](reader_backend.py), [`VERSION`](VERSION), or
+  anything under `macos/`, rebuild the app with [`./macos/build-app.sh`](macos/build-app.sh) and check
   it still launches. The built bundle is not committed; CI builds it.
 
 ## Portability
@@ -58,7 +58,7 @@ The seams where behavior forks by platform:
   file on POSIX; NTFS ignores that mode, so Windows also runs `icacls` as a
   best-effort second step.
 - **The keyboard modifier glyph**: labels are authored with `⌘` throughout
-  `static/index.html` and `static/app.js`. `app.js` converts them to `Ctrl+`
+  [`static/index.html`](static/index.html) and [`static/app.js`](static/app.js). `app.js` converts them to `Ctrl+`
   at boot on any non-Mac platform through one helper (`kbdLabel` /
   `applyKbdLabels`) rather than each call site guessing; it never touches key
   handling, which already accepts `metaKey || ctrlKey`.
@@ -76,16 +76,16 @@ why, not what.
 
 ## Changelog
 
-Add a `CHANGELOG.md` entry under `## Unreleased` as part of the pull request
+Add a [`CHANGELOG.md`](CHANGELOG.md) entry under `## Unreleased` as part of the pull request
 that makes the change, since the person best placed to describe a change is
 whoever just made it. The release process renames that heading to the version
 number being released.
 
 ## Releasing
 
-Maintainers cutting a release should read `docs/releasing.md`.
+Maintainers cutting a release should read [`docs/releasing.md`](docs/releasing.md).
 
 ## Agent instructions
 
-`AGENTS.md` and `context/` are instructions for AI coding agents working in this
+[`AGENTS.md`](AGENTS.md) and `context/` are instructions for AI coding agents working in this
 repository. They are not the contributor guide; this file is.
