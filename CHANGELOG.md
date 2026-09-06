@@ -4,7 +4,8 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
-- `install/Reader.command` is now a one-step update action: double-clicking it
+- File references in the docs are now clickable links, checked by a new `tests/` regression test.
+- [`install/Reader.command`](install/Reader.command) is now a one-step update action: double-clicking it
   quits a running Reader (a graceful quit targeted at Reader's bundle
   identifier, so the local server it owns shuts down and no other app is
   touched), always rebuilds from source, installs the fresh build over
@@ -40,7 +41,7 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
   keeps the previous bundle until the new one launches. Turn it off with
   **Check for updates** in *Files & watching*.
 - Reader is now open source under the MIT license.
-- Version comes from a single `VERSION` file read by the server, the app bundle
+- Version comes from a single [`VERSION`](VERSION) file read by the server, the app bundle
   and the release workflow.
 - The built app is no longer committed; releases are built by CI.
 - Neutral wording in the settings dialog; stale "Markdown Viewer" names removed.
