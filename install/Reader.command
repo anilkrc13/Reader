@@ -76,3 +76,43 @@ ditto "$BUILT_APP" "$INSTALLED_APP"
 
 echo "Step 4/4: Launching Reader..."
 open "$INSTALLED_APP"
+
+# Only the successful path reaches here: every early-exit above already pauses on
+# "Press Return to close" so the failure is readable, and a window that vanished
+# out from under that pause would defeat it. On success there is nothing left to
+# read, so the window this script leaves behind is just clutter that piles up
+# every time the owner updates from source.
+#
+# Terminal's own "close if the shell exited cleanly" checkbox looks like the
+# built-in answer, but it is a per-user Terminal profile setting this repo has no
+# way to turn on for someone else, so it can never be the fix by itself; this
+# closes the window regardless of that preference.
+#
+# Match by the tty this script is actually attached to, not "the front window" or
+# a name pattern: the owner may have unrelated Terminal windows open with real
+# work in them, and closing the wrong one would lose it. `tty` gives the exact
+# device; Terminal's dictionary exposes the tty of each tab, so the window that
+# owns this script's tab is the only one ever closed.
+#
+# Outside Terminal.app (an IDE terminal, ssh, iTerm) TERM_PROGRAM will not read
+# "Apple_Terminal", so this quietly does nothing and leaves the window alone. A
+# failure anywhere in here must never fail the script: the app is already
+# installed and running by this point, so `|| true` on the osascript call is
+# load-bearing, not decorative.
+if [ "${TERM_PROGRAM:-}" = "Apple_Terminal" ]; then
+  my_tty="$(tty 2>/dev/null || true)"
+  if [ -n "$my_tty" ]; then
+    osascript >/dev/null 2>&1 <<OSA || true
+tell application "Terminal"
+  repeat with w in windows
+    repeat with t in tabs of w
+      if tty of t is "$my_tty" then
+        close w
+        return
+      end if
+    end repeat
+  end repeat
+end tell
+OSA
+  fi
+fi

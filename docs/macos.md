@@ -46,7 +46,9 @@ seconds, the script stops without touching the installed app and tells you to
 quit it yourself and try again; if the build fails, the previously installed
 app is likewise left untouched. This installed copy in `~/Applications` is
 the app you actually run; `build/Reader.app` is only the intermediate build
-output `install/Reader.command` copies from.
+output `install/Reader.command` copies from. On success it also closes the
+Terminal window it ran in, so repeated updates do not leave a pile of dead
+windows behind; a failed run leaves its window open so you can read the error.
 
 The built bundle is not committed. Releases are built by CI from a tag.
 
