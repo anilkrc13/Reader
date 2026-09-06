@@ -6,6 +6,23 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 - File references in the docs are now clickable links, checked by a new `tests/` regression test.
 - [`install/Reader.command`](install/Reader.command) is now a one-step update action: double-clicking it
+- Settings → **About** now describes Reader to the person using it: what it
+  opens and edits, that documents stay as ordinary files in their own folders,
+  and that it works offline. It used to explain the loopback address, the
+  request token and atomic saves, which is design documentation; those facts
+  still live in the README under "Notes on how it works" and in
+  `docs/macos.md`. The version and the folder Reader runs from are still there.
+- About has a **Check for updates** button and a status line, so updating no
+  longer means finding the menu bar. It says "Checking for updates…", then
+  whether this is the newest release, which newer version exists, or why the
+  check failed. Everything about the update itself stays in the launcher: the
+  page can ask only for the check it already runs, and the download, digest,
+  signature and designated-requirement checks are untouched. Switching
+  **Check for updates** off in Files & watching still stops the daily check;
+  pressing the button is an explicit request and still answers.
+- In a browser, where there is no Reader.app to ask, About says updates are
+  handled by the Reader app instead of showing a button that cannot work.
+- `install/Reader.command` is now a one-step update action: double-clicking it
   quits a running Reader (a graceful quit targeted at Reader's bundle
   identifier, so the local server it owns shuts down and no other app is
   touched), always rebuilds from source, installs the fresh build over

@@ -118,6 +118,16 @@ update" and says nothing. **Check for Updates…** in the Reader menu runs the
 same check immediately and does say something, including "You're up to date"
 when there is nothing newer.
 
+Settings → **About** runs that same check from a **Check for updates** button,
+and reports the outcome on the line beside it rather than in an alert: whether
+this is the newest release, which newer version exists, or why the check could
+not finish. Only the reporting differs. The request the page sends carries
+nothing but the word `checkForUpdates`, so it can never name a version or a URL
+of its own, and an update worth installing goes through the same download,
+digest, signature and designated-requirement checks described below, offered by
+the same alert. In a browser there is no launcher to ask, so About says so
+instead of showing the button.
+
 Versions are compared as numbers: `2.1.0` is newer than `2.0.3`. A version with
 a pre-release suffix such as `2.1.0-beta` is never offered.
 
@@ -174,7 +184,10 @@ so there is always one working copy on disk.
 Settings → **Files & watching** → **Check for updates**. The switch writes
 `updates.check` to `preferences.json` in
 `~/Library/Application Support/Reader`, which is where the launcher reads it.
-Off means no request is ever made, including from the menu item.
+Off means Reader never asks on its own: no daily check and no request Reader
+started. Asking for one by hand, from the menu item or from the button in
+About, still checks, because that is somebody pressing a control rather than
+Reader deciding to.
 
 ### Testing the flow against a local server
 
@@ -230,9 +243,9 @@ icon or the native folder chooser; use the app for those.
 
 ## How the app and the page talk
 
-The app and the page share one named WebKit message channel, used so far only
-to open the folder chooser. It answers the main frame of Reader's own page and
-nothing else. Links in a document to the web (`http`, `https`, `mailto`,
+The app and the page share one named WebKit message channel, carrying two
+requests: open the folder chooser, and run the update check. It answers the
+main frame of Reader's own page and nothing else. Links in a document to the web (`http`, `https`, `mailto`,
 `tel`) are handed to your default browser; Reader's own window never navigates
 away from its local server, so a link cannot replace the app with a web page.
 

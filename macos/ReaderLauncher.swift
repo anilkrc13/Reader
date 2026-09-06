@@ -618,16 +618,24 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         }
     }
 
-    private func checkForUpdates(userInitiated: Bool) {
+    /* When About asked for the check, the outcome goes back to the page and the
+       modal alerts for "nothing to do" outcomes are left unshown: the person is
+       already looking at a status line, and an alert on top of it would be the
+       same sentence twice. An outcome worth acting on still runs the ordinary
+       flow, alerts and all, so there is only ever one install path. */
+    private func checkForUpdates(userInitiated: Bool,
+                                 report: (([String: Any]) -> Void)? = nil) {
         guard !isUpdating else {
-            if userInitiated {
+            if let report {
+                report(["state": "busy"])
+            } else if userInitiated {
                 showUpdateAlert(title: "Reader is already checking for updates.", body: nil)
             }
             return
         }
         isUpdating = true
         UserDefaults.standard.set(Date(), forKey: lastUpdateCheckKey)
-        if userInitiated {
+        if userInitiated, report == nil {
             showUpdateProgress("Checking for updates…", determinate: false)
         }
         fetchManifest { [weak self] result in
@@ -636,11 +644,14 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
             switch result {
             case .failure(let problem):
                 self.isUpdating = false
-                guard userInitiated else { return }
-                self.showUpdateAlert(title: "Reader could not check for updates.",
-                                     body: self.describe(problem))
+                if let report {
+                    report(["state": "error", "message": self.describe(problem)])
+                } else if userInitiated {
+                    self.showUpdateAlert(title: "Reader could not check for updates.",
+                                         body: self.describe(problem))
+                }
             case .success(let manifest):
-                self.consider(manifest, userInitiated: userInitiated)
+                self.consider(manifest, userInitiated: userInitiated, report: report)
             }
         }
     }
@@ -656,11 +667,14 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         }
     }
 
-    private func consider(_ manifest: UpdateManifest, userInitiated: Bool) {
+    private func consider(_ manifest: UpdateManifest, userInitiated: Bool,
+                          report: (([String: Any]) -> Void)? = nil) {
         let current = ReaderAppDelegate.currentVersion()
         guard ReaderAppDelegate.isNewer(manifest.version, than: current) else {
             isUpdating = false
-            if userInitiated {
+            if let report {
+                report(["state": "current", "version": current])
+            } else if userInitiated {
                 showUpdateAlert(title: "You’re up to date.",
                                 body: "Reader \(current) is the newest release.")
             }
@@ -672,7 +686,10 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
                                                   patchVersion: minimum[2])
             guard ProcessInfo.processInfo.isOperatingSystemAtLeast(required) else {
                 isUpdating = false
-                if userInitiated {
+                if let report {
+                    report(["state": "error",
+                            "message": self.describe(.tooOld(manifest.minimumMacOS))])
+                } else if userInitiated {
                     showUpdateAlert(title: "Reader \(manifest.version) needs a newer macOS.",
                                     body: self.describe(.tooOld(manifest.minimumMacOS)))
                 }
@@ -686,9 +703,11 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         }
         guard canReplaceOwnBundle() else {
             isUpdating = false
+            report?(["state": "available", "version": manifest.version, "installable": false])
             offerReleasePage(manifest)
             return
         }
+        report?(["state": "available", "version": manifest.version, "installable": true])
         download(manifest)
     }
 
@@ -1209,6 +1228,8 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         switch action {
         case "chooseFolder":
             chooseFolder(startingAt: body["current"] as? String, reply: replyHandler)
+        case "checkForUpdates":
+            checkForUpdatesForPage(reply: replyHandler)
         default:
             replyHandler(nil, "unknown action")
         }
@@ -1221,6 +1242,25 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         // Reader never uses; accepted so a future default-port run still works.
         return (origin.protocol == "http" || origin.protocol == "https")
             && loopback && (origin.port == readerPort || origin.port == 0)
+    }
+
+    /* About's button runs exactly the check the menu item runs. The request
+       carries nothing: no URL, no version, no permission to skip a step, so the
+       page cannot aim the updater at something of its own choosing. What comes
+       back is the outcome in words, for the status line.
+
+       The daily check is the thing `updates.check` switches off. This one is a
+       button somebody pressed, so it is answered the same way the menu item
+       answers it. */
+    private func checkForUpdatesForPage(reply: @escaping (Any?, String?) -> Void) {
+        // WebKit tolerates no second reply, and an update can end in more than
+        // one place, so only the first outcome is handed back.
+        var answered = false
+        checkForUpdates(userInitiated: true) { outcome in
+            guard !answered else { return }
+            answered = true
+            reply(outcome, nil)
+        }
     }
 
     /* Finder's own folder chooser: the sidebar, favourites, ⌘⇧G to type a path,
