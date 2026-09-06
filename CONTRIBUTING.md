@@ -74,6 +74,13 @@ Match what is around you. The Python is type-annotated and uses `pathlib`.
 The JavaScript is one file, in sections, with no build step. Comments explain
 why, not what.
 
+## Changelog
+
+Add a `CHANGELOG.md` entry under `## Unreleased` as part of the pull request
+that makes the change, since the person best placed to describe a change is
+whoever just made it. The release process renames that heading to the version
+number being released.
+
 ## Releasing
 
 Maintainers cutting a release should read `docs/releasing.md`.

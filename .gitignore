@@ -25,9 +25,6 @@ __pycache__/
 # CI for releases; it is not committed (actool regenerates Assets.car
 # nondeterministically and the signature changes on every build).
 /build/
-/install/*
-!/install/
-!/install/Reader.command
 .reader-build.*/
 
 # Release workflow output: built by write-release-manifest.sh and

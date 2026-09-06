@@ -4,7 +4,7 @@
 # Dock icons stay unified.
 #
 # The app it opens has to live outside this git checkout, at
-# ~/Applications/Reader.app, not the sibling install/Reader.app built here.
+# ~/Applications/Reader.app, not build/Reader.app produced by build-app.sh.
 # The in-app updater (once it lands) replaces a release's app bundle in place
 # on disk; doing that inside a git working tree would leave the checkout with
 # uncommitted changes nobody made and a bundle git no longer recognises. A
@@ -14,7 +14,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-BUILT_APP="$SCRIPT_DIR/Reader.app"
+BUILT_APP="$PROJECT_DIR/build/Reader.app"
 INSTALLED_APP="$HOME/Applications/Reader.app"
 
 # A local build that is newer than the installed copy replaces it, so a

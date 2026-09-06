@@ -54,6 +54,6 @@ jobs:
         run: ./macos/build-app.sh
       - name: Verify bundle
         run: |
-          codesign --verify --deep --strict install/Reader.app
-          cmp reader.py install/Reader.app/Contents/Resources/reader.py
-          cmp VERSION install/Reader.app/Contents/Resources/VERSION
+          codesign --verify --deep --strict build/Reader.app
+          cmp reader.py build/Reader.app/Contents/Resources/reader.py
+          cmp VERSION build/Reader.app/Contents/Resources/VERSION

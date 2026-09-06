@@ -8,10 +8,12 @@ ad-hoc.
 
 1. Bump `VERSION` at the repository root to the new version, for example
    `2.1.0`.
-2. Add a `## 2.1.0` section to `CHANGELOG.md`, above `## 2.0`, describing what
-   changed. The release workflow copies this section verbatim into the
-   GitHub release notes; a missing section falls back to a generic one-line
-   note, so it is worth writing.
+2. Rename the `## Unreleased` section in `CHANGELOG.md` to `## 2.1.0`; merged
+   pull requests add their entries there as they land, so the section should
+   already describe what changed. The release workflow copies this section
+   verbatim into the GitHub release notes; a missing section falls back to a
+   generic one-line note, so it is worth checking it is accurate before
+   tagging.
 3. Commit both files.
 4. Tag the commit and push the tag:
 

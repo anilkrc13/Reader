@@ -82,7 +82,7 @@ jobs:
         run: ./macos/build-app.sh
 
       - name: Verify signature
-        run: codesign --verify --deep --strict install/Reader.app
+        run: codesign --verify --deep --strict build/Reader.app
 
       - name: Package and write manifest
         run: ./macos/write-release-manifest.sh "$VERSION"

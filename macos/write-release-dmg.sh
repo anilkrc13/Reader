@@ -1,7 +1,7 @@
 #!/bin/bash
 # Builds the disk image that lets a first-time install be the familiar drag
 # Reader.app into Applications gesture. Run right after write-release-manifest.sh,
-# once install/Reader.app exists.
+# once build/Reader.app exists.
 #
 #   ./macos/write-release-dmg.sh 2.1.0
 #
@@ -15,7 +15,7 @@ set -euo pipefail
 
 VERSION="${1:?usage: write-release-dmg.sh <version>}"
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_BUNDLE="$ROOT_DIR/install/Reader.app"
+APP_BUNDLE="$ROOT_DIR/build/Reader.app"
 DMG_NAME="Reader-$VERSION.dmg"
 DMG_PATH="$ROOT_DIR/$DMG_NAME"
 VOLUME_NAME="Reader $VERSION"
