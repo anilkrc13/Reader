@@ -4,6 +4,14 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- `install/Reader.command` is now a one-step update action: double-clicking it
+  quits a running Reader (a graceful quit targeted at Reader's bundle
+  identifier, so the local server it owns shuts down and no other app is
+  touched), always rebuilds from source, installs the fresh build over
+  `~/Applications/Reader.app` only once the build succeeds, and reopens it.
+  Previously a stale build could be silently reinstalled, or an already-running
+  Reader could keep serving old code because `open` just refocused it instead
+  of launching the new binary.
 - The macOS build output moved from `install/Reader.app` to `build/Reader.app`.
   A directory called `install/` holding a double-clickable app bundle read as
   "the installed app lives here", when it was really just regenerated build

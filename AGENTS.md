@@ -12,9 +12,10 @@ contributors should start with `CONTRIBUTING.md`.
 
 `./macos/build-app.sh` produces `build/Reader.app`. That bundle is regenerated
 build output, not committed, and not something to launch directly: it is not
-the app the user runs day to day. `install/Reader.command` is the installer;
-double-clicking it copies `build/Reader.app` to `~/Applications/Reader.app`
-(building it first if needed) and opens that installed copy, which is the app
+the app the user runs day to day. `install/Reader.command` is the installer and the one-step update path;
+double-clicking it quits a running Reader, always rebuilds via
+`./macos/build-app.sh`, copies the fresh `build/Reader.app` to
+`~/Applications/Reader.app`, and opens that installed copy, which is the app
 the user actually runs.
 
 - After changing `static/`, `reader.py`, `reader_backend.py`, `VERSION`, the
