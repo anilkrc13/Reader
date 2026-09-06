@@ -68,8 +68,8 @@ Seven sections, in a dialog laid out like a modern desktop app:
 
 - **Appearance** — colour scheme (match system / light / dark), accent colour,
   light-mode paper (cream, white, sepia, grey), dark-mode surface
-  (ink, charcoal, black), a translucent frosted-glass panel option, and which
-  side the file panel sits on.
+  (ink, charcoal, black), interface size (small, medium, large), a translucent
+  frosted-glass panel option, and which side the file panel sits on.
 - **Reading** — three presets (Compact, Comfortable, Focus) plus individual
   control of body and heading typeface, text size, line height, line width and
   paragraph spacing. A live specimen shows the effect as you drag.

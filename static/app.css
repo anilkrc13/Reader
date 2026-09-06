@@ -53,6 +53,13 @@
   --sidebar-w:288px;
   --speed:.14s;
 
+  /* Interface size. Reader's own chrome (the settings dialog, the file panel,
+     the toolbar and the menus) is measured in rem, and the root font size below
+     is the only thing this setting moves. Document text is --fs-body and is
+     deliberately not derived from it, so a large interface can still hold
+     compact reading text and ⌘+ keeps meaning "bigger document text". */
+  --ui-scale:1;
+
   /* written by settings — these defaults keep the app usable without JS */
   --font-body:Lora,Georgia,serif;
   --fw-body:400;
@@ -75,6 +82,11 @@
   --accent-text:#a85c44;   /* accent adjusted until it reads at 4.5:1 on paper */
   --accent-on:#ffffff;
 }
+
+/* Three steps, an even ratio apart: one notch down for a dense interface, one
+   notch up for a roomy one. Medium is the design size everything is drawn at. */
+html[data-uiscale=small]{--ui-scale:.9}
+html[data-uiscale=large]{--ui-scale:1.15}
 
 /* --------------------------------------------------------------- palettes */
 :root,
@@ -140,9 +152,12 @@ html[data-theme=dark][data-code=vivid]{--c-key:#fb923c;--c-str:#a3e635;--c-num:#
 /* ------------------------------------------------------------------ shell */
 *{box-sizing:border-box}
 html,body{height:100%}
+/* rem is the chrome unit: every chrome measurement below is written in rem so
+   the interface-size setting moves all of it at once. */
+html{font-size:calc(16px * var(--ui-scale))}
 body{
   margin:0;background:var(--paper);color:var(--text);
-  font-family:var(--ui);font-size:14px;
+  font-family:var(--ui);font-size:.875rem;
   -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
   overflow:hidden;
 }
@@ -187,7 +202,7 @@ button{background:none;border:0;cursor:pointer}
    contrast, so it reads unmistakably as a control. */
 .icon-btn{
   display:inline-flex;align-items:center;justify-content:center;
-  width:32px;height:32px;border-radius:9px;flex:none;
+  width:2rem;height:2rem;border-radius:.5625rem;flex:none;
   color:var(--text);background:var(--raised);border:1px solid var(--border);
   box-shadow:0 1px 1px rgba(0,0,0,.04);
   transition:background var(--speed),color var(--speed),border-color var(--speed),transform var(--speed);
@@ -201,60 +216,60 @@ button{background:none;border:0;cursor:pointer}
 .icon-btn.accent:disabled{background:transparent;border-color:var(--border);color:var(--text)}
 .icon-btn.plain{background:none;border-color:transparent;box-shadow:none;color:var(--text-2)}
 .icon-btn.plain:hover{background:var(--panel-hi);color:var(--text);border-color:transparent}
-.icon-btn svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.6;
+.icon-btn svg{width:1.0625rem;height:1.0625rem;fill:none;stroke:currentColor;stroke-width:1.6;
   stroke-linecap:round;stroke-linejoin:round}
 
 /* ---------------------------------------------------------------- sidebar */
 #sidebar{
-  width:var(--sidebar-w);min-width:190px;max-width:560px;flex:none;
+  width:var(--sidebar-w);min-width:11.875rem;max-width:35rem;flex:none;
   background:var(--panel);border-right:1px solid var(--border);
   display:flex;flex-direction:column;overflow:hidden;
 }
-.side-head{display:flex;align-items:center;gap:8px;padding:8px 10px}
-.side-title{font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);flex:1}
+.side-head{display:flex;align-items:center;gap:.5rem;padding:.5rem .625rem}
+.side-title{font-weight:600;font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);flex:1}
 
 /* pinned folders and recently opened files share one visual language */
-.sec{padding:0 8px 8px;flex:none;border-bottom:1px solid var(--border)}
+.sec{padding:0 .5rem .5rem;flex:none;border-bottom:1px solid var(--border)}
 html[data-recents=off] #recents{display:none}
-.sec-bar{display:flex;align-items:center;gap:6px}
+.sec-bar{display:flex;align-items:center;gap:.375rem}
 .sec-head{
-  display:flex;align-items:center;gap:5px;flex:1;min-width:0;padding:5px 6px;border-radius:7px;
-  font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);
+  display:flex;align-items:center;gap:.3125rem;flex:1;min-width:0;padding:.3125rem .375rem;border-radius:.4375rem;
+  font-size:.6875rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);
 }
 .sec-head:hover{background:var(--panel-hi);color:var(--text-2)}
-.sec-head .caret{width:12px;height:12px;flex:none;transition:transform var(--speed)}
+.sec-head .caret{width:.75rem;height:.75rem;flex:none;transition:transform var(--speed)}
 .sec-head .caret.open{transform:rotate(90deg)}
 .sec-head svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .sec-head .count{margin-left:auto;font-weight:500;letter-spacing:0;text-transform:none;opacity:.8}
 /* same button language as the toolbar, one size down */
 .icon-mini{
-  display:inline-flex;align-items:center;justify-content:center;width:27px;height:27px;
-  border-radius:8px;flex:none;color:var(--text);
+  display:inline-flex;align-items:center;justify-content:center;width:1.6875rem;height:1.6875rem;
+  border-radius:.5rem;flex:none;color:var(--text);
   background:var(--raised);border:1px solid var(--border);box-shadow:0 1px 1px rgba(0,0,0,.04);
   transition:background var(--speed),color var(--speed),border-color var(--speed);
 }
 .icon-mini:hover{background:var(--accent-fill);border-color:var(--accent-fill);color:var(--accent-on)}
-.icon-mini svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;
+.icon-mini svg{width:.9375rem;height:.9375rem;fill:none;stroke:currentColor;stroke-width:2;
   stroke-linecap:round;stroke-linejoin:round}
 
 #pinnedlist,#recentlist{list-style:none;margin:2px 0 0;padding:0}
-#recentlist{max-height:196px;overflow:auto}
-#pinnedlist{max-height:216px;overflow:auto}
+#recentlist{max-height:12.25rem;overflow:auto}
+#pinnedlist{max-height:13.5rem;overflow:auto}
 #pinnedlist li,#recentlist li{position:relative}
 #pinnedlist li:hover > .rowact{color:var(--text-2)}
-.sec .row{gap:7px}
-.sec .sub{font-size:11px;color:var(--text-3);margin-left:auto;padding-left:8px;
+.sec .row{gap:.4375rem}
+.sec .sub{font-size:.6875rem;color:var(--text-3);margin-left:auto;padding-left:.5rem;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:45%;flex:none}
 /* full accent-on, no opacity: the ratio is engineered to be exactly enough,
    and diluting it re-creates the unreadable sub this standard exists to fix */
 .sec .row.active .sub{color:var(--accent-on)}
 .sec .row.current{color:var(--text);font-weight:600}
 .sec .row.current .fi{color:var(--accent);opacity:1}
-.sec-empty{padding:5px 8px 2px;font-size:12px;color:var(--text-3);font-style:italic;line-height:1.4}
+.sec-empty{padding:.3125rem .5rem .125rem;font-size:.75rem;color:var(--text-3);font-style:italic;line-height:1.4}
 .rowline{position:relative}
 .rowact{
-  position:absolute;right:4px;top:50%;transform:translateY(-50%);
-  width:24px;height:24px;border-radius:7px;display:none;align-items:center;justify-content:center;
+  position:absolute;right:.25rem;top:50%;transform:translateY(-50%);
+  width:1.5rem;height:1.5rem;border-radius:.4375rem;display:none;align-items:center;justify-content:center;
   color:var(--text-2);background:var(--raised);border:1px solid var(--border);
   transition:background var(--speed),color var(--speed),border-color var(--speed);
 }
@@ -262,37 +277,37 @@ html[data-recents=off] #recents{display:none}
 .rowline:focus-within > .rowact,li:focus-within > .rowact{display:flex}
 .rowact:hover{background:var(--panel-hi);border-color:var(--text-3);color:var(--text)}
 .rowact[data-delete]:hover{background:var(--danger);border-color:var(--danger);color:#fff}
-.rowact svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.7;
+.rowact svg{width:.875rem;height:.875rem;fill:none;stroke:currentColor;stroke-width:1.7;
   stroke-linecap:round;stroke-linejoin:round}
 .rowline:hover > .row,li:hover > .row,
-.rowline:focus-within > .row,li:focus-within > .row{padding-right:33px}
+.rowline:focus-within > .row,li:focus-within > .row{padding-right:2.0625rem}
 /* on the highlighted row the action sits on the accent, so drop the chrome */
 .rowline:has(.row.active) > .rowact{background:transparent;border-color:transparent;color:var(--accent-on)}
 .rowline:has(.row.active) > .rowact:hover{background:var(--danger);border-color:var(--danger);color:#fff}
 
 /* where-you-are header — the Finder pattern: a name, not a path */
-.loc{display:flex;align-items:center;gap:6px;margin:10px 12px 8px}
+.loc{display:flex;align-items:center;gap:.375rem;margin:.625rem .75rem .5rem}
 .loc-name{
-  flex:1;min-width:0;display:flex;align-items:center;gap:8px;
-  padding:5px 8px 5px 9px;border-radius:8px;font-size:13px;font-weight:600;
+  flex:1;min-width:0;display:flex;align-items:center;gap:.5rem;
+  padding:.3125rem .5rem .3125rem .5625rem;border-radius:.5rem;font-size:.8125rem;font-weight:600;
   color:var(--text);background:var(--surface);border:1px solid var(--border);
   transition:border-color var(--speed),background var(--speed);
 }
 .loc-name:hover{border-color:var(--text-3)}
 .loc-name .nm{flex:1;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.loc-folder{width:15px;height:15px;flex:none;fill:none;stroke:var(--accent);stroke-width:1.6;
+.loc-folder{width:.9375rem;height:.9375rem;flex:none;fill:none;stroke:var(--accent);stroke-width:1.6;
   stroke-linecap:round;stroke-linejoin:round}
-.loc-caret{width:13px;height:13px;flex:none;fill:none;stroke:var(--text-3);stroke-width:1.8;
+.loc-caret{width:.8125rem;height:.8125rem;flex:none;fill:none;stroke:var(--text-3);stroke-width:1.8;
   stroke-linecap:round;stroke-linejoin:round}
 #btn-up:disabled{opacity:.35;cursor:default;background:var(--raised)}
-.menu-item .mi-here{margin-left:auto;font-size:11px;font-weight:500;color:var(--text-3)}
+.menu-item .mi-here{margin-left:auto;font-size:.6875rem;font-weight:500;color:var(--text-3)}
 
-.tree-wrap{flex:1;overflow:auto;padding:0 8px 8px;overscroll-behavior:contain}
+.tree-wrap{flex:1;overflow:auto;padding:0 .5rem .5rem;overscroll-behavior:contain}
 .tree,.tree ul{list-style:none;margin:0;padding:0}
-.tree ul{margin-left:11px;border-left:1px solid var(--border-soft);padding-left:4px}
+.tree ul{margin-left:.6875rem;border-left:1px solid var(--border-soft);padding-left:.25rem}
 .row{
-  display:flex;align-items:center;gap:6px;width:100%;text-align:left;
-  padding:4.5px 7px;border-radius:7px;font-size:13px;color:var(--text-2);
+  display:flex;align-items:center;gap:.375rem;width:100%;text-align:left;
+  padding:.28125rem .4375rem;border-radius:.4375rem;font-size:.8125rem;color:var(--text-2);
   line-height:1.35;transition:background var(--speed),color var(--speed);
 }
 .row:hover{background:var(--panel-hi);color:var(--text)}
@@ -302,17 +317,17 @@ html[data-recents=off] #recents{display:none}
 .row.unsupported{color:var(--text-3)}
 .row.unsupported .fi{opacity:.5}
 .row.unsupported:hover{color:var(--text-2)}
-.row .caret{width:12px;height:12px;flex:none;transition:transform var(--speed);opacity:.7}
+.row .caret{width:.75rem;height:.75rem;flex:none;transition:transform var(--speed);opacity:.7}
 .row .caret.open{transform:rotate(90deg)}
-.row .fi{width:14px;height:14px;flex:none;opacity:.85}
+.row .fi{width:.875rem;height:.875rem;flex:none;opacity:.85}
 .row .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row svg{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
-.tree .msg{padding:6px 9px;font-size:12px;color:var(--text-3);font-style:italic}
+.tree .msg{padding:.375rem .5625rem;font-size:.75rem;color:var(--text-3);font-style:italic}
 
-.side-foot{display:flex;align-items:center;gap:8px;padding:8px 14px;border-top:1px solid var(--border)}
-.text-btn{font-size:12px;color:var(--text-3);padding:3px 7px;border-radius:6px;transition:all var(--speed)}
+.side-foot{display:flex;align-items:center;gap:.5rem;padding:.5rem .875rem;border-top:1px solid var(--border)}
+.text-btn{font-size:.75rem;color:var(--text-3);padding:.1875rem .4375rem;border-radius:.375rem;transition:all var(--speed)}
 .text-btn:hover{background:var(--panel-hi);color:var(--text)}
-.foot-note{font-size:11px;color:var(--text-3);margin-left:auto;font-variant-numeric:tabular-nums}
+.foot-note{font-size:.6875rem;color:var(--text-3);margin-left:auto;font-variant-numeric:tabular-nums}
 html[data-wordcount=off] .foot-note{visibility:hidden}
 
 /* optional glass panel — a browser cannot sample the desktop behind the
@@ -346,26 +361,26 @@ html[data-glass=on][data-sidebar=hidden] #sidebar{
 /* ---------------------------------------------------------------- toolbar */
 #main{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--paper)}
 #toolbar{
-  display:flex;align-items:center;gap:7px;height:54px;flex:none;
-  padding:0 13px 0 11px;border-bottom:1px solid var(--border);background:var(--paper);
+  display:flex;align-items:center;gap:.4375rem;height:3.375rem;flex:none;
+  padding:0 .8125rem 0 .6875rem;border-bottom:1px solid var(--border);background:var(--paper);
 }
-.doc-title{display:flex;align-items:center;gap:7px;min-width:0;padding-left:3px}
-#docname{font-family:var(--ui);font-weight:650;font-size:15px;letter-spacing:-.015em;
+.doc-title{display:flex;align-items:center;gap:.4375rem;min-width:0;padding-left:.1875rem}
+#docname{font-family:var(--ui);font-weight:650;font-size:.9375rem;letter-spacing:-.015em;
   line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
+.dot{width:.4375rem;height:.4375rem;border-radius:50%;background:var(--accent);flex:none}
 .live{
-  display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;
+  display:inline-flex;align-items:center;gap:.3125rem;font-size:.65625rem;font-weight:600;
   letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);flex:none;
 }
 .live::before{content:"";width:6px;height:6px;border-radius:50%;background:#788c5d;
   box-shadow:0 0 0 3px color-mix(in srgb,#788c5d 22%,transparent)}
 html:not([data-watch=on]) .live{display:none}
 .spacer{flex:1}
-.tool-sep{width:1px;height:20px;background:var(--border);flex:none;margin:0 3px}
+.tool-sep{width:1px;height:1.25rem;background:var(--border);flex:none;margin:0 .1875rem}
 
-.segmented{display:flex;gap:2px;padding:2.5px;border-radius:10px;background:var(--panel);
+.segmented{display:flex;gap:.125rem;padding:.15625rem;border-radius:.625rem;background:var(--panel);
   border:1px solid var(--border)}
-.seg{font-size:12px;font-weight:500;color:var(--text-2);padding:4.5px 12px;border-radius:7px;
+.seg{font-size:.75rem;font-weight:500;color:var(--text-2);padding:.28125rem .75rem;border-radius:.4375rem;
   transition:all var(--speed)}
 .seg:hover{color:var(--text)}
 html[data-mode=preview] .seg[data-mode=preview],
@@ -381,17 +396,17 @@ html[data-full=on] #btn-full .ic-exit{display:block}
 
 /* file changed on disk while you were editing */
 #diskbar{
-  display:flex;align-items:center;gap:10px;flex:none;padding:9px 16px;
+  display:flex;align-items:center;gap:.625rem;flex:none;padding:.5625rem 1rem;
   background:color-mix(in srgb,var(--accent) 12%,var(--paper));
   border-bottom:1px solid color-mix(in srgb,var(--accent) 35%,var(--border));
-  font-size:12.5px;color:var(--text);
+  font-size:.78125rem;color:var(--text);
 }
 #diskbar[hidden]{display:none}
-#diskbar svg{width:15px;height:15px;flex:none;fill:none;stroke:var(--accent);stroke-width:1.7;
+#diskbar svg{width:.9375rem;height:.9375rem;flex:none;fill:none;stroke:var(--accent);stroke-width:1.7;
   stroke-linecap:round;stroke-linejoin:round}
 #diskbar .grow{flex:1}
 .mini-btn{
-  font-size:12px;font-weight:500;padding:4px 10px;border-radius:7px;
+  font-size:.75rem;font-weight:500;padding:.25rem .625rem;border-radius:.4375rem;
   border:1px solid var(--border);background:var(--raised);transition:all var(--speed);
 }
 .mini-btn:hover{border-color:var(--text-3)}
@@ -403,17 +418,17 @@ html[data-full=on] #btn-full .ic-exit{display:block}
 /* Find a file: the panel's own search, sharing the loc-bar's proportions so it
    reads as part of the panel rather than something dropped on top of it. */
 #filefind{
-  display:flex;align-items:center;gap:6px;flex:none;
-  padding:5px 8px 5px 10px;border-bottom:1px solid var(--border-soft);
+  display:flex;align-items:center;gap:.375rem;flex:none;
+  padding:.3125rem .5rem .3125rem .625rem;border-bottom:1px solid var(--border-soft);
 }
 #filefind[hidden]{display:none}
 #filefind>svg{
-  width:13px;height:13px;flex:none;fill:none;stroke:var(--text-3);
+  width:.8125rem;height:.8125rem;flex:none;fill:none;stroke:var(--text-3);
   stroke-width:1.7;stroke-linecap:round;
 }
 #filefind-q{
   flex:1;min-width:0;border:0;background:transparent;
-  font:inherit;font-size:13px;color:var(--text);padding:2px 0;
+  font:inherit;font-size:.8125rem;color:var(--text);padding:.125rem 0;
 }
 #filefind-q:focus{outline:none}
 #filefind-q::placeholder{color:var(--text-3)}
@@ -823,35 +838,35 @@ html[data-tableborders=on] .prose td + td{border-left:1px solid var(--rule)}
 /* ============================================================== dialogs */
 .scrim{
   position:fixed;inset:0;z-index:100;background:var(--scrim);
-  backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:28px;
+  backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:1.75rem;
   animation:fade .16s ease;
 }
 .scrim[hidden]{display:none}
 #confirm{z-index:110}
 
 .dialog-sm{
-  width:min(420px,100%);background:var(--surface);border:1px solid var(--border);
-  border-radius:16px;box-shadow:var(--shadow-lg);padding:26px 26px 20px;text-align:center;
+  width:min(26.25rem,100%);background:var(--surface);border:1px solid var(--border);
+  border-radius:1rem;box-shadow:var(--shadow-lg);padding:1.625rem 1.625rem 1.25rem;text-align:center;
   animation:rise .18s cubic-bezier(.2,.7,.3,1);
 }
 .cf-mark{
-  width:46px;height:46px;margin:0 auto 14px;border-radius:50%;
+  width:2.875rem;height:2.875rem;margin:0 auto .875rem;border-radius:50%;
   display:grid;place-items:center;background:var(--danger-soft);
 }
-.cf-mark svg{width:21px;height:21px;fill:none;stroke:var(--danger);stroke-width:1.5;
+.cf-mark svg{width:1.3125rem;height:1.3125rem;fill:none;stroke:var(--danger);stroke-width:1.5;
   stroke-linecap:round;stroke-linejoin:round}
-.dialog-sm h3{font-size:16.5px;font-weight:600;letter-spacing:-.02em;margin:0 0 7px}
-.cf-body{font-size:13.5px;line-height:1.55;color:var(--text-2);margin:0 0 10px}
+.dialog-sm h3{font-size:1.03125rem;font-weight:600;letter-spacing:-.02em;margin:0 0 .4375rem}
+.cf-body{font-size:.84375rem;line-height:1.55;color:var(--text-2);margin:0 0 .625rem}
 .cf-body b{color:var(--text);font-weight:600}
 .cf-path{
-  font-family:var(--font-mono);font-size:11.5px;color:var(--text-3);margin:0 0 12px;
-  background:var(--panel);border:1px solid var(--border-soft);border-radius:8px;
-  padding:7px 10px;word-break:break-all;line-height:1.45;
+  font-family:var(--font-mono);font-size:.71875rem;color:var(--text-3);margin:0 0 .75rem;
+  background:var(--panel);border:1px solid var(--border-soft);border-radius:.5rem;
+  padding:.4375rem .625rem;word-break:break-all;line-height:1.45;
 }
-.cf-note{font-size:12px;color:var(--text-3);margin:0 0 18px;line-height:1.5}
-.cf-actions{display:flex;gap:9px}
+.cf-note{font-size:.75rem;color:var(--text-3);margin:0 0 1.125rem;line-height:1.5}
+.cf-actions{display:flex;gap:.5625rem}
 .btn{
-  flex:1;font-size:13px;font-weight:600;padding:9px 14px;border-radius:10px;
+  flex:1;font-size:.8125rem;font-weight:600;padding:.5625rem .875rem;border-radius:.625rem;
   border:1px solid var(--border);background:var(--raised);color:var(--text);
   transition:all var(--speed);
 }
@@ -865,8 +880,8 @@ html[data-tableborders=on] .prose td + td{border-left:1px solid var(--rule)}
 .cf-mark.neutral{background:var(--panel-hi)}
 .cf-mark.neutral svg{stroke:var(--text-2)}
 .dlg-input{
-  width:100%;font-size:13.5px;font-weight:500;padding:9px 12px;margin:2px 0 12px;
-  border:1px solid var(--border);border-radius:9px;background:var(--raised);color:var(--text);
+  width:100%;font-size:.84375rem;font-weight:500;padding:.5625rem .75rem;margin:.125rem 0 .75rem;
+  border:1px solid var(--border);border-radius:.5625rem;background:var(--raised);color:var(--text);
   outline:none;text-align:left;transition:border-color var(--speed);
 }
 .dlg-input:focus{border-color:var(--accent)}
@@ -874,21 +889,21 @@ html[data-tableborders=on] .prose td + td{border-left:1px solid var(--rule)}
 /* Where a new document will land. A quiet strip rather than another field: it
    is information first, and only occasionally something to change. */
 .nd-where{
-  display:flex;align-items:center;gap:8px;margin:0 0 12px;padding:7px 10px;
+  display:flex;align-items:center;gap:.5rem;margin:0 0 .75rem;padding:.4375rem .625rem;
   background:var(--panel);border:1px solid var(--border-soft);
-  border-radius:9px;text-align:left;
+  border-radius:.5625rem;text-align:left;
 }
 .nd-where>svg{
-  width:14px;height:14px;flex:none;fill:none;stroke:var(--accent);
+  width:.875rem;height:.875rem;flex:none;fill:none;stroke:var(--accent);
   stroke-width:1.5;stroke-linejoin:round;
 }
 .nd-where-path{
-  flex:1;min-width:0;font-size:12.5px;color:var(--text-2);
+  flex:1;min-width:0;font-size:.78125rem;color:var(--text-2);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .nd-change{
-  flex:none;border:0;background:transparent;padding:3px 6px;border-radius:6px;
-  font:inherit;font-size:12px;font-weight:600;color:var(--accent-text);
+  flex:none;border:0;background:transparent;padding:.1875rem .375rem;border-radius:.375rem;
+  font:inherit;font-size:.75rem;font-weight:600;color:var(--accent-text);
   cursor:pointer;transition:background var(--speed);
 }
 .nd-change:hover{background:var(--panel-hi)}
@@ -896,49 +911,49 @@ html[data-tableborders=on] .prose td + td{border-left:1px solid var(--rule)}
 
 /* Picking a folder happens in the same dialog rather than a second one -- the
    name already typed stays where it is, and Back returns to it untouched. */
-.nd-pick-bar{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+.nd-pick-bar{display:flex;align-items:center;gap:.5rem;margin:0 0 .5rem}
 .nd-pick-here{
-  flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--text);
+  flex:1;min-width:0;font-size:.8125rem;font-weight:600;color:var(--text);
   text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .nd-pick-list{
-  list-style:none;margin:0 0 14px;padding:4px;max-height:216px;overflow:auto;
-  background:var(--panel);border:1px solid var(--border-soft);border-radius:9px;
+  list-style:none;margin:0 0 .875rem;padding:.25rem;max-height:13.5rem;overflow:auto;
+  background:var(--panel);border:1px solid var(--border-soft);border-radius:.5625rem;
   text-align:left;
 }
 .nd-pick-list li{margin:0}
 .nd-pick-list button{
-  display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;
-  border:0;background:transparent;border-radius:6px;
-  font:inherit;font-size:13px;color:var(--text);text-align:left;cursor:pointer;
+  display:flex;align-items:center;gap:.5rem;width:100%;padding:.375rem .5rem;
+  border:0;background:transparent;border-radius:.375rem;
+  font:inherit;font-size:.8125rem;color:var(--text);text-align:left;cursor:pointer;
 }
 .nd-pick-list button:hover{background:var(--panel-hi)}
 .nd-pick-list button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .nd-pick-list button svg{
-  width:14px;height:14px;flex:none;fill:none;stroke:var(--accent);stroke-width:1.5;
+  width:.875rem;height:.875rem;flex:none;fill:none;stroke:var(--accent);stroke-width:1.5;
 }
 .nd-pick-list .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.nd-pick-msg{padding:14px 10px;font-size:12px;color:var(--text-3);text-align:center}
+.nd-pick-msg{padding:.875rem .625rem;font-size:.75rem;color:var(--text-3);text-align:center}
 
 /* ------------------------------------------------------- row action menu */
 #ctxmenu{
-  position:fixed;z-index:130;min-width:196px;padding:5px;
-  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  position:fixed;z-index:130;min-width:12.25rem;padding:.3125rem;
+  background:var(--surface);border:1px solid var(--border);border-radius:.75rem;
   box-shadow:var(--shadow-lg);animation:rise .14s cubic-bezier(.2,.7,.3,1);
 }
 #ctxmenu[hidden]{display:none}
 
 /* ------------------------------------------------- quick edit format bar */
 #fmtbar{
-  position:fixed;z-index:140;display:flex;align-items:center;gap:2px;padding:4px;
-  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  position:fixed;z-index:140;display:flex;align-items:center;gap:.125rem;padding:.25rem;
+  background:var(--surface);border:1px solid var(--border);border-radius:.625rem;
   box-shadow:var(--shadow-lg);animation:rise .12s cubic-bezier(.2,.7,.3,1);
   font-family:var(--ui);
 }
 #fmtbar[hidden]{display:none}
 #fmtbar button{
-  min-width:28px;height:28px;padding:0 6px;border-radius:7px;
-  font-size:12.5px;font-weight:600;color:var(--text);
+  min-width:1.75rem;height:1.75rem;padding:0 .375rem;border-radius:.4375rem;
+  font-size:.78125rem;font-weight:600;color:var(--text);
   transition:background var(--speed),color var(--speed);
 }
 #fmtbar button:hover{background:var(--panel-hi)}
@@ -947,147 +962,158 @@ html[data-tableborders=on] .prose td + td{border-left:1px solid var(--rule)}
 #fmtbar .fmt-i{font-style:italic;font-family:var(--font-body)}
 #fmtbar .fmt-u{text-decoration:underline}
 #fmtbar .fmt-s{text-decoration:line-through}
-#fmtbar .fmt-c{font-family:var(--font-mono);font-size:11px}
-#fmtbar .fmt-sep{width:1px;height:18px;margin:0 3px;background:var(--border)}
-#fmtbar button svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.5;
+#fmtbar .fmt-c{font-family:var(--font-mono);font-size:.6875rem}
+#fmtbar .fmt-sep{width:1px;height:1.125rem;margin:0 .1875rem;background:var(--border)}
+#fmtbar button svg{width:.875rem;height:.875rem;fill:none;stroke:currentColor;stroke-width:1.5;
   stroke-linecap:round;stroke-linejoin:round}
 /* the indent pair only appears when the selection sits in a list item */
 #fmtbar:not(.in-list) .fmt-li{display:none}
 #fmtbar button:disabled{opacity:.35;pointer-events:none}
 .menu-item{
-  display:flex;align-items:center;gap:10px;width:100%;text-align:left;
-  padding:7.5px 10px;border-radius:8px;font-size:13px;font-weight:500;color:var(--text);
+  display:flex;align-items:center;gap:.625rem;width:100%;text-align:left;
+  padding:.46875rem .625rem;border-radius:.5rem;font-size:.8125rem;font-weight:500;color:var(--text);
   transition:background var(--speed),color var(--speed);
 }
 .menu-item:hover{background:var(--panel-hi)}
 .menu-item.danger{color:var(--danger)}
 .menu-item.danger:hover{background:var(--danger);color:#fff}
-.menu-item svg{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;
+.menu-item svg{width:.9375rem;height:.9375rem;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;
   stroke-linecap:round;stroke-linejoin:round}
-.menu-sep{height:1px;background:var(--border-soft);margin:5px 7px}
+.menu-sep{height:1px;background:var(--border-soft);margin:.3125rem .4375rem}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 @keyframes rise{from{opacity:0;transform:translateY(8px) scale(.99)}to{opacity:1;transform:none}}
 
+/* --------------------------------------------------------- settings dialog
+   Sized in rem against the interface scale and capped by the viewport, so it
+   grows with the interface setting and with the window instead of sitting as
+   one fixed box on every display. */
 #settings{
-  display:flex;width:min(1020px,100%);height:min(680px,100%);
-  background:var(--surface);border:1px solid var(--border);border-radius:16px;
+  display:flex;width:min(72rem,100%);height:min(48rem,100%);
+  background:var(--surface);border:1px solid var(--border);border-radius:1rem;
   box-shadow:var(--shadow-lg);overflow:hidden;animation:rise .18s cubic-bezier(.2,.7,.3,1);
 }
 
 .set-rail{
-  width:218px;flex:none;background:var(--panel);border-right:1px solid var(--border);
-  display:flex;flex-direction:column;padding:16px 10px;gap:2px;
+  width:clamp(11.5rem,21%,15rem);flex:none;background:var(--panel);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;padding:1.25rem .75rem;gap:.125rem;overflow:auto;
 }
 /* Fine-tuning disclosure inside a typography group: the typeface row above
    stays visible while the detailed controls fold behind this compact summary,
    keeping Body and Headings parallel and the panel short by default. */
 details.sub-collapse>summary{list-style:none;cursor:pointer;user-select:none;
-  display:flex;align-items:center;gap:7px;padding:10px 0;
-  font-size:11.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+  display:flex;align-items:center;gap:.5rem;padding:.875rem 0;
+  font-size:.75rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
   color:var(--text-3);transition:color var(--speed)}
 details.sub-collapse>summary:hover{color:var(--text)}
 details.sub-collapse>summary::-webkit-details-marker{display:none}
 details.sub-collapse[open]>summary{border-bottom:1px solid var(--border-soft)}
-.gt-caret{width:0;height:0;border-left:4px solid transparent;
-  border-right:4px solid transparent;border-top:5px solid currentColor;
+.gt-caret{width:0;height:0;border-left:.25rem solid transparent;
+  border-right:.25rem solid transparent;border-top:.3125rem solid currentColor;
   transition:transform var(--speed)}
 details.sub-collapse[open]>summary .gt-caret{transform:rotate(180deg)}
 /* Sub-headers inside a fine-tune disclosure separate the document-title
    controls from the H1-H6 hierarchy controls. */
-.sub-title{font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
-  color:var(--text-3);margin:16px 0 2px}
-.sub-title:first-of-type{margin-top:8px}
-.set-rail h2{font-size:14px;font-weight:700;letter-spacing:-.01em;margin:0 0 12px;padding:0 8px}
+.sub-title{font-size:.6875rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-3);margin:1.25rem 0 .125rem}
+.sub-title:first-of-type{margin-top:.5rem}
+.set-rail h2{font-size:1.0625rem;font-weight:700;letter-spacing:-.015em;margin:0 0 .875rem;padding:0 .625rem}
 .cat{
-  display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;
-  font-size:13px;font-weight:500;color:var(--text-2);text-align:left;width:100%;
+  display:flex;align-items:center;gap:.75rem;padding:.5625rem .75rem;border-radius:.625rem;
+  font-size:.875rem;font-weight:500;color:var(--text-2);text-align:left;width:100%;
   transition:background var(--speed),color var(--speed);
 }
 .cat:hover{background:var(--panel-hi);color:var(--text)}
 .cat[aria-selected=true]{background:var(--accent-fill);color:var(--accent-on)}
-.cat svg{width:17px;height:17px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;
+.cat svg{width:1.125rem;height:1.125rem;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;
   stroke-linecap:round;stroke-linejoin:round}
-.rail-foot{margin-top:auto;padding:10px 4px 0;border-top:1px solid var(--border)}
+.rail-foot{margin-top:auto;padding:.75rem .25rem 0;border-top:1px solid var(--border)}
 
 .set-body{flex:1;min-width:0;display:flex;flex-direction:column}
 .set-head{
-  display:flex;align-items:center;gap:10px;padding:16px 18px 14px;
+  display:flex;align-items:center;gap:.75rem;padding:1.25rem 1.75rem 1.125rem;
   border-bottom:1px solid var(--border);flex:none;
 }
-.set-head h3{font-size:15px;font-weight:600;letter-spacing:-.01em;margin:0;flex:1}
-.set-scroll{flex:1;overflow:auto;padding:4px 18px 20px;overscroll-behavior:contain}
+.set-head h3{font-size:1.25rem;font-weight:650;letter-spacing:-.02em;margin:0;flex:1}
+.set-scroll{flex:1;overflow:auto;padding:.25rem 1.75rem 2rem;overscroll-behavior:contain}
 .panel[hidden]{display:none}
 
-.group{margin-top:18px}
-.group:first-child{margin-top:10px}
-.group-title{
-  font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--text-3);margin:0 0 2px;
+/* Each group is a card with its own heading, so the sections read as separate
+   things rather than one continuous run of rows. The tint is mixed from the
+   theme's own panel colour, so it follows every paper and surface choice. */
+.group{
+  margin-top:1.5rem;padding:0 1.25rem;border:1px solid var(--border);border-radius:.875rem;
+  background:color-mix(in srgb,var(--panel) 55%,transparent);
 }
-.set-row{display:flex;align-items:center;gap:18px;padding:12px 0;border-bottom:1px solid var(--border-soft)}
+.group:first-child{margin-top:1rem}
+.group-title{
+  font-size:.9375rem;font-weight:650;letter-spacing:-.01em;color:var(--text);
+  margin:0;padding:1rem 0 .875rem;border-bottom:1px solid var(--border-soft);
+}
+.set-row{display:flex;align-items:center;gap:2rem;padding:1.125rem 0;border-bottom:1px solid var(--border-soft)}
 .set-row:last-child{border-bottom:0}
 .set-row[hidden]{display:none}
-.set-row.stack{flex-direction:column;align-items:stretch;gap:10px}
+.set-row.stack{flex-direction:column;align-items:stretch;gap:.75rem}
 .set-label{flex:1;min-width:0}
-.set-label b{display:block;font-size:13px;font-weight:600;letter-spacing:-.01em}
-.set-label span{display:block;font-size:12px;color:var(--text-3);margin-top:2px;line-height:1.45}
-.set-control{flex:none;display:flex;align-items:center;gap:8px}
+.set-label b{display:block;font-size:.9375rem;font-weight:600;letter-spacing:-.01em;line-height:1.35}
+.set-label span{display:block;font-size:.8125rem;color:var(--text-3);margin-top:.25rem;line-height:1.5}
+.set-control{flex:none;display:flex;align-items:center;gap:.5rem}
 
 select.control{
-  appearance:none;background-color:var(--raised);border:1px solid var(--border);border-radius:9px;
-  padding:6.5px 30px 6.5px 11px;font-size:12.5px;font-weight:500;cursor:pointer;min-width:158px;
+  appearance:none;background-color:var(--raised);border:1px solid var(--border);border-radius:.625rem;
+  padding:.5rem 1.9375rem .5rem .75rem;font-size:.8125rem;font-weight:500;cursor:pointer;min-width:11rem;
   background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%238a887e' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 6.5 8 10l3.5-3.5'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 9px center;background-size:14px;
+  background-repeat:no-repeat;background-position:right .5625rem center;background-size:.875rem;
 }
 select.control:hover{border-color:var(--text-3)}
 
-.pills{display:flex;gap:3px;padding:3px;border-radius:10px;background:var(--panel);border:1px solid var(--border)}
-.pill{font-size:12px;font-weight:500;color:var(--text-2);padding:5px 11px;border-radius:7px;
-  display:inline-flex;align-items:center;gap:6px;transition:all var(--speed);white-space:nowrap}
+.pills{display:flex;gap:.1875rem;padding:.1875rem;border-radius:.625rem;background:var(--panel);border:1px solid var(--border)}
+.pill{font-size:.8125rem;font-weight:500;color:var(--text-2);padding:.375rem .75rem;border-radius:.4375rem;
+  display:inline-flex;align-items:center;gap:.375rem;transition:all var(--speed);white-space:nowrap}
 .pill:hover{color:var(--text)}
 .pill[aria-pressed=true]{background:var(--raised);color:var(--text);box-shadow:var(--shadow)}
-.pill svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.7;
+.pill svg{width:.875rem;height:.875rem;fill:none;stroke:currentColor;stroke-width:1.7;
   stroke-linecap:round;stroke-linejoin:round}
 
-.swatches{display:flex;gap:8px}
+.swatches{display:flex;gap:.5rem}
 .swatch{
-  width:27px;height:27px;border-radius:50%;border:2px solid transparent;
+  width:1.75rem;height:1.75rem;border-radius:50%;border:2px solid transparent;
   box-shadow:inset 0 0 0 1px rgba(128,128,128,.35);position:relative;transition:transform var(--speed);
 }
 .swatch:hover{transform:scale(1.08)}
 .swatch[aria-pressed=true]{border-color:var(--text)}
 .swatch[aria-pressed=true]::after{
-  content:"";position:absolute;inset:0;margin:auto;width:9px;height:9px;border-radius:50%;
+  content:"";position:absolute;inset:0;margin:auto;width:.5625rem;height:.5625rem;border-radius:50%;
   background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.2);
 }
 
-.slider{display:flex;align-items:center;gap:11px;min-width:min(320px,34vw)}
-.slider input[type=range]{flex:1;appearance:none;height:4px;border-radius:99px;background:var(--panel-hi);outline:none}
+.slider{display:flex;align-items:center;gap:.6875rem;min-width:min(20rem,34vw)}
+.slider input[type=range]{flex:1;appearance:none;height:.25rem;border-radius:99px;background:var(--panel-hi);outline:none}
 .slider input[type=range]::-webkit-slider-thumb{
-  appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);
+  appearance:none;width:1rem;height:1rem;border-radius:50%;background:var(--accent);
   border:2px solid var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.25);cursor:grab;
 }
 .slider input[type=range]:active::-webkit-slider-thumb{cursor:grabbing}
 .slider input[type=range]::-moz-range-thumb{
-  width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid var(--surface);cursor:grab;
+  width:.875rem;height:.875rem;border-radius:50%;background:var(--accent);border:2px solid var(--surface);cursor:grab;
 }
-.slider .val{font-size:12px;font-weight:600;color:var(--text-2);min-width:52px;text-align:right;
+.slider .val{font-size:.8125rem;font-weight:600;color:var(--text-2);min-width:3.5rem;text-align:right;
   font-variant-numeric:tabular-nums}
 
 .switch{
-  width:40px;height:23px;border-radius:99px;background:var(--panel-hi);border:1px solid var(--border);
+  width:2.625rem;height:1.5rem;border-radius:99px;background:var(--panel-hi);border:1px solid var(--border);
   position:relative;transition:background var(--speed),border-color var(--speed);flex:none;
 }
 .switch::after{
-  content:"";position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;
+  content:"";position:absolute;top:.125rem;left:.125rem;width:1.125rem;height:1.125rem;border-radius:50%;
   background:var(--raised);box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform var(--speed);
 }
 .switch[aria-checked=true]{background:var(--accent-fill);border-color:var(--accent-fill)}
-.switch[aria-checked=true]::after{transform:translateX(17px);background:#fff}
+.switch[aria-checked=true]::after{transform:translateX(1.125rem);background:#fff}
 
 .specimen{
   border:1px solid var(--border);border-radius:var(--radius);background:var(--paper);
-  padding:16px 18px;overflow:hidden;
+  padding:1rem 1.125rem;overflow:hidden;
 }
 .specimen .sp-h{font-family:var(--font-head);font-weight:600;letter-spacing:-.02em;
   font-size:calc(var(--fs-body) * 1.24);margin:0 0 .35em;color:var(--text);line-height:1.3}
@@ -1097,17 +1123,35 @@ select.control:hover{border-color:var(--text-3)}
 .specimen .sp-c b{color:var(--c-key);font-weight:500}
 .specimen .sp-c i{color:var(--c-str);font-style:normal}
 
-.keys{width:100%;border-collapse:collapse;font-size:13px}
-.keys td{padding:9px 0;border-bottom:1px solid var(--border-soft);color:var(--text-2)}
+.keys{width:100%;border-collapse:collapse;font-size:.875rem}
+.keys td{padding:.75rem 0;border-bottom:1px solid var(--border-soft);color:var(--text-2)}
 .keys tr:last-child td{border-bottom:0}
 .keys td:last-child{text-align:right}
 kbd.k{
-  font-family:var(--font-mono);font-size:11.5px;padding:3px 7px;border-radius:6px;
+  font-family:var(--font-mono);font-size:.75rem;padding:.1875rem .4375rem;border-radius:.375rem;
   border:1px solid var(--border);border-bottom-width:2px;background:var(--panel);color:var(--text);
 }
-.about p{font-size:13px;line-height:1.65;color:var(--text-2);margin:0 0 11px}
-.about b{color:var(--text)}
-.about code{font-family:var(--font-mono);font-size:12px;background:var(--panel-hi);padding:.12em .4em;border-radius:5px}
+
+/* ------------------------------------------------------------------ about
+   Identity first, one short paragraph, then the same row pattern every other
+   setting uses, then the fine print. */
+.about-hero{
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+  gap:.5rem;padding:1.75rem 0 0;
+}
+.about-icon{width:5rem;height:5rem;display:block}
+.about-name{font-size:1.5rem;font-weight:650;letter-spacing:-.02em;margin:0;color:var(--text)}
+.about-version{font-size:.875rem;color:var(--text-3);margin:0}
+.about-lede{
+  font-size:1rem;line-height:1.6;color:var(--text-2);text-align:center;
+  margin:1.125rem auto 0;max-width:36rem;
+}
+.about-note{font-size:.875rem;color:var(--text-2);margin:0;padding:1.125rem 0}
+.about-fine{margin-top:1.5rem;text-align:center}
+.about-fine p{font-size:.75rem;line-height:1.65;color:var(--text-3);margin:0 0 .375rem}
+.about-fine code{font-family:var(--font-mono);font-size:.6875rem;color:var(--text-3)}
+/* only the install path may break mid-word: it is a path, not prose */
+#about-where code{overflow-wrap:anywhere}
 
 .mermaid-diagram{
   margin:1.35em 0;padding:14px 10px;border:1px solid var(--border-soft);
@@ -1126,11 +1170,23 @@ kbd.k{
   background-clip:content-box;border:3px solid transparent}
 
 @media (max-width:880px){
-  #settings{flex-direction:column;height:min(700px,100%)}
-  .set-rail{width:100%;flex-direction:row;overflow-x:auto;padding:10px;border-right:0;
+  #settings{flex-direction:column;height:min(46rem,100%)}
+  .set-rail{width:100%;flex-direction:row;overflow-x:auto;padding:.625rem;border-right:0;
     border-bottom:1px solid var(--border)}
   .set-rail h2,.rail-foot{display:none}
   .cat{width:auto;white-space:nowrap}
+}
+/* Too narrow for a label beside its control: the control drops under the label
+   rather than being squeezed to nothing. */
+@media (max-width:620px){
+  .scrim{padding:.75rem}
+  .set-head{padding:1rem 1rem .875rem}
+  .set-scroll{padding:.25rem 1rem 1.5rem}
+  .group{padding:0 .875rem}
+  .set-row{flex-direction:column;align-items:stretch;gap:.625rem}
+  .set-control{flex-wrap:wrap}
+  .slider{min-width:0;width:100%}
+  .pills{flex-wrap:wrap}
 }
 @media (max-width:720px){
   #sidebar{position:absolute;z-index:20;height:100%;box-shadow:var(--shadow)}
