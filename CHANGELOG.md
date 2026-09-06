@@ -2,7 +2,7 @@
 
 All notable changes to Reader. Versions follow [semantic versioning](https://semver.org).
 
-## Unreleased
+## 2.1.0
 
 - Releases now also include a signed `Reader-<version>.dmg`, for a first-time
   install by dragging Reader into Applications; the in-app updater keeps using
@@ -16,6 +16,8 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
   and the release workflow.
 - The built app is no longer committed; releases are built by CI.
 - Neutral wording in the settings dialog; stale "Markdown Viewer" names removed.
+- macOS is stated plainly as the only supported platform; the Linux and Windows
+  CI jobs exist so the server does not acquire macOS-only assumptions.
 - A tagged push now builds a signed `Reader.app`, zips it, and publishes it as
   a GitHub Release with a `manifest.json` an in-app updater can read.
 - The server now runs correctly on Windows and Linux, not only macOS: opening a
