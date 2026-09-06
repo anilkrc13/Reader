@@ -18,6 +18,11 @@ to day: don't launch it directly as a habit. Run `install/Reader.command`
 instead (see below), which is the installed copy in `~/Applications` that the
 in-app updater keeps current.
 
+This build-and-run path is for running unreleased code straight from a git
+checkout. An ordinary user does not need Xcode or a checkout at all: they
+download the release disk image (see [the README](../README.md#get-it)) and
+drag Reader into Applications.
+
 The app is built for Apple silicon by default. For a universal build:
 
 ```
@@ -30,13 +35,18 @@ server, the app reuses it and leaves it running when the app quits. If another
 service owns that port, the app reports the conflict and does not stop or
 replace it.
 
-`install/Reader.command` installs the built bundle to `~/Applications/Reader.app`
-(building it first if it is missing, and refreshing the copy when the local build
-is newer) and opens it from there, where the in-app updater can replace it.
-Starting the launcher while the app is already running just opens the existing
-window instead of starting a second server. This installed copy in
-`~/Applications` is the app you actually run; `build/Reader.app` is only the
-intermediate build output `install/Reader.command` copies from.
+`install/Reader.command` is the one-step way to pick up newly merged source:
+double-clicking it quits a running Reader (a normal quit, targeted at Reader's
+bundle identifier, so its local server shuts down and no other app is
+touched), rebuilds from whatever is checked out, installs the fresh build to
+`~/Applications/Reader.app`, and reopens it. It always rebuilds, on the
+assumption that if you are running it you want the current source, not
+whatever happened to be built last. If Reader will not quit within about ten
+seconds, the script stops without touching the installed app and tells you to
+quit it yourself and try again; if the build fails, the previously installed
+app is likewise left untouched. This installed copy in `~/Applications` is
+the app you actually run; `build/Reader.app` is only the intermediate build
+output `install/Reader.command` copies from.
 
 The built bundle is not committed. Releases are built by CI from a tag.
 
