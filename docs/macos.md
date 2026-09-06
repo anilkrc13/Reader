@@ -138,6 +138,14 @@ Only then does Reader ask, with **Install and Relaunch**, **Later** and **Skip
 This Version**. Skipping is remembered by the app itself, not in `preferences.json`, and that
 release is never offered again unless you ask from the menu.
 
+The designated requirement checked in step 4 names both the signing
+certificate and the bundle identifier, so changing the identifier is a
+breaking change for anyone already running Reader: their installed copy's
+requirement names the old identifier, and no build with the new one will ever
+satisfy it. That is a one-time cost, paid once by reinstalling from the disk
+image, not an ongoing one; every update after that reinstall works normally
+again.
+
 Installing stops Reader's own server the same way quitting does, moves the
 current bundle to `Reader.app.previous` beside itself, moves the new one into
 place, and reopens Reader. If the second move fails the previous bundle is put

@@ -2,6 +2,17 @@
 
 All notable changes to Reader. Versions follow [semantic versioning](https://semver.org).
 
+## 2.2.0
+
+- The macOS bundle identifier changed from the placeholder `com.reader.local`
+  to `ai.trancend.reader`, and the exported markdown type moved with it, from
+  `com.reader.markdown-variant` to `ai.trancend.reader.markdown-variant`. The
+  identifier is part of the app's code-signing designated requirement, so this
+  is a one-time break in the in-app updater: a copy of Reader installed before
+  this release cannot update itself across the change, no matter how it is
+  signed, and must be reinstalled once from the disk image. After that,
+  updates resume working normally.
+
 ## 2.1.0
 
 - Releases now also include a signed `Reader-<version>.dmg`, for a first-time
