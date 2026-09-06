@@ -5,6 +5,7 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 ## Unreleased
 
 - The settings dialog now sizes itself proportionally to the window on large displays instead of stopping at a fixed rem cap, so it no longer reads as a small box on a big screen.
+- `install/Reader.command` now closes its own Terminal window once it has launched Reader successfully, instead of leaving it open forever; a failed run still pauses so you can read what went wrong.
 - Settings has an **Interface size** control in Appearance: Small, Medium or
   Large. It scales Reader's own chrome, meaning the settings dialog, the file
   panel, the toolbar and the menus, and it is separate from the document's
