@@ -29,7 +29,7 @@ from are listed in `testing-regression-cases.md`.
 
 The bundle has no automated tests. After `./macos/build-app.sh`:
 
-1. `codesign --verify --deep --strict install/Reader.app`
+1. `codesign --verify --deep --strict build/Reader.app`
 2. Confirm changed resources match their copies under `Contents/Resources/`.
 3. Launch it with no server running, then again with one already running, and
    once by double-clicking a `.md` file in Finder.

@@ -2,6 +2,15 @@
 
 All notable changes to Reader. Versions follow [semantic versioning](https://semver.org).
 
+## Unreleased
+
+- The macOS build output moved from `install/Reader.app` to `build/Reader.app`.
+  A directory called `install/` holding a double-clickable app bundle read as
+  "the installed app lives here", when it was really just regenerated build
+  output; nothing changes for how Reader is installed or run.
+  `install/Reader.command` still lives in `install/` and is still the
+  installer: it now copies from `../build/Reader.app` instead.
+
 ## 2.2.0
 
 - The macOS bundle identifier changed from the placeholder `com.reader.local`

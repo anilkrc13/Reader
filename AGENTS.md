@@ -10,18 +10,21 @@ contributors should start with `CONTRIBUTING.md`.
 
 ## macOS app build gate
 
-`./macos/build-app.sh` produces `install/Reader.app`. The bundle is not
-committed; CI builds it for releases. It is still the primary way the user runs
-Reader locally.
+`./macos/build-app.sh` produces `build/Reader.app`. That bundle is regenerated
+build output, not committed, and not something to launch directly: it is not
+the app the user runs day to day. `install/Reader.command` is the installer;
+double-clicking it copies `build/Reader.app` to `~/Applications/Reader.app`
+(building it first if needed) and opens that installed copy, which is the app
+the user actually runs.
 
 - After changing `static/`, `reader.py`, `reader_backend.py`, `VERSION`, the
   macOS launcher or icon sources, licenses, or bundle metadata, run
   `./macos/build-app.sh` before declaring the work complete.
-- Do not treat manual edits inside `install/Reader.app` as a finished build. The
+- Do not treat manual edits inside `build/Reader.app` as a finished build. The
   script must recreate and sign the bundle.
-- Verify the finished bundle with `codesign --verify --deep --strict install/Reader.app`
+- Verify the finished bundle with `codesign --verify --deep --strict build/Reader.app`
   and confirm changed source resources match their copies under
-  `install/Reader.app/Contents/Resources/`.
+  `build/Reader.app/Contents/Resources/`.
 - If the build or signature check cannot complete, state that the macOS app is
   not ready for testing.
 

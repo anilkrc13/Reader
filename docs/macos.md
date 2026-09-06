@@ -10,8 +10,13 @@ adaptive Tahoe icon, a full Xcode 26 install so `actool` is available.
 
 ```
 ./macos/build-app.sh
-open install/Reader.app
+open build/Reader.app
 ```
+
+`build/Reader.app` is regenerated build output, not the app to keep using day
+to day: don't launch it directly as a habit. Run `install/Reader.command`
+instead (see below), which is the installed copy in `~/Applications` that the
+in-app updater keeps current.
 
 The app is built for Apple silicon by default. For a universal build:
 
@@ -29,7 +34,9 @@ replace it.
 (building it first if it is missing, and refreshing the copy when the local build
 is newer) and opens it from there, where the in-app updater can replace it.
 Starting the launcher while the app is already running just opens the existing
-window instead of starting a second server.
+window instead of starting a second server. This installed copy in
+`~/Applications` is the app you actually run; `build/Reader.app` is only the
+intermediate build output `install/Reader.command` copies from.
 
 The built bundle is not committed. Releases are built by CI from a tag.
 

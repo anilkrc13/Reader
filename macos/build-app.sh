@@ -3,8 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 MACOS_DIR="$ROOT_DIR/macos"
-INSTALL_DIR="$ROOT_DIR/install"
-APP_BUNDLE="$INSTALL_DIR/Reader.app"
+BUILD_DIR="$ROOT_DIR/build"
+APP_BUNDLE="$BUILD_DIR/Reader.app"
 RESOURCES_DIR="$APP_BUNDLE/Contents/Resources"
 MACOS_BIN_DIR="$APP_BUNDLE/Contents/MacOS"
 WORK_DIR="$(mktemp -d "$ROOT_DIR/.reader-build.XXXXXX")"
@@ -16,7 +16,7 @@ ARCHS_STRING="${ARCHS:-arm64}"
 SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
 MIN_MACOS="13.0"
 
-mkdir -p "$INSTALL_DIR"
+mkdir -p "$BUILD_DIR"
 rm -rf "$APP_BUNDLE"
 mkdir -p "$RESOURCES_DIR" "$MACOS_BIN_DIR"
 

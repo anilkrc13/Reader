@@ -13,7 +13,7 @@ set -euo pipefail
 
 VERSION="${1:?usage: write-release-manifest.sh <version>}"
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_BUNDLE="$ROOT_DIR/install/Reader.app"
+APP_BUNDLE="$ROOT_DIR/build/Reader.app"
 ZIP_NAME="Reader-$VERSION.zip"
 ZIP_PATH="$ROOT_DIR/$ZIP_NAME"
 
