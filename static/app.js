@@ -2937,6 +2937,60 @@ $("btn-reset").onclick = () => {
   toast("Settings reset");
 };
 
+/* --- checking for updates from About ------------------------------------ */
+
+/* The launcher owns updating end to end: it fetches the manifest, checks the
+   download's size, digest, signature and designated requirement, and asks
+   before installing. The page can say only "run your check", never what to
+   fetch or install, so this button cannot widen what lands on the disk. It
+   reuses the one `reader` bridge for that, as the folder chooser does.
+
+   Automatic checking being switched off does not silence this one: somebody
+   just pressed a button, which is as explicit as a request gets. Nothing here
+   starts a check on its own. */
+function describeUpdateResult(result) {
+  const fallback = "Reader could not check for updates.";
+  if (!result || typeof result !== "object") return fallback;
+  const version = typeof result.version === "string" ? result.version : "";
+  switch (result.state) {
+    case "current":
+      return `Up to date. Reader ${version} is the newest release.`;
+    case "available":
+      return result.installable
+        ? `Reader ${version} is available. Reader is fetching it and will ask before installing.`
+        : `Reader ${version} is available. This copy cannot replace itself, so Reader is offering the release page instead.`;
+    case "busy":
+      return "Reader is already checking for updates.";
+    case "error":
+      return typeof result.message === "string" && result.message ? result.message : fallback;
+    default:
+      return fallback;
+  }
+}
+
+async function checkForUpdatesNow() {
+  const bridge = nativeBridge();
+  if (!bridge) return;
+  const button = $("btn-check-updates");
+  const status = $("about-update-status");
+  button.disabled = true;
+  status.textContent = "Checking for updates…";
+  let result = null;
+  try { result = await bridge.postMessage({action: "checkForUpdates"}); }
+  catch (_) { result = null; }             // the bridge's own message is not for reading
+  status.textContent = describeUpdateResult(result);
+  button.disabled = false;
+}
+
+/* In a browser there is no launcher to ask, so the row would be a button that
+   can never work. The line that replaces it says where updating does happen. */
+function setUpAboutUpdates() {
+  const native = !!nativeBridge();
+  $("about-update-row").hidden = !native;
+  $("about-update-note").hidden = native;
+  if (native) $("btn-check-updates").onclick = checkForUpdatesNow;
+}
+
 /* keep focus inside the dialog while it is open */
 el.dialog.addEventListener("keydown", (ev) => {
   if (ev.key !== "Tab") return;
@@ -4644,6 +4698,7 @@ async function boot() {
   $("about-where").innerHTML =
     `Version ${cfg.version} · running from <code></code>`;
   $("about-where").querySelector("code").textContent = cfg.appDir;
+  setUpAboutUpdates();
 
   HOME = cfg.home;
 

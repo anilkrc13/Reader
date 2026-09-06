@@ -783,20 +783,34 @@
         <!-- --------------------------------------------------------- about -->
         <section class="panel about" data-panel="about" hidden>
           <div class="group">
-            <p><b>Reader</b> — a self-contained local document reader. Markdown and code
-               open with editing and saving; CSV renders as tables; PDF uses your
-               browser's own viewer. It runs from a single folder on your Mac, uses only
-               the Python standard library, and never reaches the network.</p>
-            <p>The server listens on <code>127.0.0.1</code> only, at a fixed port (8737, or the
-               next free one if that is taken), and every request carries a secret token kept
-               beside the app, so the address stays bookmarkable and nothing else on your
-               machine or network can read your files through it. Rendered HTML is sanitised,
-               and saves are atomic.</p>
+            <p><b>Reader</b> reads and writes the documents already on your Mac. Markdown and
+               code open in a clean reading view and switch to editing in place; CSV and TSV
+               render as tables; PDFs use the viewer your browser already has. Browse a folder,
+               pin the ones you return to, search inside a document, and start new ones where
+               you want them.</p>
+            <p>Your documents stay yours. They are ordinary files in your own folders, opened
+               and saved where they sit, so a change shows up in Finder straight away and
+               nothing is copied into a library of Reader's own. Nothing is uploaded and
+               nothing is synced.</p>
+            <p>It works offline. Everything Reader needs to render a document ships inside the
+               app, so a file opens the same on a plane as at your desk. The only thing Reader
+               ever asks the network is whether a newer version exists, and you can turn even
+               that off in <b>Files &amp; watching</b>. How Reader keeps your files to itself is
+               written up under “Notes on how it works” in the README.</p>
             <p>Bundled offline: <b>marked</b> (markdown), <b>DOMPurify</b> (sanitising),
                <b>highlight.js</b> (code), <b>Mermaid</b> (diagrams), and the <b>Poppins</b>, <b>Lora</b>, <b>Inter</b>,
                <b>Source Serif 4</b> and <b>JetBrains Mono</b> typefaces. Licences are in the
                <code>licenses</code> folder next to the app.</p>
+          </div>
+
+          <div class="group">
+            <p class="group-title">Version</p>
             <p id="about-where"></p>
+            <div class="set-row" id="about-update-row" hidden>
+              <div class="set-label"><b>Updates</b><span id="about-update-status">Reader looks for a newer version once a day. You can also ask now.</span></div>
+              <div class="set-control"><button class="mini-btn" id="btn-check-updates">Check for updates</button></div>
+            </div>
+            <p id="about-update-note" hidden>Updates are handled by the Reader app.</p>
           </div>
         </section>
 
