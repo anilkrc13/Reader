@@ -117,7 +117,7 @@ fi
 
 codesign --force --deep --sign "$SIGN_IDENTITY" \
   ${SIGN_ARGS+"${SIGN_ARGS[@]}"} \
-  --identifier "com.reader.local" "$APP_BUNDLE"
+  --identifier "ai.trancend.reader" "$APP_BUNDLE"
 codesign --verify --deep --strict "$APP_BUNDLE"
 
 echo "Built $APP_BUNDLE"
