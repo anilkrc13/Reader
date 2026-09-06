@@ -4,6 +4,7 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- The settings dialog now sizes itself proportionally to the window on large displays instead of stopping at a fixed rem cap, so it no longer reads as a small box on a big screen.
 - Settings has an **Interface size** control in Appearance: Small, Medium or
   Large. It scales Reader's own chrome, meaning the settings dialog, the file
   panel, the toolbar and the menus, and it is separate from the document's
