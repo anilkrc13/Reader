@@ -984,11 +984,18 @@ html[data-tableborders=on] .prose td + td{border-left:1px solid var(--rule)}
 @keyframes rise{from{opacity:0;transform:translateY(8px) scale(.99)}to{opacity:1;transform:none}}
 
 /* --------------------------------------------------------- settings dialog
-   Sized in rem against the interface scale and capped by the viewport, so it
-   grows with the interface setting and with the window instead of sitting as
-   one fixed box on every display. */
+   Width and height are each a clamp of a rem floor/ceiling around a term that
+   mixes rem with vw/vh, so the box actually tracks the window (unlike a flat
+   rem cap, which stops growing once the interface-scale font-size is fixed)
+   while every bound still scales with --ui-scale, so Large stays bigger than
+   Medium at any viewport, not just at the extremes. The width ceiling (100rem
+   at Medium) keeps the settings rows - label beside control - from spreading
+   into an empty-looking panel past roughly 1600px; the height ceiling is more
+   forgiving since extra height just shows more rows before the panel scrolls. */
 #settings{
-  display:flex;width:min(72rem,100%);height:min(48rem,100%);
+  display:flex;
+  width:min(clamp(40rem,32rem + 45vw,100rem),100%);
+  height:min(clamp(30rem,20rem + 50vh,60rem),100%);
   background:var(--surface);border:1px solid var(--border);border-radius:1rem;
   box-shadow:var(--shadow-lg);overflow:hidden;animation:rise .18s cubic-bezier(.2,.7,.3,1);
 }
@@ -1170,7 +1177,7 @@ kbd.k{
   background-clip:content-box;border:3px solid transparent}
 
 @media (max-width:880px){
-  #settings{flex-direction:column;height:min(46rem,100%)}
+  #settings{flex-direction:column;height:min(clamp(28rem,18rem + 50vh,56rem),100%)}
   .set-rail{width:100%;flex-direction:row;overflow-x:auto;padding:.625rem;border-right:0;
     border-bottom:1px solid var(--border)}
   .set-rail h2,.rail-foot{display:none}
