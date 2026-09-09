@@ -697,15 +697,49 @@ const LANG_BY_EXT = {
   kt: "kotlin", c: "c", h: "c", cpp: "cpp", hpp: "cpp", cc: "cpp",
   cs: "csharp", lua: "lua", txt: "plaintext",
 };
+/* The extension of the file's own name, never of a dotted folder above it, and
+   empty for a dotfile or an extensionless file, matching the server's rule. */
+function extOf(path) {
+  const base = path.split("/").pop() || "";
+  const dot = base.lastIndexOf(".");
+  return dot > 0 ? base.slice(dot + 1).toLowerCase() : "";
+}
 function kindOf(path) {
-  const ext = (path.split(".").pop() || "").toLowerCase();
-  if (path.indexOf(".") < 0) return "code";
+  const ext = extOf(path);
   if (MD_EXT.has(ext)) return "md";
   if (ext === "pdf") return "pdf";
   if (ext === "csv" || ext === "tsv") return "csv";
   return "code";
 }
-const extOf = (path) => (path.split(".").pop() || "").toLowerCase();
+/* A file with no extension is opened on faith and classified by what is in it:
+   a shebang names the language, front matter or a heading marks Markdown. */
+const LANG_BY_NAME = {
+  ".env": "ini", ".gitignore": "plaintext", ".gitattributes": "plaintext",
+  ".zshrc": "bash", ".bashrc": "bash", ".bash_profile": "bash", ".zprofile": "bash",
+  makefile: "makefile", dockerfile: "dockerfile", procfile: "yaml",
+};
+const LANG_BY_SHEBANG = [
+  [/python/, "python"], [/\b(ba|z|k|da)?sh\b/, "bash"], [/\bnode\b/, "javascript"],
+  [/\bruby\b/, "ruby"], [/\bperl\b/, "perl"], [/\bphp\b/, "php"], [/\blua\b/, "lua"],
+];
+function langFor(path, text) {
+  const ext = extOf(path);
+  if (ext) return LANG_BY_EXT[ext];
+  const base = (path.split("/").pop() || "").toLowerCase();
+  if (LANG_BY_NAME[base]) return LANG_BY_NAME[base];
+  const first = (text || "").slice(0, 200).split("\n")[0];
+  if (first.startsWith("#!")) {
+    const hit = LANG_BY_SHEBANG.find(([re]) => re.test(first));
+    if (hit) return hit[1];
+  }
+  return undefined;
+}
+function looksLikeMarkdown(text) {
+  const head = (text || "").slice(0, 2000);
+  if (/^---\r?\n/.test(head)) return true;
+  const firstLine = head.split("\n").find((l) => l.trim() !== "") || "";
+  return /^#{1,6}\s/.test(firstLine);
+}
 
 /* Letter proportions: browsers expose no way to retune a font's own
    cap-to-x-height ratio within one text run (font-size-adjust rescales every
@@ -1108,7 +1142,7 @@ function renderCode(text) {
   el.preview.querySelector(".gutter").textContent =
     Array.from({length: lines}, (_, i) => i + 1).join("\n");
   const block = el.preview.querySelector("code");
-  const lang = LANG_BY_EXT[extOf(state.file.path)];
+  const lang = langFor(state.file.path, text);
   if (lang) block.className = "language-" + lang;
   block.textContent = text;
   try { hljs.highlightElement(block); } catch (_) {}
@@ -1282,7 +1316,7 @@ async function openFile(path, {keepScroll = false, silent = false, record = true
   /* Where the reader is in the document being left, banked before it is replaced
      so that back and forward return to the paragraph rather than to the top. */
   trailMark();
-  const kind = kindOf(path);
+  let kind = kindOf(path);
   const context = beginDocumentSession(path);
 
   if (kind === "pdf") {
@@ -1332,6 +1366,8 @@ async function openFile(path, {keepScroll = false, silent = false, record = true
   }
   if (!openMayApply(context)) { restartWatch(); return null; }
 
+  /* README or NOTES with no extension reads as a document, not as code. */
+  if (kind === "code" && !extOf(path) && looksLikeMarkdown(data.text)) kind = "md";
   clearPDF();
   root.dataset.doc = kind;
   state.file = {path: data.path, name: data.name, dir: data.dir, mtime: data.mtime,

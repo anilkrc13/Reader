@@ -4,6 +4,14 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- Files with no extension now open in Reader. A script named `bulk_read`, a
+  `Makefile`, a `LICENSE` or a dotfile such as `.zshrc` is listed like any
+  other document and opened on click; the content decides what it is. A shebang
+  line picks the code highlighting, front matter or a leading heading opens it as
+  Markdown, and anything else reads as plain text. A binary with no extension
+  is refused on click with a message saying so. The check happens when you open
+  the file, never while listing a folder, so a `bin` directory full of compiled
+  tools costs nothing to browse.
 - Reader's interface now sets in Inter instead of Poppins: the toolbar, the file
   panel, the menus and the settings dialog. Poppins is still available as a
   document heading face. Inside settings, the rail's "Settings" label and each
