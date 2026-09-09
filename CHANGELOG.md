@@ -2,7 +2,7 @@
 
 All notable changes to Reader. Versions follow [semantic versioning](https://semver.org).
 
-## Unreleased
+## 2.3.0
 
 - YAML front matter at the top of a Markdown file now renders as a compact
   metadata card instead of one enormous heading. The closing `---` used to be
