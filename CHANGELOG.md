@@ -4,6 +4,11 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- YAML front matter at the top of a Markdown file now renders as a compact
+  metadata card instead of one enormous heading. The closing `---` used to be
+  read as a heading underline, so a skill's `name:` and `description:` lines
+  came out as a 40-word H2. Scroll sync between the editor and the preview
+  still lines up: the card owns the front-matter lines.
 - Files with no extension now open in Reader. A script named `bulk_read`, a
   `Makefile`, a `LICENSE` or a dotfile such as `.zshrc` is listed like any
   other document and opened on click; the content decides what it is. A shebang

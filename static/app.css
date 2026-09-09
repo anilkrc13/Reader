@@ -751,6 +751,22 @@ html[data-theme=light] .prose a code{
    shade gets a hairline of the same apparent weight instead of one tuned for
    a single theme -- var(--border) is near-invisible on the dark palettes once
    it is the only structure left. */
+/* Front matter: metadata about the document, not part of it. A compact card
+   in the interface face, so it reads as a label on the page rather than prose. */
+.prose table.frontmatter{
+  display:table;width:auto;min-width:min(100%,28em);margin:0 0 2.2em;font-size:.78em;
+  border:1px solid var(--border);border-radius:var(--radius);background:var(--panel);
+  border-collapse:separate;border-spacing:0;overflow:hidden;
+}
+.prose table.frontmatter th,.prose table.frontmatter td{
+  border:0;border-top:1px solid var(--border-soft);padding:.55em .9em;line-height:1.5;
+}
+.prose table.frontmatter tr:first-child th,.prose table.frontmatter tr:first-child td{border-top:0}
+.prose table.frontmatter th{
+  font-weight:600;color:var(--text-3);white-space:nowrap;width:1%;
+  font-variant-numeric:tabular-nums;padding-right:1.6em;
+}
+.prose table.frontmatter td{color:var(--text-2);white-space:pre-wrap;overflow-wrap:anywhere}
 .prose table{
   --rule:color-mix(in srgb,var(--text) 15%,transparent);
   border-collapse:collapse;width:100%;margin:1.6em 0;font-size:.92em;
