@@ -42,6 +42,28 @@ EXTERNAL_APP_SUFFIXES = {
 } | IMAGE_SUFFIXES
 
 MAX_TEXT_BYTES = 8 * 1024 * 1024
+# A file with no extension (Makefile, a script named `bulk_read`, a dotfile) is
+# listed as an ordinary document and checked for text only when it is opened.
+# Sniffing every such file during a listing would read from every binary in a
+# `bin` folder on every refresh; deciding on click costs one read, once.
+SNIFF_BYTES = 8192
+
+
+def is_extensionless(name: str) -> bool:
+    return os.path.splitext(name)[1] == ""
+
+
+def may_be_text_document(name: str) -> bool:
+    """Whether a name is worth offering as a document: a known text suffix, or
+    no suffix at all, in which case the content decides at open time."""
+    suffix = os.path.splitext(name)[1].lower()
+    return suffix in TEXT_SUFFIXES or suffix == ""
+
+
+def looks_binary(data: bytes) -> bool:
+    """A NUL byte in the head of a file is the classic text/binary tell; every
+    compiled or archived format has one within a few bytes of the start."""
+    return b"\x00" in data[:SNIFF_BYTES]
 MAX_IMAGE_BYTES = 32 * 1024 * 1024
 MAX_PDF_BYTES = 128 * 1024 * 1024
 MAX_ENTRIES = 4000
@@ -226,10 +248,14 @@ class FileAccessPolicy:
     def assert_save_allowed(self, path: Path) -> Path:
         """Return a canonical save target or raise before any file is opened."""
         path = self.assert_mutation_allowed(path)
-        if path.suffix.lower() not in TEXT_SUFFIXES:
+        if not may_be_text_document(path.name):
             raise ValueError("not a supported text document")
         if path.exists() and not path.is_file():
             raise ValueError("target is not a regular file")
+        if is_extensionless(path.name) and path.exists():
+            with open(path, "rb") as fh:
+                if looks_binary(fh.read(SNIFF_BYTES)):
+                    raise ValueError("not a text document")
         return path
 
 
@@ -267,7 +293,8 @@ class DocumentStore:
                         if include_all or self._has_documents(str(child), deadline, include_hidden):
                             dirs.append({"name": entry.name, "path": str(child), "type": "dir"})
                     elif entry.is_file():
-                        supported = child.suffix.lower() in LISTABLE_SUFFIXES
+                        supported = (child.suffix.lower() in LISTABLE_SUFFIXES
+                                     or is_extensionless(child.name))
                         if not supported and not include_files:
                             continue
                         st = entry.stat()
@@ -373,7 +400,8 @@ class DocumentStore:
                             continue
                         if not entry.is_file(follow_symlinks=False):
                             continue
-                        supported = os.path.splitext(name)[1].lower() in LISTABLE_SUFFIXES
+                        supported = (os.path.splitext(name)[1].lower() in LISTABLE_SUFFIXES
+                                     or is_extensionless(name))
                         if not supported and not include_files:
                             continue
                         if needle not in name.lower():
@@ -399,13 +427,16 @@ class DocumentStore:
     def read_text_file(self, path: Path) -> dict:
         if not path.is_file():
             raise FileNotFoundError(str(path))
-        if path.suffix.lower() not in TEXT_SUFFIXES:
+        if not may_be_text_document(path.name):
             raise ValueError("not a text document")
         st = path.stat()
         if st.st_size > MAX_TEXT_BYTES:
             raise ValueError(f"file is too large to open ({st.st_size // 1024 // 1024} MB)")
+        data = path.read_bytes()
+        if is_extensionless(path.name) and looks_binary(data):
+            raise ValueError("this file has no extension and is not text")
         try:
-            text = path.read_bytes().decode("utf-8")
+            text = data.decode("utf-8")
         except UnicodeDecodeError:
             raise ValueError("file is not valid UTF-8 text")
         return {
