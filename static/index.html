@@ -355,7 +355,7 @@
         <!-- ---------------------------------------------------- appearance -->
         <section class="panel" data-panel="appearance">
           <div class="group">
-            <p class="group-title">Theme</p>
+            <h4 class="group-title">Theme</h4>
             <div class="set-row">
               <div class="set-label"><b>Colour scheme</b><span>Match system follows macOS Appearance automatically.</span></div>
               <div class="set-control">
@@ -373,7 +373,7 @@
           </div>
 
           <div class="group">
-            <p class="group-title">Page tone</p>
+            <h4 class="group-title">Page tone</h4>
             <div class="set-row">
               <div class="set-label"><b>Light mode paper</b><span>Sepia is easiest on the eyes for long reading sessions.</span></div>
               <div class="set-control">
@@ -398,7 +398,7 @@
           </div>
 
           <div class="group">
-            <p class="group-title">Layout</p>
+            <h4 class="group-title">Layout</h4>
             <div class="set-row">
               <div class="set-label"><b>Interface size</b><span data-kbd>How large Reader's own controls are: this dialog, the file panel, the toolbar and the menus. Document text has its own size, on the Reading page and under ⌘+ and ⌘−.</span></div>
               <div class="set-control">
@@ -448,7 +448,7 @@
           </div>
 
           <div class="group">
-            <p class="group-title">Body</p>
+            <h4 class="group-title">Body</h4>
             <div class="set-row">
               <div class="set-label"><b>Typeface</b><span>Serif faces read more comfortably in long documents.</span></div>
               <div class="set-control"><select class="control" data-set="bodyFont" id="sel-body"></select></div>
@@ -477,7 +477,7 @@
           </div>
 
           <div class="group">
-            <p class="group-title">Headings</p>
+            <h4 class="group-title">Headings</h4>
             <div class="set-row">
               <div class="set-label"><b>Typeface</b><span>Poppins is the default heading face.</span></div>
               <div class="set-control"><select class="control" data-set="headFont" id="sel-head"></select></div>
@@ -562,7 +562,7 @@
           </div>
 
           <div class="group">
-            <p class="group-title">Rhythm</p>
+            <h4 class="group-title">Rhythm</h4>
             <div class="set-row">
               <div class="set-label"><b>Paragraph spacing</b></div>
               <div class="set-control"><div class="slider">
@@ -584,7 +584,7 @@
           </div>
 
           <div class="group">
-            <p class="group-title">Tables</p>
+            <h4 class="group-title">Tables</h4>
             <div class="set-row">
               <div class="set-label"><b>Column borders</b><span>Off draws a rule between rows only, so a table reads as text. On adds a line between columns.</span></div>
               <div class="set-control"><button class="switch" role="switch" data-set="tableBorders" aria-checked="false" aria-label="Column borders"></button></div>
@@ -667,7 +667,7 @@
         <!-- ------------------------------------------------ files/watching -->
         <section class="panel" data-panel="files" hidden>
           <div class="group">
-            <p class="group-title">Recently opened</p>
+            <h4 class="group-title">Recently opened</h4>
             <div class="set-row">
               <div class="set-label"><b>Recent files list</b><span>Shown at the top of the file panel for one-click access.</span></div>
               <div class="set-control"><select class="control" data-set="recentCount">
@@ -682,7 +682,7 @@
           </div>
 
           <div class="group">
-            <p class="group-title">The file tree</p>
+            <h4 class="group-title">The file tree</h4>
             <div class="set-row">
               <div class="set-label"><b>Show folders with no documents</b><span>Off by default, so the tree only offers folders that hold a markdown file somewhere inside. Turn it on to browse everything.</span></div>
               <div class="set-control"><button class="switch" role="switch" data-set="showAllDirs" aria-checked="false" aria-label="Show folders with no documents"></button></div>
@@ -698,7 +698,7 @@
           </div>
 
           <div class="group">
-            <p class="group-title">Pinned folders</p>
+            <h4 class="group-title">Pinned folders</h4>
             <div class="set-row">
               <div class="set-label"><b>Pinning</b><span>Use <b>+</b> beside “Pinned” in the file panel to pin the folder you are browsing, and the × on a pinned row to remove it. Pin as many as you like.</span></div>
               <div class="set-control"><button class="mini-btn" id="btn-reset-pins">Restore defaults</button></div>
@@ -706,7 +706,7 @@
           </div>
 
           <div class="group">
-            <p class="group-title">Watching the open document</p>
+            <h4 class="group-title">Watching the open document</h4>
             <div class="set-row">
               <div class="set-label"><b>Auto-save edits</b><span>When you stop typing, the document is saved automatically. A quick edit from the preview also saves. Saves happen silently; if the file changed on disk, the save bar will tell you.</span></div>
               <div class="set-control"><button class="switch" role="switch" data-set="autoSave" aria-checked="true" aria-label="Auto-save edits"></button></div>
@@ -729,7 +729,7 @@
           </div>
 
           <div class="group">
-            <p class="group-title">Updates</p>
+            <h4 class="group-title">Updates</h4>
             <div class="set-row">
               <div class="set-label"><b>Check for updates</b><span>Once a day, Reader asks GitHub whether a newer release exists. That is the only network request Reader makes.</span></div>
               <div class="set-control"><button class="switch" role="switch" data-set="updates.check" aria-checked="true" aria-label="Check for updates"></button></div>
@@ -740,7 +740,7 @@
         <!-- ----------------------------------------------------- shortcuts -->
         <section class="panel" data-panel="keys" hidden>
           <div class="group">
-            <p class="group-title">Reading</p>
+            <h4 class="group-title">Reading</h4>
             <table class="keys">
               <tbody>
                 <tr><td>Back / forward through documents</td><td><kbd class="k">←</kbd> <kbd class="k">→</kbd> or <kbd class="k" data-kbd>⌘[</kbd> <kbd class="k" data-kbd>⌘]</kbd></td></tr>
@@ -756,7 +756,7 @@
             </table>
           </div>
           <div class="group">
-            <p class="group-title">Editing</p>
+            <h4 class="group-title">Editing</h4>
             <table class="keys">
               <tbody>
                 <tr><td>Toggle preview and edit</td><td><kbd class="k" data-kbd>⌘E</kbd></td></tr>
@@ -769,7 +769,7 @@
             </table>
           </div>
           <div class="group">
-            <p class="group-title">The file panel</p>
+            <h4 class="group-title">The file panel</h4>
             <table class="keys">
               <tbody>
                 <tr><td>Show or hide the panel</td><td><kbd class="k" data-kbd>⌘\</kbd></td></tr>
@@ -779,7 +779,7 @@
             </table>
           </div>
           <div class="group">
-            <p class="group-title">Window</p>
+            <h4 class="group-title">Window</h4>
             <table class="keys">
               <tbody>
                 <tr><td>Settings</td><td><kbd class="k" data-kbd>⌘,</kbd></td></tr>

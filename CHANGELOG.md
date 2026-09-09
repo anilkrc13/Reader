@@ -4,6 +4,22 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- Reader's interface now sets in Inter instead of Poppins: the toolbar, the file
+  panel, the menus and the settings dialog. Poppins is still available as a
+  document heading face. Inside settings, the rail's "Settings" label and each
+  section title are small uppercase captions, so the pane heading is the one
+  title and row labels are the primary text in every card; the active rail item
+  is a quiet neutral tint rather than an accent fill; row descriptions use the
+  mid text tone so they clear 4.5:1 on every surface; the reset action sits at
+  item size in the rail footer; and section titles are real headings for
+  assistive technology. Settings text is also a step larger throughout: row
+  labels and rail entries at 17px, descriptions and controls at 15px.
+- The whole interface is one notch larger by default. The root size behind
+  Reader's chrome moved from 16px to 17px at Medium, so the toolbar, the file
+  panel, the menus and the settings dialog all match the size of comparable
+  desktop apps. Small and Large scale from the new base; document text is
+  unaffected.
+
 - The settings dialog now sizes itself proportionally to the window on large displays instead of stopping at a fixed rem cap, so it no longer reads as a small box on a big screen.
 - `install/Reader.command` now closes its own Terminal window once it has launched Reader successfully, instead of leaving it open forever; a failed run still pauses so you can read what went wrong.
 - Settings has an **Interface size** control in Appearance: Small, Medium or
