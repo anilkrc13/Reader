@@ -775,6 +775,34 @@ function wrapCapRuns(rootEl) {
   });
 }
 
+/* YAML front matter: a `---` fence on the first line, closed by `---` or `...`
+   on its own line. Left in place, marked reads the closing fence as a setext
+   underline and the whole block becomes one giant H2. It is lifted out here
+   and shown as a quiet key/value card at the top of the document. */
+function splitFrontMatter(text) {
+  const m = /^\uFEFF?---[ \t]*\r?\n([\s\S]*?)\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/.exec(text);
+  if (!m) return {meta: null, body: text, lines: 0};
+  return {meta: m[1], body: text.slice(m[0].length),
+          lines: (m[0].match(/\n/g) || []).length};
+}
+const escapeHtml = (s) => s.replace(/[&<>"]/g, (c) =>
+  ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})[c]);
+function frontMatterHtml(meta) {
+  /* Top-level `key: value` lines become rows; indented continuation lines and
+     list items stay with the key above them, so nested YAML still reads. */
+  const rows = [];
+  for (const line of meta.split("\n")) {
+    const kv = /^([A-Za-z0-9_.-]+)\s*:(?:\s+(.*))?$/.exec(line);
+    if (kv) rows.push([kv[1], kv[2] || ""]);
+    else if (rows.length && line.trim()) rows[rows.length - 1][1] += (rows[rows.length - 1][1] ? "\n" : "") + line.replace(/^\s{0,2}/, "");
+    else if (line.trim()) rows.push(["", line]);
+  }
+  if (!rows.length) return "";
+  return '<table class="frontmatter"><tbody>' + rows.map(([k, v]) =>
+    `<tr><th scope="row">${escapeHtml(k)}</th><td>${escapeHtml(v)}</td></tr>`).join("") +
+    "</tbody></table>";
+}
+
 function render(text) {
   const mermaidGeneration = ++state.mermaidGeneration;
   state.lineAnchors = null;
@@ -786,7 +814,8 @@ function render(text) {
   if (kind === "code") return renderCode(text);
   if (kind === "csv") return renderCSV(text);
   el.preview.className = "prose";
-  const html = DOMPurify.sanitize(marked.parse(text || ""), {
+  const fm = splitFrontMatter(text || "");
+  const html = DOMPurify.sanitize((fm.meta !== null ? frontMatterHtml(fm.meta) : "") + marked.parse(fm.body), {
     ADD_ATTR: ["target", "rel", "align", "start", "colspan", "rowspan"],
     FORBID_TAGS: ["style", "form", "iframe", "object", "embed"],
     ALLOW_DATA_ATTR: false,
@@ -796,7 +825,8 @@ function render(text) {
   /* A document that opens with an H1 is treating it as its title. Mark it
      separately so the title can be displayed prominently without redefining
      the shared H1-H6 hierarchy used by the rest of the document. */
-  const firstEl = el.preview.firstElementChild;
+  const firstEl = fm.meta !== null && el.preview.firstElementChild?.classList.contains("frontmatter")
+    ? el.preview.firstElementChild.nextElementSibling : el.preview.firstElementChild;
   if (firstEl && firstEl.tagName === "H1") firstEl.classList.add("doc-heading");
   wrapCapRuns(el.preview);
 
@@ -853,7 +883,7 @@ function render(text) {
   });
   listifyCells(el.preview);
   mountFolds();
-  state.lineAnchors = buildAnchors(text);
+  state.lineAnchors = buildAnchors(fm.body, fm.lines);
   /* images change the page's height as they arrive, so anchor positions
      measured before a load are stale the moment it finishes */
   el.preview.querySelectorAll("img").forEach((img) =>
@@ -2605,12 +2635,13 @@ function openLocMenu() {
    between those anchors, so what is at the top of one pane is what is at the
    top of the other. Non-markdown documents keep the proportional fallback. */
 
-function buildAnchors(text) {
+function buildAnchors(text, skipLines = 0) {
   /* marked's lexer exposes no positions, but every token carries its raw
      slice, so cumulative newline counts recover each block's start line.
-     Top-level tokens map to the preview's top-level children in order. */
-  let line = 0;
-  const blocks = [];
+     Top-level tokens map to the preview's top-level children in order. A
+     front-matter card, when present, is the first child and owns line 0. */
+  let line = skipLines;
+  const blocks = skipLines ? [0] : [];
   for (const tok of markdownTokens(text || "")) {
     if (tok.type !== "space") blocks.push(line);
     line += (tok.raw.match(/\n/g) || []).length;
