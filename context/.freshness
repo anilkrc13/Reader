@@ -1,2 +1,609 @@
 # owned by skills/repository-context/scripts/context_freshness.py -- do not hand-edit
-sha=9e72c3b0321c71c85bfbf723ed2fc345a0ed1c6d
+{
+  "aggregate": "6924a603d89d2361bd73333c61e44c312f06efb0b3692df02655dfa0d029fc5f",
+  "commit": "2d311aa794ae649314e0718ebeec5dd006c09fa5",
+  "exclude": [],
+  "files": {
+    ".github/ISSUE_TEMPLATE/bug_report.md": {
+      "executable": false,
+      "kind": "file",
+      "length": 331,
+      "sha256": "a4330e193912559eee824568c1ead8dab09c8dc864f2986704a9b725f42ab3da"
+    },
+    ".github/ISSUE_TEMPLATE/feature_request.md": {
+      "executable": false,
+      "kind": "file",
+      "length": 173,
+      "sha256": "40b176409aa7aab468f1dc09b961f5d2296ea7e540152bed25904c8a390e73e0"
+    },
+    ".github/workflows/release.yml": {
+      "executable": false,
+      "kind": "file",
+      "length": 4439,
+      "sha256": "c73177182bbd0835760fdb1237af0af51ee82680378687ed4a0bb9620a112519"
+    },
+    ".github/workflows/tests.yml": {
+      "executable": false,
+      "kind": "file",
+      "length": 1570,
+      "sha256": "4ed04eabc96484ef4dcfce5d40ff3522972c1eda864f074503dca0d4b4c99d63"
+    },
+    ".gitignore": {
+      "executable": false,
+      "kind": "file",
+      "length": 812,
+      "sha256": "8aeb769e74e797a86ef288db9b3c4906b35c5a3b3a391b7d5cc82f13964870f9"
+    },
+    "CHANGELOG.md": {
+      "executable": false,
+      "kind": "file",
+      "length": 8790,
+      "sha256": "989200a35de1be7d1812699b2b1d8f6a94cae4e4373672d3a91fe4050aeac325"
+    },
+    "CONTRIBUTING.md": {
+      "executable": false,
+      "kind": "file",
+      "length": 4208,
+      "sha256": "32e57ab36f3d1c146bf72840c8cf50356d7120dc6c75c11ae9191f9c37c442a3"
+    },
+    "LICENSE": {
+      "executable": false,
+      "kind": "file",
+      "length": 1071,
+      "sha256": "1179a4eaecb6ba8817429dadf9aab62006187a5297e9be315bd329e94b2d0776"
+    },
+    "README.md": {
+      "executable": false,
+      "kind": "file",
+      "length": 16455,
+      "sha256": "d9253ce7765a4118e1889431e330a39bd79eb13e5a0b7be6d31b43b18296dad1"
+    },
+    "SECURITY.md": {
+      "executable": false,
+      "kind": "file",
+      "length": 1202,
+      "sha256": "2cf993d74e6878800aa08dd222d86afa16fd5b1bdb4b24598111f79e9cbea12b"
+    },
+    "VERSION": {
+      "executable": false,
+      "kind": "file",
+      "length": 6,
+      "sha256": "a42caf4a54bbbe27aa45b6efbc6356c5e299b19763e728b6cdb7201b02ebbe36"
+    },
+    "install/Reader.command": {
+      "executable": true,
+      "kind": "file",
+      "length": 5300,
+      "sha256": "c6d4c222a04c1cc987826e3cb9a921b1ab1af2226b993e4d96821575ba3c7cb8"
+    },
+    "licenses/dompurify-LICENSE": {
+      "executable": false,
+      "kind": "file",
+      "length": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    "licenses/ebgaramond-LICENSE": {
+      "executable": false,
+      "kind": "file",
+      "length": 4398,
+      "sha256": "0985066662eb755ed3683ae5482a81a9195b49ce3f7e165cc2388b3dbece7dd7"
+    },
+    "licenses/figtree-LICENSE": {
+      "executable": false,
+      "kind": "file",
+      "length": 4388,
+      "sha256": "140d37233e7f3ce7313798befa9600893bcceaf41a55fa0fa5ad52f7f657a268"
+    },
+    "licenses/highlightjs-LICENSE": {
+      "executable": false,
+      "kind": "file",
+      "length": 1514,
+      "sha256": "6c081431591d9df696c82dc598fe1423765b8a299b200ed00b281afd0f64c490"
+    },
+    "licenses/inter-LICENSE": {
+      "executable": false,
+      "kind": "file",
+      "length": 4477,
+      "sha256": "3b0a5fca3d17942cde889069889dedbbbd075e9b599968c82a95f4d944e9b345"
+    },
+    "licenses/jetbrains-mono-LICENSE": {
+      "executable": false,
+      "kind": "file",
+      "length": 4524,
+      "sha256": "403581b69dac5cff4079205e01c6b467e56af449ecbd7247693ddb1baafa005b"
+    },
+    "licenses/lora-LICENSE": {
+      "executable": false,
+      "kind": "file",
+      "length": 4563,
+      "sha256": "948aed765160f7b974105606c21994715a171f89fca48e57bf1e0a23aca0bef1"
+    },
+    "licenses/marked-LICENSE.md": {
+      "executable": false,
+      "kind": "file",
+      "length": 2942,
+      "sha256": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c"
+    },
+    "licenses/mermaid-LICENSE": {
+      "executable": false,
+      "kind": "file",
+      "length": 1089,
+      "sha256": "ec9fb67dcb25eccc416ed56e1aab819222c805a2a4bfe4cb19e7556bf2ffde80"
+    },
+    "licenses/poppins-LICENSE": {
+      "executable": false,
+      "kind": "file",
+      "length": 6175,
+      "sha256": "5c4a92c8f8ce0ab211f4c72889d82383c9644546115d9ba39a4f2d5b8f37014b"
+    },
+    "licenses/satoshi-LICENSE": {
+      "executable": false,
+      "kind": "file",
+      "length": 12734,
+      "sha256": "145e7fe2429a3336ba215c070ef722000e01348a3e1baaa127e871bb5012f554"
+    },
+    "licenses/source-serif-4-LICENSE": {
+      "executable": false,
+      "kind": "file",
+      "length": 4314,
+      "sha256": "18aabf190848725e2576eefb5c29ba06aac1029d02132252a7f312eac2e50cf3"
+    },
+    "macos/Assets/.gitkeep": {
+      "executable": false,
+      "kind": "file",
+      "length": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "macos/Assets/ReaderDockIcon-Dark.png": {
+      "executable": false,
+      "kind": "file",
+      "length": 178501,
+      "sha256": "014cb145fe022569b9d28d79f698cf5d7f1ab821408ae4eebf1f098f0523ad35"
+    },
+    "macos/Assets/ReaderDockIcon-Light.png": {
+      "executable": false,
+      "kind": "file",
+      "length": 177492,
+      "sha256": "57c64ae7c0904c912ee5f75faf57ba829e2505f9b8a46fed5bdeb0da56a3e3f9"
+    },
+    "macos/Assets/ReaderIcon.icon/Assets/ReaderIcon-1024.png": {
+      "executable": false,
+      "kind": "file",
+      "length": 783994,
+      "sha256": "f169d1be893cae08b22374f6f4f8434bb705475da86189d4f12b4f8f881f8da9"
+    },
+    "macos/Assets/ReaderIcon.icon/icon.json": {
+      "executable": false,
+      "kind": "file",
+      "length": 638,
+      "sha256": "bdf96ab25a691809c8ef8c2fbb0e8639fd8dd4a1c066654c9c1ced293a06514f"
+    },
+    "macos/Info.plist": {
+      "executable": false,
+      "kind": "file",
+      "length": 5096,
+      "sha256": "956e4d7db034cd62e599d0b446f8b31e084258afc3249bd798f6cc307319a9f3"
+    },
+    "macos/ReaderLauncher.swift": {
+      "executable": false,
+      "kind": "file",
+      "length": 64452,
+      "sha256": "c4cde2a173de0f0789d7e8b5e5326c59882d8cdcc027d6285632050def140ec6"
+    },
+    "macos/build-app.sh": {
+      "executable": true,
+      "kind": "file",
+      "length": 4578,
+      "sha256": "f490fe544cdddf580d6b3cb599b3f3ffbca6cc3d7b240d5d8e108e8ffd1ed52c"
+    },
+    "macos/ensure-signing-identity.sh": {
+      "executable": true,
+      "kind": "file",
+      "length": 6758,
+      "sha256": "fdd3416150b1afd43d9a29711bb7c89d4930171ca103a6ee3eefa9c66efaeb71"
+    },
+    "macos/export-signing-identity.sh": {
+      "executable": true,
+      "kind": "file",
+      "length": 3269,
+      "sha256": "5a40bfa4eef3633a8a0ec0985bea24f205750e66065bdb29a3ceb5956f3a99e2"
+    },
+    "macos/extract-changelog.sh": {
+      "executable": true,
+      "kind": "file",
+      "length": 771,
+      "sha256": "99abf66f950678b4047232d7a5993a887124a42bf9689808ccb5d845383311d5"
+    },
+    "macos/import-signing-identity.sh": {
+      "executable": true,
+      "kind": "file",
+      "length": 3578,
+      "sha256": "64bbf98f4df77f32bd26a09a4886c1803c25a4e70d85753784c87eb1b54782c5"
+    },
+    "macos/write-release-dmg.sh": {
+      "executable": true,
+      "kind": "file",
+      "length": 5427,
+      "sha256": "103723e7998182c9a641b05a205afd9c7034551e7a0a2cf89a06a61b836156b0"
+    },
+    "macos/write-release-manifest.sh": {
+      "executable": true,
+      "kind": "file",
+      "length": 2088,
+      "sha256": "74e63dc7adbc968cedd66c16e30eef237060850910c414f0eb4acae2976b2566"
+    },
+    "package.json": {
+      "executable": false,
+      "kind": "file",
+      "length": 178,
+      "sha256": "466f156bfcc7d3bcfe170ed7925597ce7328876224e38207b387589d5db6da91"
+    },
+    "playwright.config.js": {
+      "executable": false,
+      "kind": "file",
+      "length": 602,
+      "sha256": "a64ac513014b6f2d6b1704996184ab72768c5cb9fcd2f95ab2ee00d4151e5779"
+    },
+    "reader.py": {
+      "executable": true,
+      "kind": "file",
+      "length": 31848,
+      "sha256": "7f639dd020f2405e529ec7bb3eaacb3ecab691dc42112eff52a136fe4a94e115"
+    },
+    "reader_backend.py": {
+      "executable": false,
+      "kind": "file",
+      "length": 33496,
+      "sha256": "dcf3a1e65c0a73c2f91863cfe77cb309c4b638de7b081e3b89dc7836c29e8e3a"
+    },
+    "static/app-icon.png": {
+      "executable": false,
+      "kind": "file",
+      "length": 67525,
+      "sha256": "40ceaa89da5b1c9e73030a9b02b16fb6f0e12c8c048da39f128a0623e679264a"
+    },
+    "static/app.css": {
+      "executable": false,
+      "kind": "file",
+      "length": 69899,
+      "sha256": "8a1b53e50dc52cd2ae07d3ab9698a550be8ba458c1534820975f0dc9268ef315"
+    },
+    "static/app.js": {
+      "executable": false,
+      "kind": "file",
+      "length": 190566,
+      "sha256": "266b1e304ca7955ede3935a667cb58a038665bec57465aa21af5392fd44fab4e"
+    },
+    "static/fonts/ebgaramond-latin-variable-italic.ttf": {
+      "executable": false,
+      "kind": "file",
+      "length": 754468,
+      "sha256": "bba2c4499c93c9612b90b9825d32b07da52fce2fe57562a1eb6b833553f93c4e"
+    },
+    "static/fonts/ebgaramond-latin-variable-normal.ttf": {
+      "executable": false,
+      "kind": "file",
+      "length": 851176,
+      "sha256": "ef9512f92f6d579e5dc75af59a5a4b1b8b47d2eda89e00b954d44520e5369027"
+    },
+    "static/fonts/figtree-latin-variable-italic.ttf": {
+      "executable": false,
+      "kind": "file",
+      "length": 62632,
+      "sha256": "94dec1f18b9275d69e8b4a91b6514bdc18199048347e1c36e1285b11b0b87653"
+    },
+    "static/fonts/figtree-latin-variable-normal.ttf": {
+      "executable": false,
+      "kind": "file",
+      "length": 62712,
+      "sha256": "26ad3db9b31ff7dde67a91ff515d022d2f495cd506590699cf264f0bfe6fb714"
+    },
+    "static/fonts/inter-latin-400-italic.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 25040,
+      "sha256": "7ea9d2f1274cebee837f0c6eebb426c18fbb2333a6b6da4d02ec5cf47db7fb8e"
+    },
+    "static/fonts/inter-latin-400-normal.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 23664,
+      "sha256": "8909904ab6c872eb994093482a88a28eca2cd95912d7b6fecd72103b0dc07edc"
+    },
+    "static/fonts/inter-latin-500-normal.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 24272,
+      "sha256": "f3779f1efccc4bdcdf9c0a02ab95bf6bd092ed09c48c08cedc725889edd1d19f"
+    },
+    "static/fonts/inter-latin-600-normal.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 24452,
+      "sha256": "f9a06e79cd3a2a20951c0f0e28f66dd0e6d3fda73911d640a2125c8fcb78f21a"
+    },
+    "static/fonts/inter-latin-700-normal.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 24356,
+      "sha256": "6f56409fd3d64bb85f7d070bce20749db2d66b6d63cec586cc22d1c761be2491"
+    },
+    "static/fonts/jetbrains-mono-latin-400-italic.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 22228,
+      "sha256": "87ddac4a62229787528cf4ac3fa58137b62a9aec364c44fc0f40470bcda9efba"
+    },
+    "static/fonts/jetbrains-mono-latin-400-normal.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 21168,
+      "sha256": "14425ba9c695763c1547f48a206b7aa60350a33ae23de09f0407877f3fcd89eb"
+    },
+    "static/fonts/jetbrains-mono-latin-500-normal.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 21832,
+      "sha256": "cb182feeed4d798ff6961d3c79f7026279448fca0676438aaecb21f3fc39553a"
+    },
+    "static/fonts/jetbrains-mono-latin-700-normal.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 21908,
+      "sha256": "d0d4e818808f2a0ba39b2b09d1989366f63494e295f003c7ef436697378507e8"
+    },
+    "static/fonts/lora-latin-400-italic.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 22756,
+      "sha256": "723cc14fe86bc9fadb2f5f34efb421d246edb240a18d2a7828d2edc041d79996"
+    },
+    "static/fonts/lora-latin-400-normal.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 21148,
+      "sha256": "ac079950fd9885261c0f73d9e87233f31b5427333ce0eb20e26c119458493c40"
+    },
+    "static/fonts/lora-latin-500-italic.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 23376,
+      "sha256": "dd02a01aa86a3d388db13495b13509af4af12551fc3aa978aceecc51b8e4c17b"
+    },
+    "static/fonts/lora-latin-500-normal.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 21900,
+      "sha256": "03bcdff46fdcba0524c012d0392a5459023955e517d185c95a038e1f1e350523"
+    },
+    "static/fonts/lora-latin-600-italic.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 23340,
+      "sha256": "21a6fc2be0880cca4bc608b519eb34240ff99b29a70ea982c125f6d28b41f90c"
+    },
+    "static/fonts/lora-latin-600-normal.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 21916,
+      "sha256": "7bbfe9f3c9e9d6d07e17da4d5229a42b042cc2e16024993cb687dc08cc762557"
+    },
+    "static/fonts/lora-latin-700-italic.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 22256,
+      "sha256": "5be7722fced443a25698c6f77d12a04a2cffa921771d81f2d6f5516a381f134b"
+    },
+    "static/fonts/lora-latin-700-normal.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 21044,
+      "sha256": "c05fd5289492ed310ed882259b944ca5287e76e572a65d92d3941f9f44f0342a"
+    },
+    "static/fonts/poppins-latin-400-normal.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 7884,
+      "sha256": "7d93459d86585bfcdbb7e0376056226adb25821ee54b96236fe2123e9560929f"
+    },
+    "static/fonts/poppins-latin-500-normal.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 7748,
+      "sha256": "cd36de204aca2d5fa263a731f7c20009b5e3d754ba1f1e03c33e93a48f3e7446"
+    },
+    "static/fonts/poppins-latin-600-normal.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 8000,
+      "sha256": "f4e80d9dfd374d02989b87a27b5ed4cb78fbb177c27f1478e9a8b0afb7513149"
+    },
+    "static/fonts/poppins-latin-700-normal.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 7816,
+      "sha256": "9338e65fc077355c7a87ae0d64cc101e23b9bf8ad78ae65f0f319c857311b526"
+    },
+    "static/fonts/satoshi-latin-variable-italic.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 43844,
+      "sha256": "e7b4e0ec5fbb156df444371d62c3506fe6256db6ffb55c4982dddbb44e2de351"
+    },
+    "static/fonts/satoshi-latin-variable-normal.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 42588,
+      "sha256": "e739aff9b4d02c264341d6d4872edcda28e79373aeda936f659566a1cd3eb47f"
+    },
+    "static/fonts/source-serif-4-latin-400-italic.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 20092,
+      "sha256": "882b7c150c29f29d4f8daae6b8dcae8662aac7f28ca34b34615305154136ecfd"
+    },
+    "static/fonts/source-serif-4-latin-400-normal.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 20088,
+      "sha256": "02194deb92d3975dd30e11a3824a1f1db32b48c93654e60560cb81ce8e7b5f95"
+    },
+    "static/fonts/source-serif-4-latin-500-normal.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 21528,
+      "sha256": "d3e119de0b756d9fa6d368de570f7168bb74eedf3289aaeae22dd97b900918d1"
+    },
+    "static/fonts/source-serif-4-latin-600-italic.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 21588,
+      "sha256": "cdee523b89692709393643e25fdc066be137d5b0b9782548779e8382c3c11ce7"
+    },
+    "static/fonts/source-serif-4-latin-600-normal.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 21532,
+      "sha256": "f2b7e1cf1d277b7608231868135648f8ad8e2b58d8e97ca088bee15dc357bee7"
+    },
+    "static/fonts/source-serif-4-latin-700-normal.woff2": {
+      "executable": false,
+      "kind": "file",
+      "length": 21716,
+      "sha256": "7691c51bc286a9014db0048277d2c3f2ad0a90b533dc8adfb16cb22a95390d39"
+    },
+    "static/highlight.min.js": {
+      "executable": false,
+      "kind": "file",
+      "length": 161947,
+      "sha256": "4f8d55c552b2abb44e9ab27d56cb733369a8d26873a7409d035f225bc62bd09a"
+    },
+    "static/icon.svg": {
+      "executable": false,
+      "kind": "file",
+      "length": 364,
+      "sha256": "49c8d425f056085c79b7b7e4f2aca5c93ceb0718ccb2d59664aeb0a5f324c68f"
+    },
+    "static/index.html": {
+      "executable": false,
+      "kind": "file",
+      "length": 50326,
+      "sha256": "792326815cabb8ff41e0907db392de7eac245d029761ac3cc6dae77ad3f8b155"
+    },
+    "static/marked.min.js": {
+      "executable": false,
+      "kind": "file",
+      "length": 39903,
+      "sha256": "3e7e7d7feb3e5d58cb6c804f68ab5c24cc7e5eb6270fd6e5cbb9124739217d0c"
+    },
+    "static/mermaid.min.js": {
+      "executable": false,
+      "kind": "file",
+      "length": 3572661,
+      "sha256": "581ed7d74bd9048d0e3a91363927d72ef22942d7722546b27f7cc29e35390eb8"
+    },
+    "static/prepaint.js": {
+      "executable": false,
+      "kind": "file",
+      "length": 1190,
+      "sha256": "7d75589fdf7e695b417a09125e6a8e4a788c156d3b3ce3eee8076da3c62b4f25"
+    },
+    "static/purify.min.js": {
+      "executable": false,
+      "kind": "file",
+      "length": 29474,
+      "sha256": "9ab3d44d73c3e3947f9ab72e0f0bc15c7f1931d60b365ba261fc85fe59013c56"
+    },
+    "tests/browser/webmcp.spec.js": {
+      "executable": false,
+      "kind": "file",
+      "length": 21561,
+      "sha256": "ae6a298612464195789e6abb9e04dc44cb0841f4e2cca9bb3876c6398abb3566"
+    },
+    "tests/manual/update-feed-server.py": {
+      "executable": false,
+      "kind": "file",
+      "length": 4413,
+      "sha256": "be087f3155feba29589cd84e17f5df576e032305dfdd9ec09930272e9c8c6948"
+    },
+    "tests/test_create_document.py": {
+      "executable": false,
+      "kind": "file",
+      "length": 5955,
+      "sha256": "b50665630207d7841116ae7541ff63e4ef6e46a062f8700c04329e32a72b6564"
+    },
+    "tests/test_doc_links.py": {
+      "executable": false,
+      "kind": "file",
+      "length": 2462,
+      "sha256": "cc5e5fabd62716591d12152592ac5b847a1846b6082c122ee0274908199f5fa6"
+    },
+    "tests/test_extensionless_files.py": {
+      "executable": false,
+      "kind": "file",
+      "length": 3023,
+      "sha256": "bef7e5f975d15eff2c9d7e37a5d868dee23d911f5da124480c50a9e4e72abbb2"
+    },
+    "tests/test_external_open.py": {
+      "executable": false,
+      "kind": "file",
+      "length": 2169,
+      "sha256": "f5dc2e2fceec69cc015f829a9324806ecfb0d6ce6f00e58fd2529366c4f633d2"
+    },
+    "tests/test_file_search.py": {
+      "executable": false,
+      "kind": "file",
+      "length": 8751,
+      "sha256": "3784af8cda4225747285b9ee8df8d209c4fc6b412fa3568688551145096ad4a2"
+    },
+    "tests/test_markdown_tasks.py": {
+      "executable": false,
+      "kind": "file",
+      "length": 1778,
+      "sha256": "84477a9fbd0dadabf27e47f912589737389ff8c5c62ed325888bf71a3579a5d1"
+    },
+    "tests/test_mermaid.py": {
+      "executable": false,
+      "kind": "file",
+      "length": 1802,
+      "sha256": "a3b5a02e1ef0ba8f7ae6e6118f8945ce9428ec0b7f3f59d90a26acd33637c101"
+    },
+    "tests/test_move.py": {
+      "executable": false,
+      "kind": "file",
+      "length": 3358,
+      "sha256": "86acf7251885965779cb59597834a96d6c432cb5eb4312de55d8aa6ee39fbfd0"
+    },
+    "tests/test_portability.py": {
+      "executable": false,
+      "kind": "file",
+      "length": 11800,
+      "sha256": "ab2eb24bbdd83380781e0c3dbce7ac359d921c97a1f14dc754d32f362a518db0"
+    },
+    "tests/test_privacy_lifecycle.py": {
+      "executable": false,
+      "kind": "file",
+      "length": 1883,
+      "sha256": "c1d00252b62c3ab68ad3b68bfc0b9e6cc94be9439880581bfcd464f821a163b6"
+    },
+    "tests/test_save_security.py": {
+      "executable": false,
+      "kind": "file",
+      "length": 6068,
+      "sha256": "7bd5a759b37acfdfd09831881f73e38dbbbf71ae9dc00d7fda8ef8887d598ceb"
+    },
+    "tests/test_server_bind_speed.py": {
+      "executable": false,
+      "kind": "file",
+      "length": 2090,
+      "sha256": "93dfbfa0488105be52e2b65d256af1796507a860d2bbd4b3e7bc5a8feed6bf9a"
+    },
+    "tests/test_workspace_authorization.py": {
+      "executable": false,
+      "kind": "file",
+      "length": 9988,
+      "sha256": "385ccf64ac2f49fe5a5a435f69a67edac873294e5b99c9d24ac869299605f82a"
+    }
+  },
+  "format": 2
+}
