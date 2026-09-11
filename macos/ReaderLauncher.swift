@@ -29,6 +29,12 @@ private let previousBundleSuffix = ".previous"
 
 private enum ReaderProbe {
     case compatible
+    /* Answers /api/ping as Reader, but cannot serve the app. A server whose
+       bundle has been deleted or replaced keeps running on the code already in
+       memory: the ping route is pure code and still replies, while everything
+       that reads from disk does not. Reusing one of those put a plain-text
+       "not found" in the window in place of Reader. */
+    case stale(String)
     case occupied
     case unreachable
 }
@@ -343,6 +349,14 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
             case .compatible:
                 self.statusLabel.stringValue = "Connecting to Reader…"
                 self.loadReaderPage()
+            case .stale(let version):
+                /* The port is held, so Reader cannot start its own server on it,
+                   and the one that is there cannot serve. Say which, and say what
+                   ends it -- the alternative is the window the reader actually
+                   saw: the other server's plain-text 404. */
+                self.showError("A Reader server from an earlier build (version "
+                    + version + ") is holding port \(readerPort) and can no longer "
+                    + "serve the app. Quit that copy of Reader, then open this one again.")
             case .occupied:
                 self.showError("Port 8737 is in use by another app. Reader was not started.")
             case .unreachable:
@@ -414,6 +428,18 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
             switch result {
             case .compatible:
                 self.loadReaderPage()
+            case .stale:
+                /* Our own server, answering before it can read its own folder.
+                   Keep waiting; the readiness timeout is the backstop. */
+                if let started = self.readinessStartedAt,
+                   Date().timeIntervalSince(started) >= readinessTimeout {
+                    self.stopOwnedServer()
+                    self.showError("Reader's server started but cannot read its own files.")
+                } else {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                        self.waitUntilReady()
+                    }
+                }
             case .occupied:
                 self.stopOwnedServer()
                 self.showError("A different service took port 8737 while Reader was starting.")
@@ -433,27 +459,52 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         }
     }
 
-    private func probeServer(completion: @escaping (ReaderProbe) -> Void) {
-        guard let url = URL(string: "http://127.0.0.1:\(readerPort)/api/ping") else {
-            completion(.unreachable)
-            return
-        }
+    private func probeRequest(_ path: String) -> URLRequest? {
+        guard let url = URL(string: "http://127.0.0.1:\(readerPort)\(path)") else { return nil }
         var request = URLRequest(url: url)
         request.timeoutInterval = 0.8
         request.cachePolicy = .reloadIgnoringLocalCacheData
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            let result: ReaderProbe
-            if let data,
-               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               object["app"] as? String == readerAppName {
-                result = .compatible
-            } else if response != nil || (error as NSError?)?.code == NSURLErrorTimedOut {
-                result = .occupied
-            } else {
-                result = .unreachable
+        return request
+    }
+
+    /* Identifying the thing on the port is not the same as establishing that it
+       can do the job. Answering as Reader only proves some Reader is running;
+       the second request proves it can still reach its own files, which is what
+       actually decides whether reusing it will produce the app or a 404. */
+    private func probeServer(completion: @escaping (ReaderProbe) -> Void) {
+        guard let request = probeRequest("/api/ping") else {
+            completion(.unreachable)
+            return
+        }
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            let object = data.flatMap {
+                try? JSONSerialization.jsonObject(with: $0) as? [String: Any]
+            } ?? nil
+            guard let object, object["app"] as? String == readerAppName else {
+                let verdict: ReaderProbe =
+                    (response != nil || (error as NSError?)?.code == NSURLErrorTimedOut)
+                    ? .occupied : .unreachable
+                DispatchQueue.main.async { completion(verdict) }
+                return
             }
+            let version = object["version"] as? String ?? "an unknown version"
+            self?.probeCanServe(version: version, completion: completion)
+        }.resume()
+    }
+
+    /* The icon is served from the same folder as the page and its scripts, and
+       needs no session, so it answers this question without a token in hand. */
+    private func probeCanServe(version: String,
+                               completion: @escaping (ReaderProbe) -> Void) {
+        guard let request = probeRequest("/favicon.ico") else {
+            DispatchQueue.main.async { completion(.stale(version)) }
+            return
+        }
+        URLSession.shared.dataTask(with: request) { data, response, _ in
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            let served = code == 200 && (data?.isEmpty == false)
             DispatchQueue.main.async {
-                completion(result)
+                completion(served ? .compatible : .stale(version))
             }
         }.resume()
     }
