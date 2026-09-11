@@ -229,7 +229,27 @@ button{background:none;border:0;cursor:pointer}
   background:var(--panel);border-right:1px solid var(--border);
   display:flex;flex-direction:column;overflow:hidden;
 }
-.side-head{display:flex;align-items:center;gap:.5rem;padding:.5rem .625rem}
+/* The same height as #toolbar, so the panel's own header and the document's
+   line up as one band across the window -- and so the panel glyph and the
+   arrows beside it hold one vertical position whether the panel is open or
+   shut. Its gap and left padding match the toolbar's for the same reason: any
+   difference is drift the arrows would show as they moved between the two. */
+.side-head{
+  display:flex;align-items:center;gap:.4375rem;flex:none;
+  padding:0 .625rem 0 .6875rem;
+  /* #toolbar is 3.375rem, and box-sizing:border-box puts its 1px bottom border
+     inside that, leaving a shorter content box to centre against. Matching the
+     stated height would centre anything here half a pixel lower and round to
+     one, so the arrows landed 1px below their toolbar selves and hopped as the
+     panel came and went. Subtracting the border matches the content box without
+     drawing a line the panel header does not have. */
+  height:calc(3.375rem - 1px);
+}
+/* Back and forward, in whichever of their two homes currently holds them. No
+   size of their own in the panel: looking identical to their toolbar selves is
+   the whole point of the position holding still. */
+.trail-nav{display:flex;align-items:center;gap:2px;flex:none}
+.trail-nav[hidden]{display:none}
 .side-title{font-weight:600;font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);flex:1}
 
 /* pinned folders and recently opened files share one visual language */
@@ -643,6 +663,12 @@ html[data-head=ebgaramond] .prose h1.doc-heading{font-size:calc(var(--title-size
    light mode inherits the normal text color unchanged. */
 .prose strong{font-weight:600;color:var(--prose-strong)}
 .prose ul,.prose ol{margin:0 0 var(--para-gap);padding-left:1.4em}
+/* One bullet at every depth. Browsers step disc -> circle -> square as lists
+   nest, so a sub-point arrived as a hollow ring and a sub-sub-point as a square,
+   reading as three unrelated kinds of thing rather than one list indented. The
+   indent already carries the nesting. Ordered lists keep their numbering, and
+   task lists keep their own rule, which drops the marker entirely. */
+.prose ul{list-style-type:disc}
 .prose li{margin:var(--list-gap) 0}
 .prose li::marker{color:var(--text-3)}
 .prose li>ul,.prose li>ol{margin:.32em 0}

@@ -26,6 +26,13 @@
       <button class="icon-btn" id="btn-panel" title="Hide panel (⌘\)" aria-label="Hide panel" data-kbd>
         <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2"/><path d="M8 3.5v13"/></svg>
       </button>
+      <!-- Back and forward sit immediately after the panel glyph, exactly as
+           they do in the toolbar. The glyph holds the same corner in both
+           states, so the arrows keep one position: expanding the panel changes
+           which element they hang off, not where they are on screen. Before the
+           title, because .side-title takes flex:1 and would shove them to the
+           far edge. -->
+      <span class="trail-nav" id="trail-panel"></span>
       <span class="side-title">Files</span>
     </div>
 
@@ -99,12 +106,17 @@
         <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2"/><path d="M8 3.5v13"/></svg>
       </button>
 
-      <button class="icon-btn" id="btn-back" title="Back (← or ⌘[)" aria-label="Back" disabled data-kbd>
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11.6 4.8 6.4 10l5.2 5.2"/></svg>
-      </button>
-      <button class="icon-btn" id="btn-fwd" title="Forward (→ or ⌘])" aria-label="Forward" disabled data-kbd>
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8.4 4.8 13.6 10l-5.2 5.2"/></svg>
-      </button>
+      <!-- Back and forward have two homes, like the panel button above. The one
+           pair of buttons is moved between them rather than duplicated, so the
+           click handlers and the enabled state cannot drift apart. -->
+      <span class="trail-nav" id="trail-toolbar">
+        <button class="icon-btn" id="btn-back" title="Back (← or ⌘[)" aria-label="Back" disabled data-kbd>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11.6 4.8 6.4 10l5.2 5.2"/></svg>
+        </button>
+        <button class="icon-btn" id="btn-fwd" title="Forward (→ or ⌘])" aria-label="Forward" disabled data-kbd>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8.4 4.8 13.6 10l-5.2 5.2"/></svg>
+        </button>
+      </span>
 
       <div class="doc-title">
         <span id="docname">No document open</span>

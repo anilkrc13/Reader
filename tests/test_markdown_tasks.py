@@ -42,5 +42,25 @@ class BlockquoteSpacingTests(unittest.TestCase):
         self.assertIn("--para-gap", rule.group(1))
 
 
+class ListMarkerTests(unittest.TestCase):
+    def test_every_bullet_depth_uses_the_same_filled_disc(self):
+        """Browsers step disc -> circle -> square as lists nest, so a sub-point
+        arrived as a hollow ring and a sub-sub-point as a square. The indent
+        already carries the nesting."""
+        css = (ROOT / "static/app.css").read_text()
+        rule = re.search(r"\.prose ul\{([^}]*)\}", css)
+
+        self.assertIsNotNone(rule, "nothing pins the bullet at every depth")
+        self.assertIn("list-style-type:disc", rule.group(1).replace(" ", ""))
+
+    def test_task_lists_still_drop_their_marker(self):
+        """A task list draws a checkbox instead, and must not gain a disc."""
+        css = (ROOT / "static/app.css").read_text()
+        rule = re.search(r"\.prose ul\.contains-task-list\{([^}]*)\}", css)
+
+        self.assertIsNotNone(rule)
+        self.assertIn("list-style:none", rule.group(1).replace(" ", ""))
+
+
 if __name__ == "__main__":
     unittest.main()

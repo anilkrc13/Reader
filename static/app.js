@@ -20,6 +20,7 @@ const el = {
   docname: $("docname"), dirty: $("dirty"), toast: $("toast"),
   save: $("btn-save"), footnote: $("footnote"),
   back: $("btn-back"), fwd: $("btn-fwd"), fmtbar: $("fmtbar"),
+  trailToolbar: $("trail-toolbar"), trailPanel: $("trail-panel"),
   dragbar: $("dragbar"), diskbar: $("diskbar"), diskmsg: null,
   findbar: $("findbar"), findQ: $("find-q"), findCount: $("find-count"),
   findPrev: $("find-prev"), findNext: $("find-next"), findClose: $("find-close"),
@@ -2776,7 +2777,30 @@ function setMode(mode) {
 }
 /* The corner button reads differently by state: the toolbar one only ever
    reveals; the panel's own one hides when pinned, pins when only peeking. */
+/* Back and forward follow the file panel, because moving between documents is
+   the panel's business and the toolbar keeps its room for the document. They go
+   wherever the panel glyph currently is: a peek counts as on screen, since the
+   panel then floats over the toolbar and covers the very corner the arrows would
+   otherwise be waiting in, hiding them behind it. Only when the panel is
+   genuinely away do they belong in the toolbar -- left in the panel they would
+   need a hover at the window edge to reach, which is no way to reach a button.
+   The pair is moved rather than copied, so the handlers bound to it and the
+   enabled state set on it come along. Both homes put them on the same pixel, so
+   the move is invisible. */
+function syncTrailHome() {
+  const panelOnScreen = !S.hidden || root.classList.contains("peek");
+  const host = panelOnScreen ? el.trailPanel : el.trailToolbar;
+  const vacated = panelOnScreen ? el.trailToolbar : el.trailPanel;
+  if (el.back.parentElement !== host) host.append(el.back, el.fwd);
+  /* The empty home is hidden outright rather than left to :empty, which cannot
+     match it: the mark-up's own indentation leaves whitespace text nodes behind,
+     and an empty flex child still takes a gap from the row it sits in. */
+  host.hidden = false;
+  vacated.hidden = true;
+}
+
 function syncPanelButtons() {
+  syncTrailHome();
   const set = (id, label) => {
     $(id).title = label;
     $(id).setAttribute("aria-label", label);
@@ -4397,11 +4421,15 @@ window.addEventListener("resize", hideFmtBar);
     if (!S.hidden) return;                // pinned open: nothing to peek
     clearTimeout(hideTimer);
     root.classList.add("peek");
+    syncTrailHome();          // the arrows come out with the panel they sit in
   };
   const scheduleHide = () => {
     if (!S.hidden) return;
     clearTimeout(hideTimer);
-    hideTimer = setTimeout(() => root.classList.remove("peek"), 250);
+    hideTimer = setTimeout(() => {
+      root.classList.remove("peek");
+      syncTrailHome();
+    }, 250);
   };
   $("btn-show").addEventListener("mouseenter", show);
   $("btn-show").addEventListener("mouseleave", scheduleHide);
