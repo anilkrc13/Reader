@@ -1212,11 +1212,42 @@ kbd.k{
 /* only the install path may break mid-word: it is a path, not prose */
 #about-where code{overflow-wrap:anywhere}
 
+/* Drawn in the page's own palette, so the frame is a quiet hairline rather
+   than a box around a picture. A diagram keeps its natural size and scrolls
+   sideways when it is wider than the column; .fit (set by the renderer) shrinks
+   one that is only slightly too wide. */
 .mermaid-diagram{
-  margin:1.35em 0;padding:14px 10px;border:1px solid var(--border-soft);
-  border-radius:var(--radius);background:var(--paper);overflow:auto;text-align:center;
+  --diagram-bg:var(--paper);
+  margin:1.8em 0;padding:1.5rem 1.25rem;border:1px solid var(--border-soft);
+  border-radius:var(--radius);background:var(--diagram-bg);overflow:auto;text-align:center;
+  overscroll-behavior-x:contain;
 }
 .mermaid-diagram svg{display:block;max-width:100%;height:auto;margin:0 auto}
+/* .scrolls: too wide to shrink without the labels drifting from the page's
+   text size, so the SVG keeps its natural width and the frame scrolls */
+.mermaid-diagram.scrolls{overflow-x:auto}
+.mermaid-diagram.scrolls svg{max-width:none}
+/* .wide: the renderer has sized the host past the text column, up to the pane.
+   .expandable: still scaled down; a click opens it full size. */
+.mermaid-diagram.wide{overflow:hidden}
+.mermaid-diagram.expandable{cursor:zoom-in;position:relative}
+.mermaid-diagram.expandable::after{
+  content:"Click to enlarge";position:absolute;right:.6rem;bottom:.45rem;
+  font-family:var(--ui);font-size:.6875rem;color:var(--text-3);opacity:0;transition:opacity var(--speed);
+}
+.mermaid-diagram.expandable:hover::after{opacity:1}
+.diagram-sheet{padding:1.25rem;cursor:zoom-out}
+.diagram-sheet-box{
+  --diagram-bg:var(--paper);
+  position:relative;max-width:100%;max-height:100%;display:flex;cursor:default;
+  background:var(--diagram-bg);border:1px solid var(--border);border-radius:1rem;
+  box-shadow:var(--shadow-lg);overflow:hidden;animation:rise .18s cubic-bezier(.2,.7,.3,1);
+}
+.diagram-sheet-scroll{overflow:auto;padding:3rem 2rem 2rem;max-width:100%;max-height:calc(100vh - 2.5rem)}
+.diagram-sheet-scroll svg{display:block;height:auto}
+.diagram-sheet-close{position:absolute;top:.5rem;right:.5rem;z-index:1}
+/* dark papers get a faint lift so the hairline frame reads against them */
+html[data-theme=dark] .mermaid-diagram{--diagram-bg:color-mix(in srgb,var(--panel) 60%,var(--paper))}
 .mermaid-error{margin:-.65em 0 1.35em;color:var(--text-3);font-size:12px;font-style:italic}
 .mermaid-source-error{margin-bottom:.8em}
 

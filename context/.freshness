@@ -1,7 +1,7 @@
 # owned by skills/repository-context/scripts/context_freshness.py -- do not hand-edit
 {
-  "aggregate": "6924a603d89d2361bd73333c61e44c312f06efb0b3692df02655dfa0d029fc5f",
-  "commit": "2d311aa794ae649314e0718ebeec5dd006c09fa5",
+  "aggregate": "561a7f05f8d76ec8f4d8d359e91f762c62c8d8ddc3e0bd2917a62f7c17a5670e",
+  "commit": "58cd8fc226bb4ea5e67811af94598537b5d15480",
   "exclude": [],
   "files": {
     ".github/ISSUE_TEMPLATE/bug_report.md": {
@@ -37,8 +37,8 @@
     "CHANGELOG.md": {
       "executable": false,
       "kind": "file",
-      "length": 8790,
-      "sha256": "989200a35de1be7d1812699b2b1d8f6a94cae4e4373672d3a91fe4050aeac325"
+      "length": 9876,
+      "sha256": "9d1949c11c1e03edba664aaed37dc2c501158c8803d1d999d61422330bf94090"
     },
     "CONTRIBUTING.md": {
       "executable": false,
@@ -187,8 +187,8 @@
     "macos/ReaderLauncher.swift": {
       "executable": false,
       "kind": "file",
-      "length": 64452,
-      "sha256": "c4cde2a173de0f0789d7e8b5e5326c59882d8cdcc027d6285632050def140ec6"
+      "length": 67497,
+      "sha256": "29e1472467f8a0b7cf2a89d07bd890382886c907980ea2e72663e94f3feaaad0"
     },
     "macos/build-app.sh": {
       "executable": true,
@@ -265,14 +265,14 @@
     "static/app.css": {
       "executable": false,
       "kind": "file",
-      "length": 69899,
-      "sha256": "8a1b53e50dc52cd2ae07d3ab9698a550be8ba458c1534820975f0dc9268ef315"
+      "length": 73390,
+      "sha256": "8c3c6e6eaa42884984a944f691e4bad8009f2e4b9b55c362e66161f89f35d2a5"
     },
     "static/app.js": {
       "executable": false,
       "kind": "file",
-      "length": 190566,
-      "sha256": "266b1e304ca7955ede3935a667cb58a038665bec57465aa21af5392fd44fab4e"
+      "length": 202224,
+      "sha256": "ac495409c09c3d7acf5c6d77573de211140c08df0bc00bc55b8b5e4d3de44030"
     },
     "static/fonts/ebgaramond-latin-variable-italic.ttf": {
       "executable": false,
@@ -487,8 +487,8 @@
     "static/index.html": {
       "executable": false,
       "kind": "file",
-      "length": 50326,
-      "sha256": "792326815cabb8ff41e0907db392de7eac245d029761ac3cc6dae77ad3f8b155"
+      "length": 51108,
+      "sha256": "7a81ce54421e6bc97c2e8b782bf88fca7386db70e2a90e97de6e09c65635be16"
     },
     "static/marked.min.js": {
       "executable": false,
@@ -559,8 +559,8 @@
     "tests/test_markdown_tasks.py": {
       "executable": false,
       "kind": "file",
-      "length": 1778,
-      "sha256": "84477a9fbd0dadabf27e47f912589737389ff8c5c62ed325888bf71a3579a5d1"
+      "length": 2719,
+      "sha256": "4e7de324fe483cfd891f5b6f0b28c0b4cf20112f0ecb7ec261f4d24983f599e3"
     },
     "tests/test_mermaid.py": {
       "executable": false,

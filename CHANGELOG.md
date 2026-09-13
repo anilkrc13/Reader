@@ -2,6 +2,22 @@
 
 All notable changes to Reader. Versions follow [semantic versioning](https://semver.org).
 
+## Unreleased
+
+- Mermaid diagrams are drawn in Reader's own palette and interface face, so
+  they follow the theme, the paper tint and the accent instead of arriving as
+  a white picture on a dark page, and they redraw when any of those change.
+  Boxes have rounded corners and room around their labels, subgraph titles are
+  the same small uppercase captions the rest of the app uses and sit clear of
+  the frame, and edge labels rest on a solid backing so the line no longer
+  runs through the words. A diagram wider than the text column spreads towards
+  the pane's edges before it is scaled, since the reading measure is set for
+  lines of prose; it is never scaled below 80%, past which it keeps its size
+  and the frame scrolls sideways so labels stay the size of the page's own
+  text. A scaled or scrolling diagram shows "Click to enlarge" on hover and
+  opens at full size in a sheet over the page; Esc, the close button or the
+  backdrop dismiss it. When a diagram fails to parse, the note beneath it now
+  quotes Mermaid's own reason, such as the line the parser stopped on.
 ## 2.3.0
 
 - YAML front matter at the top of a Markdown file now renders as a compact
