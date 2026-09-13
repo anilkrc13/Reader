@@ -503,6 +503,7 @@ function applySettings() {
 
   el.editor.spellcheck = !!S.spellcheck && (!state.file || state.file.kind === "md");
   restartWatch();
+  rerenderMermaid();
 }
 mq.addEventListener("change", () => { if (S.theme === "auto") applySettings(); });
 
@@ -614,27 +615,244 @@ marked.use({
   }],
 });
 
-let mermaidConfigured = false;
+/* Diagrams are drawn in Reader's own palette and interface face, read from
+   the live custom properties, so they follow the theme, the paper tint and the
+   accent like the rest of the page instead of arriving as a white image. The
+   signature detects a change; Mermaid is re-initialised only then. */
+let mermaidSignature = "";
+const mermaidSources = new WeakMap();   // rendered host -> its diagram source
+
+function mermaidThemeVariables() {
+  const cs = getComputedStyle(root);
+  const v = (name) => cs.getPropertyValue(name).trim();
+  const dark = root.dataset.theme === "dark";
+  return {
+    darkMode: dark,
+    fontFamily: v("--ui"),
+    fontSize: "15px",
+    background: v("--paper"),
+    textColor: v("--text"),
+    titleColor: v("--text"),
+    lineColor: v("--text-2"),
+    mainBkg: v("--panel"),
+    primaryColor: v("--panel"),
+    primaryTextColor: v("--text"),
+    primaryBorderColor: v("--text-3"),
+    secondaryColor: v("--panel-hi"),
+    secondaryTextColor: v("--text"),
+    secondaryBorderColor: v("--text-3"),
+    tertiaryColor: v("--surface"),
+    tertiaryTextColor: v("--text"),
+    tertiaryBorderColor: v("--border"),
+    nodeBorder: v("--text-3"),
+    nodeTextColor: v("--text"),
+    clusterBkg: v("--surface"),
+    clusterBorder: v("--border"),
+    edgeLabelBackground: v("--paper"),
+    defaultLinkColor: v("--text-2"),
+    noteBkgColor: v("--panel-hi"),
+    noteTextColor: v("--text"),
+    noteBorderColor: v("--border"),
+    actorBkg: v("--panel"),
+    actorBorder: v("--text-3"),
+    actorTextColor: v("--text"),
+    actorLineColor: v("--text-3"),
+    signalColor: v("--text"),
+    signalTextColor: v("--text"),
+    labelBoxBkgColor: v("--panel"),
+    labelBoxBorderColor: v("--text-3"),
+    labelTextColor: v("--text"),
+    loopTextColor: v("--text"),
+    activationBkgColor: v("--panel-hi"),
+    activationBorderColor: v("--text-3"),
+    sequenceNumberColor: v("--paper"),
+    pie1: v("--accent"),
+    pieTitleTextColor: v("--text"),
+    pieSectionTextColor: v("--text"),
+    pieLegendTextColor: v("--text"),
+    pieStrokeColor: v("--paper"),
+    pieOuterStrokeColor: v("--border"),
+    attributeBackgroundColorOdd: v("--panel"),
+    attributeBackgroundColorEven: v("--surface"),
+    git0: v("--accent"),
+  };
+}
 
 function configureMermaid() {
-  if (mermaidConfigured) return true;
   if (!window.mermaid || typeof window.mermaid.initialize !== "function") return false;
+  const vars = mermaidThemeVariables();
+  const signature = JSON.stringify(vars);
+  if (signature === mermaidSignature) return true;
+  /* Natural size everywhere: a diagram is laid out for its own text, and the
+     host decides below whether it fits the column or scrolls. */
   window.mermaid.initialize({
     startOnLoad: false,
     securityLevel: "strict",
     htmlLabels: false,
-    theme: "neutral",
-    flowchart: {useMaxWidth: true},
+    theme: "base",
+    themeVariables: vars,
+    /* padding is the space between a node's label and its border: 16 puts a
+       15px label in a 49px box, the proportions of Reader's own controls */
+    flowchart: {useMaxWidth: false, htmlLabels: false, padding: 16, nodeSpacing: 44, rankSpacing: 56,
+                subGraphTitleMargin: {top: 14, bottom: 10}},
+    sequence: {useMaxWidth: false},
+    gantt: {useMaxWidth: false},
+    class: {useMaxWidth: false},
+    state: {useMaxWidth: false},
+    er: {useMaxWidth: false},
+    journey: {useMaxWidth: false},
+    pie: {useMaxWidth: false},
+    gitGraph: {useMaxWidth: false},
+    mindmap: {useMaxWidth: false},
+    timeline: {useMaxWidth: false},
   });
-  mermaidConfigured = true;
+  mermaidSignature = signature;
   return true;
 }
 
-function mermaidError(pre) {
+/* Sizing. A diagram that fits the text column sits in it at natural size. A
+   wider one breaks out of the column towards the pane's edges, since the
+   measure is set for lines of prose and a diagram is not prose, and is scaled
+   down only if it still does not fit. One that had to be scaled is marked
+   expandable: clicking it opens it at natural size over the page. */
+const MERMAID_PANE_GUTTER = 24;
+function mermaidNaturalWidth(svg) {
+  return parseFloat(svg.getAttribute("width")) ||
+    (svg.viewBox && svg.viewBox.baseVal ? svg.viewBox.baseVal.width : 0);
+}
+function fitMermaidHost(host) {
+  const svg = host.querySelector("svg");
+  if (!svg) return;
+  const natural = mermaidNaturalWidth(svg);
+  const column = host.parentElement ? host.parentElement.clientWidth : 0;
+  const paneEl = document.getElementById("previewpane");
+  const pane = paneEl ? paneEl.clientWidth - MERMAID_PANE_GUTTER * 2 : column;
+  const pad = 26;                       // host padding + hairline, both sides
+  host.style.width = "";
+  host.style.marginLeft = "";
+  if (!natural || !column || natural + pad <= column) {
+    host.classList.remove("wide", "expandable");
+    return;
+  }
+  const width = Math.max(column, Math.min(natural + pad, pane));
+  host.classList.add("wide");
+  host.style.width = width + "px";
+  host.style.marginLeft = `calc(50% - ${width / 2}px)`;
+  const scale = width / (natural + pad);
+  /* Below 80% the labels stop matching the page's own text, so rather than
+     shrink further the diagram keeps its size and the frame scrolls sideways.
+     Either way a click still opens it in the full-size sheet. */
+  host.classList.toggle("scrolls", scale < 0.8);
+  host.classList.toggle("expandable", scale < 1);
+}
+function refitMermaid() {
+  el.preview.querySelectorAll(".mermaid-diagram").forEach(fitMermaidHost);
+}
+let refitTimer = 0;
+window.addEventListener("resize", () => {
+  clearTimeout(refitTimer);
+  refitTimer = setTimeout(refitMermaid, 120);
+});
+
+/* Full-size view: the same SVG, at its natural size, in a scrollable sheet
+   over the page. Esc, the close button or the backdrop dismiss it. */
+function openDiagramSheet(host) {
+  const svg = host.querySelector("svg");
+  if (!svg) return;
+  const sheet = document.createElement("div");
+  sheet.className = "scrim diagram-sheet";
+  sheet.innerHTML = '<div class="diagram-sheet-box" role="dialog" aria-label="Diagram at full size">' +
+    '<button class="icon-btn plain diagram-sheet-close" aria-label="Close" title="Close (Esc)">' +
+    '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.4 5.4l9.2 9.2M14.6 5.4l-9.2 9.2"/></svg></button>' +
+    '<div class="diagram-sheet-scroll"></div></div>';
+  const copy = svg.cloneNode(true);
+  copy.removeAttribute("style");
+  copy.style.maxWidth = "none";
+  copy.style.width = mermaidNaturalWidth(svg) + "px";
+  sheet.querySelector(".diagram-sheet-scroll").append(copy);
+  const close = () => { sheet.remove(); document.removeEventListener("keydown", onKey, true); };
+  const onKey = (ev) => { if (ev.key === "Escape") { ev.stopPropagation(); close(); } };
+  sheet.addEventListener("mousedown", (ev) => { if (ev.target === sheet) close(); });
+  sheet.querySelector(".diagram-sheet-close").addEventListener("click", close);
+  document.addEventListener("keydown", onKey, true);
+  document.body.append(sheet);
+  sheet.querySelector(".diagram-sheet-close").focus();
+}
+
+/* Mermaid draws square 1px boxes and sets its type through an id-scoped
+   stylesheet inside the SVG, which no outside rule can outrank. The shapes
+   Reader can round are rounded here, and the text roles that should sit back
+   (cluster titles, edge labels) are set inline, which does outrank it. */
+function polishMermaid(svg) {
+  const round = (sel, r) => svg.querySelectorAll(sel).forEach((rect) => {
+    if (!rect.getAttribute("rx") || rect.getAttribute("rx") === "0") {
+      rect.setAttribute("rx", r); rect.setAttribute("ry", r);
+    }
+  });
+  round(".node rect, .node .basic.label-container", 8);
+  round(".cluster rect", 12);
+  round(".edgeLabel rect, .edgeLabel .label-container", 4);
+  svg.querySelectorAll(".cluster-label text, .cluster-label tspan, .cluster text").forEach((el) => {
+    el.style.fontWeight = "600"; el.style.fontSize = "12px";
+    el.style.letterSpacing = ".06em"; el.style.textTransform = "uppercase";
+    el.style.fill = "var(--text-3)";
+  });
+  svg.querySelectorAll(".edgeLabel text, .edgeLabel tspan").forEach((el) => {
+    el.style.fontSize = "13px"; el.style.fill = "var(--text-2)";
+  });
+  svg.querySelectorAll(".edgeLabel rect.background, .edgeLabel .label-container").forEach((rect) => {
+    rect.style.opacity = "1";
+    rect.style.fill = "var(--diagram-bg)";
+    rect.style.stroke = "none";
+    const x = parseFloat(rect.getAttribute("x")), w = parseFloat(rect.getAttribute("width"));
+    const y = parseFloat(rect.getAttribute("y")), h = parseFloat(rect.getAttribute("height"));
+    if ([x, y, w, h].every(Number.isFinite)) {
+      rect.setAttribute("x", x - 6); rect.setAttribute("width", w + 12);
+      rect.setAttribute("y", y - 2); rect.setAttribute("height", h + 4);
+    }
+  });
+  svg.querySelectorAll(".edgePath path, .flowchart-link").forEach((el) => {
+    el.style.strokeWidth = "1.25px";
+  });
+  svg.querySelectorAll(".node rect, .node polygon, .node circle, .node ellipse, .node path").forEach((el) => {
+    el.style.strokeWidth = "1px";
+  });
+}
+
+async function drawMermaid(host, source, id) {
+  const result = await window.mermaid.render(id, source);
+  host.innerHTML = DOMPurify.sanitize(result.svg, {
+    USE_PROFILES: {svg: true, svgFilters: true},
+  });
+  const svg = host.querySelector("svg");
+  if (!svg) throw new Error("Mermaid returned no SVG");
+  if (typeof result.bindFunctions === "function") result.bindFunctions(host);
+  polishMermaid(svg);
+  fitMermaidHost(host);
+}
+
+/* Theme, paper or accent changed: redraw every diagram on the page in the new
+   palette, from the source each host remembers. */
+async function rerenderMermaid() {
+  const hosts = [...el.preview.querySelectorAll(".mermaid-diagram")].filter((h) => mermaidSources.has(h));
+  if (!hosts.length || !configureMermaid()) return;
+  const generation = ++state.mermaidGeneration;
+  for (const [index, host] of hosts.entries()) {
+    try { await drawMermaid(host, mermaidSources.get(host), `mermaid-diagram-${generation}-${index}`); }
+    catch (_) { /* the previous drawing stays */ }
+    if (generation !== state.mermaidGeneration) return;
+  }
+}
+
+function mermaidError(pre, err) {
   if (pre.nextElementSibling?.classList.contains("mermaid-error")) return;
   const note = document.createElement("p");
   note.className = "mermaid-error";
-  note.textContent = "This Mermaid diagram could not be rendered; showing its source.";
+  /* Mermaid's first line names the line and token it choked on; that is the
+     part a reader can act on, so it travels with the note. */
+  const reason = String(err && err.message || "").split("\n")[0].trim();
+  note.textContent = "This Mermaid diagram could not be rendered; showing its source." +
+    (reason ? " " + reason.replace(/\.?$/, ".") : "");
   pre.after(note);
 }
 
@@ -645,8 +863,9 @@ async function renderMermaidBlocks(scope, generation) {
   for (const [index, code] of blocks.entries()) {
     const pre = code.parentElement;
     if (!pre) continue;
+    const source = code.textContent || "";
     try {
-      const result = await window.mermaid.render(`mermaid-diagram-${generation}-${index}`, code.textContent || "");
+      const result = await window.mermaid.render(`mermaid-diagram-${generation}-${index}`, source);
       if (generation !== state.mermaidGeneration || !pre.isConnected) return;
       const host = document.createElement("div");
       host.className = "mermaid-diagram";
@@ -658,9 +877,15 @@ async function renderMermaidBlocks(scope, generation) {
       if (!host.querySelector("svg")) throw new Error("Mermaid returned no SVG");
       pre.replaceWith(host);
       if (typeof result.bindFunctions === "function") result.bindFunctions(host);
-    } catch (_) {
+      polishMermaid(host.querySelector("svg"));
+      mermaidSources.set(host, source);
+      host.addEventListener("click", () => {
+        if (host.classList.contains("expandable")) openDiagramSheet(host);
+      });
+      fitMermaidHost(host);
+    } catch (err) {
       if (generation !== state.mermaidGeneration || !pre.isConnected) return;
-      mermaidError(pre);
+      mermaidError(pre, err);
     }
   }
 }
