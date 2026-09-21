@@ -198,6 +198,30 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
                                    action: #selector(NSApplication.terminate(_:)),
                                    keyEquivalent: "q"))
 
+        /* File sits between the app menu and Edit, where macOS puts it. New
+           Document is the page's own ⌘N: claiming it here would take the key
+           away from the web view, so the item hands it straight back. */
+        let fileItem = NSMenuItem()
+        let fileMenu = NSMenu(title: "File")
+        fileItem.submenu = fileMenu
+        mainMenu.addItem(fileItem)
+
+        let newDocItem = NSMenuItem(title: "New Document…",
+                                    action: #selector(newDocumentFromMenu(_:)),
+                                    keyEquivalent: "n")
+        newDocItem.keyEquivalentModifierMask = .command
+        newDocItem.target = self
+        fileMenu.addItem(newDocItem)
+
+        /* ⇧⌘N, because ⌘N already makes a document. The same split VS Code
+           draws: ⌘N a new file, ⇧⌘N a new window. */
+        let newWindowItem = NSMenuItem(title: "New Window",
+                                       action: #selector(newWindowFromMenu(_:)),
+                                       keyEquivalent: "N")
+        newWindowItem.keyEquivalentModifierMask = [.command, .shift]
+        newWindowItem.target = self
+        fileMenu.addItem(newWindowItem)
+
         let editItem = NSMenuItem()
         let editMenu = NSMenu(title: "Edit")
         editItem.submenu = editMenu
@@ -1247,6 +1271,69 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         updateProgressSheet = nil
         updateProgressBar = nil
         updateProgressLabel = nil
+    }
+
+    // -- File menu -----------------------------------------------------------
+
+    /* The page owns this dialog; the menu item only asks for it. Claiming ⌘N in
+       the menu bar takes the key from the web view, so handing it back is what
+       keeps the shortcut working at all. */
+    @objc private func newDocumentFromMenu(_ sender: Any?) {
+        webView.evaluateJavaScript(
+            "window.reader && window.reader.newDocument && window.reader.newDocument()",
+            completionHandler: nil)
+    }
+
+    /* A second Reader, on a port of its own.
+
+       Its own port rather than sharing this one, so the two are independent:
+       a window that reuses another's server dies with it, and quitting the
+       first window would leave the second showing a page whose server had gone.
+       Each instance starts and stops exactly what it owns. */
+    @objc private func newWindowFromMenu(_ sender: Any?) {
+        guard let port = freePortForNewWindow() else {
+            showError("Reader could not find a free port for another window.")
+            return
+        }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.createsNewApplicationInstance = true
+        configuration.environment = ["READER_LAUNCHER_PORT": String(port)]
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL,
+                                           configuration: configuration) { [weak self] _, error in
+            guard let error else { return }
+            DispatchQueue.main.async {
+                self?.showError("Another window could not be opened.\n\n\(error.localizedDescription)")
+            }
+        }
+    }
+
+    /* Asked of the system rather than guessed: bind port 0, read back what was
+       given, and let it go. A guessed number can be taken between the guess and
+       the launch, and the new window would open onto someone else's port. */
+    private func freePortForNewWindow() -> Int? {
+        for _ in 0..<8 {
+            let handle = socket(AF_INET, SOCK_STREAM, 0)
+            guard handle >= 0 else { return nil }
+            defer { close(handle) }
+            var address = sockaddr_in()
+            address.sin_family = sa_family_t(AF_INET)
+            address.sin_port = 0
+            address.sin_addr.s_addr = inet_addr("127.0.0.1")
+            let size = socklen_t(MemoryLayout<sockaddr_in>.size)
+            let bound = withUnsafePointer(to: &address) {
+                $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.bind(handle, $0, size) }
+            }
+            guard bound == 0 else { continue }
+            var assigned = sockaddr_in()
+            var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+            let read = withUnsafeMutablePointer(to: &assigned) {
+                $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(handle, $0, &length) }
+            }
+            guard read == 0 else { continue }
+            let port = Int(UInt16(bigEndian: assigned.sin_port))
+            if port > 1024 && port != readerPort { return port }
+        }
+        return nil
     }
 
     // -- requests from the page ----------------------------------------------

@@ -580,7 +580,14 @@ class Handler(BaseHTTPRequestHandler):
                     return self._error(HTTPStatus.BAD_REQUEST, "preferences must be an object")
                 if len(json.dumps(payload)) > MAX_PREFS_BYTES:
                     return self._error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "preferences too large")
-                write_prefs(payload)
+                # Merged, not replaced. Every window writes to this one file,
+                # and a window posting its whole copy would carry its own stale
+                # values over a setting another window had just changed. Posting
+                # only what changed is safe only if the write keeps everything it
+                # was not told about.
+                merged = read_prefs()
+                merged.update(payload)
+                write_prefs(merged)
                 return self._json({"ok": True})
         except WorkspaceError as exc:
             return self._error(HTTPStatus.FORBIDDEN, str(exc))
