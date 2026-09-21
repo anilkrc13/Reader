@@ -116,6 +116,15 @@ const SESSION_DEFAULTS = {
   pinned: null, pinnedOpen: true,   // null = not seeded yet
 };
 
+/* Which of those belong to a window rather than to the reader. Two windows show
+   different documents, in different folders, in different modes, and writing
+   those to the one shared preferences file meant whichever moved last decided
+   what every window opened with next time. They stay in localStorage, which is
+   per-origin and so per window: each window runs its own server on its own port.
+   Everything else -- appearance, typography, pins, recents -- is still shared,
+   which is the whole reason that file exists. */
+const WINDOW_KEYS = new Set(["mode", "hidden", "rootDir", "lastFile"]);
+
 const NUMERIC = new Set(["fontSize", "bodyWeight", "lineHeight", "measure", "paraGap", "listGap",
                          "titleSize", "titleWeight", "titleLineHeight", "titleSpacing", "titleCapScale",
                          "headSizeScale", "headCapScale", "headWeight", "headLineHeight", "headSpacing",
@@ -351,8 +360,46 @@ function savePrefs() {
   try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (_) {}
   clearTimeout(prefsTimer);
   prefsTimer = setTimeout(() => {
-    api("/api/prefs", {method: "POST", body: S}).catch(() => {});
+    const changed = changedPrefs();
+    if (!Object.keys(changed).length) return;
+    rememberShared(changed);
+    api("/api/prefs", {method: "POST", body: changed}).catch(() => {});
   }, 400);
+}
+
+/* Everything except this window's own place in the world. */
+function sharedPrefs() {
+  const out = {};
+  for (const key of Object.keys(S)) if (!WINDOW_KEYS.has(key)) out[key] = S[key];
+  return out;
+}
+
+/* What the shared file is believed to hold, so a write can send only what this
+   window actually changed. Windows share one preferences file, and a window
+   posting its whole copy carried its own stale values over a setting another
+   window had just changed -- change the theme in one, touch anything in the
+   other, and the theme came back.
+
+   Diffed rather than tracked at each call site: savePrefs is reached from
+   everywhere that recents, pins or the panel width move, and a hand-kept list
+   of changed keys would quietly stop persisting whichever one it forgot. */
+let savedShared = {};
+
+const sameValue = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+function changedPrefs() {
+  const out = {};
+  for (const key of Object.keys(S)) {
+    if (WINDOW_KEYS.has(key)) continue;
+    if (!sameValue(S[key], savedShared[key])) out[key] = S[key];
+  }
+  return out;
+}
+
+function rememberShared(written) {
+  for (const [key, value] of Object.entries(written)) {
+    savedShared[key] = JSON.parse(JSON.stringify(value ?? null));
+  }
 }
 
 async function loadServerPrefs() {
@@ -360,12 +407,16 @@ async function loadServerPrefs() {
   try { remote = await api("/api/prefs"); }
   catch (_) { return; }
   if (!remote || typeof remote !== "object" || !Object.keys(remote).length) {
+    savedShared = {};                  // nothing on disk yet, so everything is a change
     savePrefs();                       // first run: seed the file
     return;
   }
   for (const key of Object.keys(S)) {
+    if (WINDOW_KEYS.has(key)) continue;        // this window's own, not the file's
     if (remote[key] !== undefined && remote[key] !== null) S[key] = remote[key];
   }
+  savedShared = {};
+  rememberShared(sharedPrefs());               // the baseline every write diffs against
   if (!Array.isArray(S.recents)) S.recents = [];
   migrateMeasure();
   try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (_) {}
@@ -1806,6 +1857,48 @@ async function refreshTree() {
    ======================================================================== */
 
 let watchTimer = null;
+
+/* Settings belong to the reader, not to a window, so a change made in one window
+   has to reach the others. The file is the shared truth; each window re-reads it
+   on a slow tick and takes anything it did not itself change. Deliberately
+   separate from the document watcher, which only runs while a file is open and
+   stops when the window is hidden -- neither of which should decide whether the
+   theme is current. Window state is skipped, so nobody's document moves. */
+const PREFS_SYNC_MS = 2000;
+let prefsSyncTimer = null;
+
+async function syncSharedPrefs() {
+  let remote;
+  try { remote = await api("/api/prefs"); }
+  catch (_) { return; }
+  if (!remote || typeof remote !== "object") return;
+
+  let touched = false;
+  for (const key of Object.keys(S)) {
+    if (WINDOW_KEYS.has(key)) continue;
+    if (remote[key] === undefined || remote[key] === null) continue;
+    /* Only what this window agrees the file used to say. A key we have changed
+       and not yet written is ours; taking the file's copy would undo the change
+       between the keystroke and the save. */
+    if (!sameValue(S[key], savedShared[key])) continue;
+    if (sameValue(S[key], remote[key])) continue;
+    S[key] = remote[key];
+    savedShared[key] = JSON.parse(JSON.stringify(remote[key]));
+    touched = true;
+  }
+  if (!touched) return;
+
+  try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (_) {}
+  applySettings();
+  syncDialog();
+  drawRecents();
+  drawPinned();
+}
+
+function startPrefsSync() {
+  clearInterval(prefsSyncTimer);
+  prefsSyncTimer = setInterval(syncSharedPrefs, PREFS_SYNC_MS);
+}
 
 function restartWatch() {
   clearInterval(watchTimer);
@@ -4796,7 +4889,11 @@ async function persistPreferencesNow() {
   clearTimeout(prefsTimer);
   prefsTimer = null;
   try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (_) {}
-  await api("/api/prefs", {method: "POST", body: S});
+  const changed = changedPrefs();
+  if (Object.keys(changed).length) {
+    rememberShared(changed);
+    await api("/api/prefs", {method: "POST", body: changed});
+  }
 }
 
 async function setWebMCPPreferences(changes) {
@@ -5068,11 +5165,17 @@ async function openFromOS(path) {
 }
 
 /* small automation hook (same-origin pages only) — used by the test suite */
-window.reader = {goto: (p) => setRoot(p), open: (p) => openFile(p), openFromOS};
+window.reader = {
+  goto: (p) => setRoot(p), open: (p) => openFile(p), openFromOS,
+  /* The File menu's ⌘N. AppKit takes that key the moment a menu item claims it,
+     so the menu hands it straight back here rather than the page losing it. */
+  newDocument: () => openNewDoc(),
+};
 window.mdview = window.reader;        // pre-2.0 name; drop once tests are updated
 
 boot().finally(() => {
   bootDone();
+  startPrefsSync();          // settings are shared; keep this window current
   registerReaderTools().catch((err) => {
     webMCPRegistered = false;
     console.warn("Reader WebMCP registration failed", err);
