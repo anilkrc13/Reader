@@ -523,6 +523,86 @@ test("offers two modes, Preview and Edit, with the preview beside the editor as 
   expect(await mode()).toBe("split");
 });
 
+test("splits a tab into two documents: the panel opens into the active pane, never one document twice", async ({page}) => {
+  await page.setViewportSize({width: 1440, height: 900});
+  const alpha = path.join(workspace, "alpha.md");
+  const gamma = path.join(workspace, "gamma.md");
+  const linker = path.join(workspace, "linker.md");
+  await fs.writeFile(linker, "# Linker\n\n[Gamma](gamma.md)\n");
+  // The panel listed the folder before linker.md existed.
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => Object.keys(window.__readerWebMCPTools || {}).length)).toBe(11);
+  await open(page, alpha);
+  const side = page.frameLocator("#side-pane iframe");
+  const sidePath = () => page.evaluate(() => window.reader.currentPath && document.querySelector("#side-pane iframe")?.contentWindow?.reader?.currentPath());
+  const mainPath = async () => (await invoke(page, "reader_get_state", {})).activeDocument?.path ?? null;
+  const row = (file) => page.locator(`#tree .row[data-path="${file}"]`);
+
+  // Split: the current document stays left, the right starts empty and active.
+  await page.locator("#btn-split").click();
+  await expect(page.locator("html")).toHaveAttribute("data-split", "on");
+  await expect(side.locator("#empty")).toContainText("Choose a file in the panel");
+  await expect(side.locator("#toolbar")).toHaveClass(/pane-active/);
+  await expect(page.locator("#preview-layout")).toBeHidden();
+
+  // The panel opens into the active pane.
+  await row(gamma).click();
+  await expect.poll(sidePath).toBe(gamma);
+  expect(await mainPath()).toBe(alpha);
+  await page.locator("#preview").click();
+  await expect(page.locator("#toolbar")).toHaveClass(/pane-active/);
+  await row(linker).click();
+  await expect.poll(mainPath).toBe(linker);
+  // Asking for the other pane's document goes to that pane instead.
+  await row(gamma).click();
+  await expect(side.locator("#toolbar")).toHaveClass(/pane-active/);
+  expect(await mainPath()).toBe(linker);
+
+  // ⌥-click opens a link to the side: into the other pane.
+  await page.locator("#preview").click();
+  await row(alpha).click();
+  await expect.poll(mainPath).toBe(alpha);
+  await open(page, linker);
+  await page.getByRole("link", {name: "Gamma"}).click({modifiers: ["Alt"]});
+  await expect(side.locator("#toolbar")).toHaveClass(/pane-active/);
+  await expect.poll(sidePath).toBe(gamma);
+
+  // Appearance is shared, and the second pane follows at once.
+  await invoke(page, "reader_set_preferences", {changes: {theme: "dark"}});
+  await expect(side.locator("html")).toHaveAttribute("data-theme", "dark", {timeout: 1000});
+  await invoke(page, "reader_set_preferences", {changes: {theme: "auto"}});
+
+  // Each pane has its own mode, and in a split Edit is the editor alone.
+  await side.locator(".seg[data-mode=edit]").click();
+  await expect(side.locator("html")).toHaveAttribute("data-mode", "edit");
+  await expect(page.locator("html")).toHaveAttribute("data-mode", "preview");
+  await expect(side.locator("#edit-preview")).toBeHidden();
+
+  // The divider snaps to the middle, keeps each pane usable, and resets on double-click.
+  const divider = page.locator("#split-divider");
+  const box = await divider.boundingBox();
+  await page.mouse.move(box.x + 3, box.y + 200);
+  await page.mouse.down();
+  await page.mouse.move(box.x - 200, box.y + 200, {steps: 5});
+  await page.mouse.up();
+  const ratio = () => page.evaluate(() => Number(getComputedStyle(document.documentElement).getPropertyValue("--split")));
+  expect(await ratio()).toBeLessThan(0.45);
+  await divider.dblclick();
+  expect(await ratio()).toBe(0.5);
+
+  // A reload brings the split back with the second document.
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => Object.keys(window.__readerWebMCPTools || {}).length)).toBe(11);
+  await expect(page.locator("html")).toHaveAttribute("data-split", "on");
+  await expect.poll(sidePath).toBe(gamma);
+
+  // The side pane's ✕ returns the tab to one document.
+  await side.locator("#btn-close-pane").click();
+  await expect(page.locator("html")).toHaveAttribute("data-split", "off");
+  await expect(page.locator("#side-pane")).toHaveCount(0);
+  await expect(page.locator("#preview-layout")).toBeVisible();
+});
+
 test("tabs keep their own place: a new tab opens its folder empty, a restored tab reopens its document, a reload keeps both", async ({context, page}) => {
   const alpha = path.join(workspace, "alpha.md");
   const beta = path.join(workspace, "deep", "known phrase beta.md");
@@ -548,7 +628,11 @@ test("tabs keep their own place: a new tab opens its folder empty, a restored ta
   }
   const ready = (tab) => expect.poll(() => tab.evaluate(() => Object.keys(window.__readerWebMCPTools || {}).length)).toBe(11);
   const deep = path.join(workspace, "deep");
+  // The last-used state includes a split; a new tab must not inherit it.
+  await page.locator("#btn-split").click();
+  await expect(page.locator("html")).toHaveAttribute("data-split", "on");
   const fresh = await nativeTab({fresh: true, root: deep});
+  await expect(fresh.locator("html")).toHaveAttribute("data-split", "off");
   await expect.poll(() => fresh.evaluate(() => document.documentElement.dataset.empty)).toBe("yes");
   expect(await activePath(fresh)).toBeNull();
   await expect(fresh.locator("#tree")).toContainText("known phrase beta");

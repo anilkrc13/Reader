@@ -1518,18 +1518,32 @@ private final class ReaderWebView: WKWebView {
             $0.identifier?.rawValue == "WKMenuItemIdentifierOpenLinkInNewWindow"
                 || $0.title == "Open Link in New Window"
         }) else { return }
-        let item = NSMenuItem(title: "Open Link in New Tab",
-                              action: #selector(openLinkInNewTab(_:)),
-                              keyEquivalent: "")
-        item.target = self
-        item.representedObject = menu.items[index]
-        menu.insertItem(item, at: index)
+        let original = menu.items[index]
+        let tab = NSMenuItem(title: "Open Link in New Tab",
+                             action: #selector(openLinkInNewTab(_:)), keyEquivalent: "")
+        tab.target = self
+        tab.representedObject = original
+        menu.insertItem(tab, at: index)
+        /* Beside the document in this tab, splitting it if it shows one. */
+        let side = NSMenuItem(title: "Open to the Side",
+                              action: #selector(openLinkToTheSide(_:)), keyEquivalent: "")
+        side.target = self
+        side.representedObject = original
+        menu.insertItem(side, at: index)
     }
 
     @objc private func openLinkInNewTab(_ sender: NSMenuItem) {
+        run(sender, as: .tab)
+    }
+
+    @objc private func openLinkToTheSide(_ sender: NSMenuItem) {
+        run(sender, as: .side)
+    }
+
+    private func run(_ sender: NSMenuItem, as destination: ReaderPage.LinkDestination) {
         guard let original = sender.representedObject as? NSMenuItem,
               let action = original.action else { return }
-        page?.expectTabFromNextNewWindow()
+        page?.expectNextNewWindow(as: destination)
         NSApp.sendAction(action, to: original.target, from: original)
     }
 }
@@ -1556,13 +1570,15 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
     private(set) var tabState: [String: Any] = [:]
     private var isChoosingFolder = false
     private var titleObservation: NSKeyValueObservation?
-    private var expectsTab = false
+    enum LinkDestination { case window, tab, side }
+    private var nextNewWindow: LinkDestination = .window
     /* The title bar's own buttons: the panel, back and forward after the window
        buttons, theme and settings at the far end. The page hides its copies. */
     private var panelButton: NSButton!
     private var backButton: NSButton!
     private var forwardButton: NSButton!
     private var themeButton: NSButton!
+    private var splitButton: NSButton!
 
     init(app: ReaderAppDelegate, intent: [String: Any]?) {
         self.app = app
@@ -1639,6 +1655,7 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
         window.delegate = self
         window.minSize = NSSize(width: 720, height: 480)
         addTitlebarButtons()
+        styleTab()
 
         /* The page titles itself after its document, with "• " in front while
            there are unsaved edits; the tab and the Window menu show that. */
@@ -1646,7 +1663,7 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
             guard let self else { return }
             let title = view.title ?? ""
             self.window.title = title.isEmpty ? readerAppName : title
-            self.window.tab.title = self.window.title
+            self.styleTab()
         }
     }
 
@@ -1690,8 +1707,10 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
         forwardButton.isEnabled = false
         themeButton = titlebarButton("circle.lefthalf.filled", "Appearance: match system", #selector(chromeTheme(_:)))
         let settings = titlebarButton("gearshape", "Settings (⌘,)", #selector(chromeSettings(_:)))
+        splitButton = titlebarButton("rectangle.split.2x1", "Show two documents side by side (⌥⌘\\)",
+                                     #selector(chromeSplit(_:)))
         titlebarAccessory([panelButton, backButton, forwardButton], .left)
-        titlebarAccessory([themeButton, settings], .right)
+        titlebarAccessory([splitButton, themeButton, settings], .right)
     }
 
     @objc private func chromePanel(_ sender: Any?) { callPage("chrome", ["panel"]) }
@@ -1699,6 +1718,7 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
     @objc private func chromeForward(_ sender: Any?) { callPage("chrome", ["forward"]) }
     @objc private func chromeTheme(_ sender: Any?) { callPage("chrome", ["theme"]) }
     @objc private func chromeSettings(_ sender: Any?) { callPage("chrome", ["settings"]) }
+    @objc private func chromeSplit(_ sender: Any?) { callPage("chrome", ["split"]) }
 
     /* What the page says its buttons should show. */
     private func applyChrome(_ body: [String: Any]) {
@@ -1711,6 +1731,9 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
             .withSymbolConfiguration(.init(pointSize: 14, weight: .regular))
         panelButton.toolTip = shown ? "Hide panel (⌘\\)" : "Show panel (⌘\\)"
         panelButton.contentTintColor = shown ? .labelColor : .secondaryLabelColor
+        let split = body["split"] as? Bool ?? false
+        splitButton.contentTintColor = split ? .controlAccentColor : .secondaryLabelColor
+        splitButton.toolTip = split ? "Close the second document (⌥⌘\\)" : "Show two documents side by side (⌥⌘\\)"
         let theme = body["theme"] as? String
         let symbol: String
         switch theme {
@@ -1730,6 +1753,33 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
         themeButton.toolTip = label
     }
 
+    /* macOS draws inactive tab titles small and faint, so several tabs blur
+       into one strip. Each tab's title is set in the ordinary text colour at
+       medium weight, with an icon for the kind of document, so every tab reads
+       on its own. The bar's highlight still marks the selected tab. */
+    private func styleTab() {
+        let title = window.title
+        window.tab.attributedTitle = NSAttributedString(string: title, attributes: [
+            .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize, weight: .medium),
+            .foregroundColor: NSColor.labelColor
+        ])
+        let name = title.hasPrefix("• ") ? String(title.dropFirst(2)) : title
+        let ext = (name as NSString).pathExtension.lowercased()
+        let symbol: String
+        switch ext {
+        case "md", "markdown", "mdown", "txt": symbol = "doc.text"
+        case "csv", "tsv": symbol = "tablecells"
+        case "pdf": symbol = "doc.richtext"
+        case "": symbol = name == readerAppName ? "folder" : "doc"
+        default: symbol = "chevron.left.forwardslash.chevron.right"
+        }
+        let icon = NSImageView(image: NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: 11, weight: .regular)) ?? NSImage())
+        icon.contentTintColor = .secondaryLabelColor
+        icon.frame = NSRect(x: 0, y: 0, width: 16, height: 14)
+        window.tab.accessoryView = icon
+    }
+
     /* Only the keys and value types the session can hold. */
     private static func cleanTabState(_ raw: [String: Any]) -> [String: Any] {
         var out: [String: Any] = [:]
@@ -1738,6 +1788,12 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
         }
         for key in ["hidden", "editPreview"] {
             if let value = raw[key] as? Bool { out[key] = value }
+        }
+        /* A split tab: the divider's place and the second document's own. */
+        if let split = raw["split"] as? [String: Any] {
+            var kept: [String: Any] = ["pane": cleanTabState(split["pane"] as? [String: Any] ?? [:])]
+            if let ratio = split["ratio"] as? Double { kept["ratio"] = ratio }
+            out["split"] = kept
         }
         return out
     }
@@ -1794,10 +1850,10 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
     /* WebKit asks for the new window a moment after the menu item runs, in a
        separate round trip, so the request is remembered briefly rather than
        for the next window.open. */
-    func expectTabFromNextNewWindow() {
-        expectsTab = true
+    func expectNextNewWindow(as destination: LinkDestination) {
+        nextNewWindow = destination
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
-            self?.expectsTab = false
+            self?.nextNewWindow = .window
         }
     }
 
@@ -1941,14 +1997,14 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction,
                  windowFeatures: WKWindowFeatures) -> WKWebView? {
-        let asTab = expectsTab
-        expectsTab = false
+        let destination = nextNewWindow
+        nextNewWindow = .window
         if let url = navigationAction.request.url {
             if let path = documentLinkPath(url) {
-                if asTab {
-                    app?.openTab(from: self, linkPath: path)
-                } else {
-                    app?.openWindow(from: self, linkPath: path)
+                switch destination {
+                case .tab: app?.openTab(from: self, linkPath: path)
+                case .side: callPage("openBeside", [path])
+                case .window: app?.openWindow(from: self, linkPath: path)
                 }
             } else if !isReaderItself(url) {
                 handOff(url)
@@ -1969,8 +2025,12 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
            exactly as a click would, and the window keeps showing Reader. */
         if let path = documentLinkPath(url) {
             decisionHandler(.cancel)
-            if navigationAction.targetFrame?.isMainFrame == true, isPageLoaded {
+            guard isPageLoaded, let frame = navigationAction.targetFrame else { return }
+            if frame.isMainFrame {
                 callPage("openLink", [path])
+            } else {
+                // A link in the split's second pane opens in that pane.
+                callPage("openInPane", ["side", path])
             }
             return
         }

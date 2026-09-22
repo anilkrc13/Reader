@@ -126,14 +126,24 @@ const SESSION_DEFAULTS = {
    localStorage holds the last-used copy for a launch with nothing to restore.
    Everything else -- appearance, typography, pins, recents -- is still shared,
    which is the whole reason that file exists. */
-const WINDOW_KEYS = new Set(["mode", "hidden", "rootDir", "lastFile", "previewLayout", "editPreview"]);
-const TAB_STORE = "reader.tab";
+const WINDOW_KEYS = new Set(["mode", "hidden", "rootDir", "lastFile", "previewLayout", "editPreview", "split"]);
+
+/* A tab can show a second document beside the first. That right-hand pane is
+   this same page embedded as /?pane=side: its own document, editor, history
+   and toolbar, but no file panel. The page around it (the host) owns the file
+   panel, which pane is active, the divider and what the tab reports. */
+const SIDE = new URLSearchParams(location.search).get("pane") === "side" && window.parent !== window;
+const host = () => (SIDE ? window.parent.reader || null : null);
+const TAB_STORE = SIDE ? "reader.tab.side" : "reader.tab";
 
 /* What the macOS app says this tab is for, injected before the page runs:
    {fresh, root} for a new tab or window, {restore: {...}} for a tab rebuilt
    from the last session. Absent in a browser and for the app's first window
    when there is no session to restore. */
-const TAB_INTENT = (window.__readerTab && typeof window.__readerTab === "object") ? window.__readerTab : null;
+const TAB_INTENT = (() => {
+  const intent = SIDE ? window.parent.__readerSideIntent : window.__readerTab;
+  return intent && typeof intent === "object" ? intent : null;
+})();
 /* How this tab's own state was set: "reload", "restore", "fresh" or null. */
 let tabOrigin = null;
 
@@ -145,6 +155,13 @@ function windowState() {
 
 function applyWindowState(saved) {
   if (!saved || typeof saved !== "object") return false;
+  if (!SIDE && saved.split && typeof saved.split === "object") {
+    const ratio = Number(saved.split.ratio);
+    S.split = {ratio: ratio >= 0.15 && ratio <= 0.85 ? ratio : 0.5,
+               pane: saved.split.pane && typeof saved.split.pane === "object" ? saved.split.pane : {}};
+  } else {
+    S.split = null;
+  }
   if (["preview", "split", "edit"].includes(saved.mode)) S.mode = saved.mode;
   if (typeof saved.hidden === "boolean") S.hidden = saved.hidden;
   if (["single", "spread"].includes(saved.previewLayout)) S.previewLayout = saved.previewLayout;
@@ -158,6 +175,7 @@ function applyWindowState(saved) {
    restart. Only changes are sent. */
 let reportedWindowState = "";
 function reportWindowState() {
+  if (SIDE) { host()?.sideChanged(); return; }
   const bridge = nativeBridge();
   if (!bridge) return;
   const state = windowState();
@@ -172,15 +190,22 @@ function reportWindowState() {
    where macOS hides the title bar and the app hands them back. The app is told
    what those buttons should show. It also draws the title and tab bar in
    Reader's theme rather than the system's; "auto" follows the system. */
-const NATIVE_CHROME = window.__readerChrome === true;
+const NATIVE_CHROME = (SIDE ? window.parent : window).__readerChrome === true;
 let reportedChrome = "";
+function trailState() {
+  return {canBack: state.trailAt > 0,
+          canForward: state.trailAt >= 0 && state.trailAt < state.trail.length - 1};
+}
+
 function reportChrome() {
+  if (SIDE) { host()?.sideChanged(); return; }
   const bridge = nativeBridge();
   if (!bridge || !NATIVE_CHROME) return;
+  // Back and forward belong to whichever pane is active.
+  const trail = splitActive() === "side" && sideReader() ? sideReader().trail() : trailState();
   const chrome = {
     theme: S.theme, side: S.side === "right" ? "right" : "left", panelShown: !S.hidden,
-    canBack: state.trailAt > 0,
-    canForward: state.trailAt >= 0 && state.trailAt < state.trail.length - 1,
+    split: !!split.frame, ...trail,
   };
   const json = JSON.stringify(chrome);
   if (json === reportedChrome) return;
@@ -190,10 +215,14 @@ function reportChrome() {
 
 function setNativeChrome(on) {
   root.dataset.nativeChrome = on && NATIVE_CHROME ? "on" : "off";
+  sideReader()?.setNativeChrome(on);
 }
 
 function cacheLocally() {
-  try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (_) {}
+  // The side pane is not what the next launch's first window should open.
+  if (!SIDE) { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (_) {} }
+  // The split's second pane takes a settings change at once, not on the next sync.
+  if (!SIDE && split.frame) sideReader()?.adoptShared(sharedPrefs());
   try { sessionStorage.setItem(TAB_STORE, JSON.stringify(windowState())); } catch (_) {}
   reportWindowState();
 }
@@ -431,6 +460,9 @@ function loadPrefs() {
    when the page reloads, the session's when the app rebuilt it, or the folder
    it was opened from, and no document, when it is new. */
 function loadTabState() {
+  if (SIDE) {
+    S.mode = "preview"; S.lastFile = null; S.previewLayout = "single"; S.split = null;
+  }
   let own = null;
   try { own = JSON.parse(sessionStorage.getItem(TAB_STORE) || "null"); } catch (_) {}
   if (applyWindowState(own)) { tabOrigin = "reload"; return; }
@@ -439,6 +471,7 @@ function loadTabState() {
   if (TAB_INTENT.fresh) {
     tabOrigin = "fresh";
     S.lastFile = null;
+    S.split = null;                    // a new tab shows one document
     if (typeof TAB_INTENT.root === "string" && TAB_INTENT.root.startsWith("/")) S.rootDir = TAB_INTENT.root;
   }
 }
@@ -2330,7 +2363,7 @@ function drawRecents() {
 
 el.recents.addEventListener("click", (ev) => {
   const b = ev.target.closest(".row");
-  if (b) openFile(b.dataset.path);
+  if (b) openFromPanel(b.dataset.path);
 });
 el.recentsToggle.onclick = () => { S.recentsOpen = !S.recentsOpen; savePrefs(); drawRecents(); };
 
@@ -2477,7 +2510,10 @@ function openRowMenu(anchor, path, kind) {
     /* An unsupported file opens in the app that owns it, or not at all --
        the menu should promise only what a click on the row would do. */
     if (EXT_APP.has(extOf(path))) add(ICONS.file, "Open in its own app", () => openExternal(path));
-    else add(ICONS.file, "Open", () => openFile(path));
+    else {
+      add(ICONS.file, "Open", () => openFromPanel(path));
+      add(ICONS.file, "Open to the Side", () => openBeside(path));
+    }
     sep();
     add(ICONS.pencil, "Rename…", () => openRenamer(path, kind));
     sep();
@@ -2590,6 +2626,8 @@ function showNewDocForm() {
    a browser cannot open it, so the picker drawn in the dialog stays for that,
    and stays the only implementation a test can drive. */
 function nativeBridge() {
+  // The side pane asks through the host page: the app answers the main frame only.
+  if (SIDE) return null;
   return (window.webkit && window.webkit.messageHandlers &&
           window.webkit.messageHandlers.reader) || null;
 }
@@ -2725,7 +2763,7 @@ async function doCreateNewDoc() {
      the new document will not appear in the redraw. */
   state.children.delete(dir);
   await drawTree();
-  await openFile(res.path);
+  await openFromPanel(res.path);
   toast("Created " + res.name);
 }
 
@@ -3307,7 +3345,7 @@ function restoreReadingAnchor(anchor) {
 /* Called after viewport, typography, or document layout changes. Keep the
    previously recorded passage rather than measuring an already reflowed page. */
 function syncPreviewLayout(anchor = paging.anchor) {
-  const available = state.file?.kind === "md" && root.dataset.mode === "preview";
+  const available = state.file?.kind === "md" && root.dataset.mode === "preview" && !splitShown();
   const active = available && S.previewLayout === "spread" && $("panes").clientWidth >= 840 && el.previewpane.clientHeight >= 300;
   const changed = active !== paging.active;
   paging.active = active;
@@ -3473,12 +3511,15 @@ $("preview-layout").querySelectorAll("[data-layout]").forEach(button => {
 /* Two modes to choose from, Preview and Edit. Edit is "split" while the preview
    is shown beside the editor and "edit" while it is hidden, and it reopens the
    way it was last left. */
-const editMode = () => (S.editPreview ? "split" : "edit");
+const splitShown = () => root.dataset.split === "on";
+const editMode = () => (S.editPreview && !splitShown() ? "split" : "edit");
 
 function setMode(mode) {
   const anchor = paging.anchor || captureReadingAnchor();
   if (state.file && state.file.kind === "pdf" && mode !== "preview") return;
-  if (mode === "split" || mode === "edit") S.editPreview = mode === "split";
+  // Two documents side by side: each is either its preview or its editor.
+  if (splitShown() && mode === "split") mode = "edit";
+  else if (mode === "split" || mode === "edit") S.editPreview = mode === "split";
   S.mode = mode;
   root.dataset.mode = mode;
   syncEditPreview();
@@ -3843,7 +3884,7 @@ el.tree.addEventListener("click", async (ev) => {
       else toast("Reader cannot open this kind of file", true);
       return;
     }
-    openFile(path);
+    openFromPanel(path);
     return;
   }
   const li = btn.closest("li");
@@ -3939,9 +3980,14 @@ el.preview.addEventListener("click", (ev) => {
   }
   if (a.dataset.local) {
     ev.preventDefault();
+    /* ⌥-click opens it to the side, in the other pane of this tab. */
+    if (ev.altKey) {
+      SIDE ? host()?.openBeside(a.dataset.local, "side") : openBeside(a.dataset.local, "main");
+      return;
+    }
     /* ⌘-click opens a new tab, as in a browser. Only the macOS app has tabs. */
-    if (ev.metaKey && nativeBridge()) {
-      nativeBridge().postMessage({action: "openInNewTab", path: a.dataset.local}).catch(() => {});
+    if (ev.metaKey && (SIDE ? host()?.hasTabs() : nativeBridge())) {
+      SIDE ? host().openInNewTab(a.dataset.local) : openInNewTab(a.dataset.local);
       return;
     }
     followLocalLink(a.dataset.local);
@@ -4029,8 +4075,8 @@ $("btn-full").onclick = toggleFullscreen;
 $("btn-show").onclick = () => toggleSidebar();
 $("btn-panel").onclick = () => toggleSidebar();
 
-el.back.addEventListener("click", () => trailGo(-1));
-el.fwd.addEventListener("click", () => trailGo(1));
+el.back.addEventListener("click", () => paneTrailGo(-1));
+el.fwd.addEventListener("click", () => paneTrailGo(1));
 
 /* Is the user typing, or working inside a dialog? Bare arrow keys belong to the
    caret and to native controls in those cases, so the trail must not claim them. */
@@ -4137,6 +4183,14 @@ document.addEventListener("keydown", (ev) => {
 
   if (!meta) return;
 
+  /* 4a. ⌥⌘\ splits the tab or closes the split. Matched by physical key: ⌥
+     turns "\\" into another character. */
+  if (ev.altKey && ev.code === "Backslash") {
+    ev.preventDefault();
+    SIDE ? host()?.closeSplit() : toggleSplit();
+    return;
+  }
+
   /* 4b. Collapsing sections. ⌥⌘[ and ⌥⌘] fold and unfold the section being
      read, ⌥⌘1-6 fold the document to a heading level and ⌥⌘0 opens it all. */
   if (ev.altKey && !overlayOpen() && foldAvailable()) {
@@ -4172,6 +4226,19 @@ document.addEventListener("keydown", (ev) => {
     return;
   }
 
+  /* 7. App chords. In the side pane, the ones that belong to the tab or the app
+     are the host's: the panel, settings, a new document, full screen. */
+  if (SIDE && (k === "\\" || k === "," || (k === "n" && !ev.shiftKey && !ev.altKey) ||
+               (k === "f" && ev.ctrlKey && ev.metaKey))) {
+    ev.preventDefault();
+    const reader = host();
+    if (!reader) return;
+    if (k === "\\") reader.chrome("panel");
+    else if (k === ",") reader.chrome("settings");
+    else if (k === "n") reader.newDocument();
+    else reader.chrome("fullscreen");
+    return;
+  }
   /* 7. App chords. */
   /* file */
   if (k === "s") { ev.preventDefault(); saveFile(); }
@@ -4364,7 +4431,7 @@ async function fileFindPick(index) {
     await setRoot(dir, {redraw: false});
     await drawTree();
   }
-  await openFile(entry.path);
+  await openFromPanel(entry.path);
 }
 
 el.fileFindQ.addEventListener("input", () => {
@@ -5149,6 +5216,240 @@ el.editor.addEventListener("scroll", () => {
 }, {passive: true});
 window.addEventListener("resize", hideFmtBar);
 
+/* ==========================================================================
+   Split: a second document beside the first, in the same tab
+   ======================================================================== */
+
+/* The right-hand pane is an embedded copy of this page (see SIDE). The host
+   keeps the file panel, the active pane, the divider, and the split's place in
+   the tab's saved state; each pane keeps its own document, mode and history.
+   At most two documents: the side pane cannot split again. */
+const split = {frame: null, divider: null, active: "main", pendingPath: null};
+const SPLIT_MIN = 320;            // px each pane keeps
+const SPLIT_SNAP = 24;            // px either side of the middle that snap to it
+
+function sideReader() {
+  try { return split.frame?.contentWindow?.reader || null; } catch (_) { return null; }
+}
+function splitActive() { return split.frame ? split.active : "main"; }
+
+function openSplit({restore = null, ratio = null, path = null, activate = true} = {}) {
+  if (SIDE) return;
+  if (split.frame) {
+    if (path) openInPane("side", path);
+    return;
+  }
+  const room = $("main").getBoundingClientRect().width;
+  if (room < SPLIT_MIN * 2) {
+    toast("The window is too narrow to show two documents", true);
+    return;
+  }
+  // The side pane reads what it is for as it boots.
+  window.__readerSideIntent = restore ? {restore} : {fresh: true, root: state.root};
+  try { sessionStorage.removeItem("reader.tab.side"); } catch (_) {}
+  const divider = document.createElement("div");
+  divider.id = "split-divider";
+  divider.setAttribute("role", "separator");
+  divider.setAttribute("aria-orientation", "vertical");
+  divider.title = "Drag to resize; double-click to split evenly";
+  const pane = document.createElement("section");
+  pane.id = "side-pane";
+  const frame = document.createElement("iframe");
+  // Named for screen readers; a title would show as a tooltip over the pane.
+  frame.setAttribute("aria-label", "Second document");
+  frame.src = "/?pane=side";
+  pane.append(frame);
+  $("main").after(divider, pane);
+  split.frame = frame;
+  split.divider = divider;
+  split.pendingPath = path;
+  S.split = {ratio: ratio ?? 0.5, pane: restore || {}};
+  root.dataset.split = "on";
+  applySplitRatio();
+  if (root.dataset.mode === "split") setMode("edit");
+  else syncPreviewLayout();
+  wireDivider(divider);
+  frame.addEventListener("load", () => {
+    const side = sideReader();
+    if (!side) return;
+    side.setNativeChrome(root.dataset.nativeChrome === "on");
+    side.setPaneActive(split.active === "side");
+    if (split.pendingPath) {
+      const next = split.pendingPath;
+      split.pendingPath = null;
+      side.openLink(next);
+    }
+  });
+  setActivePane(activate ? "side" : "main");
+  savePrefs();
+}
+
+function closeSplit() {
+  if (SIDE || !split.frame) return;
+  split.frame.parentElement.remove();
+  split.divider.remove();
+  split.frame = split.divider = null;
+  S.split = null;
+  try { sessionStorage.removeItem("reader.tab.side"); } catch (_) {}
+  root.dataset.split = "off";
+  setActivePane("main");
+  // Editing on its own again: back to the preview beside it, if that was the way.
+  if (root.dataset.mode === "edit" && S.editPreview) setMode("split");
+  else syncPreviewLayout();
+  savePrefs();
+}
+
+function toggleSplit() { split.frame ? closeSplit() : openSplit(); }
+
+function setActivePane(which) {
+  split.active = split.frame && which === "side" ? "side" : "main";
+  $("toolbar").classList.toggle("pane-active", !!split.frame && split.active === "main");
+  sideReader()?.setPaneActive(split.active === "side");
+  reportChrome();
+}
+
+function panePath(which) {
+  return which === "side" ? sideReader()?.currentPath() || null : state.file?.path || null;
+}
+
+/* One document is never open in both panes: two editors on one file would
+   write over each other. Asking for it again goes to the pane that has it. */
+async function openInPane(which, path) {
+  if (SIDE) return host()?.openInPane(which, path);
+  const other = which === "side" ? "main" : "side";
+  if (split.frame && panePath(other) === path) { setActivePane(other); return; }
+  if (which === "side") {
+    if (!split.frame) { openSplit({path}); return; }
+    setActivePane("side");
+    const side = sideReader();
+    if (side) await side.openLink(path);
+    else split.pendingPath = path;
+    return;
+  }
+  setActivePane("main");
+  try { await followLocalLink(path); } catch (err) { toast(err.message, true); }
+}
+
+/* What the file panel opens goes to the active pane. */
+function openFromPanel(path) {
+  return openInPane(splitActive(), path);
+}
+
+/* Open to the Side: the other pane from the one it was asked from, splitting
+   the tab if it shows one document. */
+function openBeside(path, from = splitActive()) {
+  if (SIDE) return host()?.openBeside(path, "side");
+  if (!split.frame) { openSplit({path}); return; }
+  openInPane(from === "side" ? "main" : "side", path);
+}
+
+function openInNewTab(path) {
+  const bridge = nativeBridge();
+  if (bridge) bridge.postMessage({action: "openInNewTab", path}).catch(() => {});
+  else followLocalLink(path);
+}
+
+function paneTrailGo(delta) {
+  if (splitActive() === "side" && sideReader()) sideReader().trailGo(delta);
+  else trailGo(delta);
+}
+
+/* The side pane moved: keep its place in the tab's state, and the title bar's
+   back and forward in step with whichever pane is active. */
+function sideChanged() {
+  if (SIDE || !split.frame || !S.split) return;
+  const side = sideReader();
+  if (side) S.split.pane = side.windowState();
+  cacheLocally();
+  reportChrome();
+}
+
+function applySplitRatio() {
+  root.style.setProperty("--split", String(S.split?.ratio ?? 0.5));
+}
+
+function wireDivider(divider) {
+  divider.addEventListener("pointerdown", (ev) => {
+    if (ev.button !== 0) return;
+    ev.preventDefault();
+    divider.setPointerCapture(ev.pointerId);
+    divider.classList.add("active");
+    root.classList.add("dragging-split");
+    const left = $("main").getBoundingClientRect().left;
+    const total = $("main").getBoundingClientRect().width + split.frame.parentElement.getBoundingClientRect().width;
+    const move = (e) => {
+      let x = e.clientX - left;
+      if (Math.abs(x - total / 2) <= SPLIT_SNAP) x = total / 2;
+      x = Math.max(SPLIT_MIN, Math.min(total - SPLIT_MIN, x));
+      S.split.ratio = x / total;
+      applySplitRatio();
+      schedulePreviewLayout();
+    };
+    const up = () => {
+      divider.removeEventListener("pointermove", move);
+      divider.classList.remove("active");
+      root.classList.remove("dragging-split");
+      savePrefs();
+    };
+    divider.addEventListener("pointermove", move);
+    divider.addEventListener("pointerup", up, {once: true});
+    divider.addEventListener("pointercancel", up, {once: true});
+  });
+  divider.addEventListener("dblclick", () => {
+    S.split.ratio = 0.5;
+    applySplitRatio();
+    savePrefs();
+  });
+}
+
+if (SIDE) {
+  /* Clicking into this pane makes it the active one; so does keyboard focus. */
+  const activate = () => host()?.setActivePane("side");
+  document.addEventListener("pointerdown", activate, true);
+  document.addEventListener("focusin", activate, true);
+} else {
+  const activate = () => setActivePane("main");
+  $("main").addEventListener("pointerdown", activate, true);
+  $("main").addEventListener("focusin", activate, true);
+}
+
+/* Drag a file from the panel onto either pane to open it there. */
+function acceptFileDrops(target, which) {
+  const carries = (ev) => ev.dataTransfer && [...ev.dataTransfer.types].includes(FILE_MIME);
+  target.addEventListener("dragover", (ev) => {
+    if (!carries(ev)) return;
+    ev.preventDefault();
+    ev.dataTransfer.dropEffect = "copy";
+    root.classList.add("drop-open");
+  });
+  target.addEventListener("dragleave", (ev) => {
+    if (ev.target === target || !target.contains(ev.relatedTarget)) root.classList.remove("drop-open");
+  });
+  target.addEventListener("drop", (ev) => {
+    root.classList.remove("drop-open");
+    if (!carries(ev)) return;
+    ev.preventDefault();
+    const path = ev.dataTransfer.getData(FILE_MIME);
+    if (path) SIDE ? host()?.openInPane("side", path) : openInPane(which, path);
+  });
+}
+acceptFileDrops(SIDE ? document.documentElement : $("main"), SIDE ? "side" : "main");
+
+if (SIDE) {
+  root.dataset.pane = "side";
+  root.dataset.split = "on";
+  const empty = document.querySelector("#empty p");
+  if (empty) empty.textContent = "Choose a file in the panel, or drag one here.";
+  const title = document.querySelector("#empty h1");
+  if (title) title.textContent = "Second document";
+  // The app controls here act on the host: one theme, one settings dialog.
+  $("btn-theme").onclick = () => host()?.chrome("theme");
+  $("btn-settings").onclick = () => host()?.chrome("settings");
+  $("btn-full").onclick = () => host()?.chrome("fullscreen");
+}
+$("btn-split").onclick = () => toggleSplit();
+$("btn-close-pane").onclick = () => host()?.closeSplit();
+
 let peekPanel = () => {};
 /* Resting on the reveal button floats the hidden panel out for a look, and the
    pointer leaving puts it away again. Only that button peeks -- resting on the
@@ -5530,6 +5831,7 @@ const bootReady = new Promise((resolve) => { bootDone = resolve; });
 async function boot() {
   applyKbdLabels();
   setNativeChrome(true);
+  if (!SIDE) root.dataset.split = "off";
   loadPrefs();
   loadTabState();
   applySettings();
@@ -5565,13 +5867,14 @@ async function boot() {
 
   /* The server's start document is the first window's. A tab the app opened
      or rebuilt, or one reloading, keeps its own. */
-  const useStart = cfg.startFile && !tabOrigin;
+  const useStart = cfg.startFile && !tabOrigin && !SIDE;
   await setRoot(useStart ? cfg.start : (S.rootDir || cfg.start), {redraw: false});
   if (!state.root) await setRoot(cfg.home, {redraw: false});
   await drawTree();
 
   const first = useStart ? cfg.startFile : S.lastFile;
   if (first) { try { await openFile(first); } catch (_) {} }
+  if (!SIDE && S.split) openSplit({restore: S.split.pane, ratio: S.split.ratio, activate: false});
 }
 
 /* A document the OS asked for — a Reader.app double-click, or `open -a Reader`.
@@ -5600,10 +5903,37 @@ window.reader = {
   /* The app's title bar buttons, and its full screen hand-back. */
   chrome: (command) => {
     if (command === "panel") toggleSidebar();
-    else if (command === "back") trailGo(-1);
-    else if (command === "forward") trailGo(1);
+    else if (command === "back") paneTrailGo(-1);
+    else if (command === "forward") paneTrailGo(1);
     else if (command === "theme") cycleTheme();
     else if (command === "settings") openSettings();
+    else if (command === "split") toggleSplit();
+    else if (command === "fullscreen") toggleFullscreen();
+  },
+  /* The context menu's Open to the Side, from whichever pane was clicked. */
+  openBeside: (path, from) => openBeside(path, from),
+  // Split: the host's side of the conversation with its side pane.
+  openSplit, closeSplit, toggleSplit, openInPane, openInNewTab, setActivePane, sideChanged,
+  hasTabs: () => !!nativeBridge(),
+  // The side pane's side of it.
+  currentPath: () => state.file?.path || null,
+  trail: trailState,
+  trailGo: (delta) => trailGo(delta),
+  windowState,
+  setPaneActive: (on) => $("toolbar").classList.toggle("pane-active", !!on),
+  /* The host's settings, taken as the shared file's: nothing to write back. */
+  adoptShared: (shared) => {
+    let touched = false;
+    for (const [key, value] of Object.entries(shared || {})) {
+      if (WINDOW_KEYS.has(key) || !(key in S) || sameValue(S[key], value)) continue;
+      S[key] = JSON.parse(JSON.stringify(value));
+      savedShared[key] = JSON.parse(JSON.stringify(value));
+      touched = true;
+    }
+    if (!touched) return;
+    applySettings();
+    syncDialog();
+    drawRecents();
   },
   setNativeChrome,
   peek: (on) => peekPanel(on === true),

@@ -37,7 +37,9 @@ in New Tab and Open Link in New Window, and a ⌘-click, give the page the path
 the link resolved to, exactly as a click would. A new tab or window receives
 that path after its page loads, never as a server startup path, so the
 author's link target never becomes a write grant. All windows and tabs share
-one server and so one set of grants.
+one server and so one set of grants. A split tab's second pane is the same
+page on the same server; it opens documents exactly as a click would and
+holds its own document session, so its saves follow the same rules.
 
 ## Regression evidence
 
