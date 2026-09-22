@@ -524,3 +524,229 @@ test("keeps one representative formatting control keyboard-operable", async ({pa
   await page.keyboard.press("Enter");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });
+
+/* Real rendering catches column overflow, lost passages, and navigation
+   interception that DOM-only tests cannot exercise. */
+test.describe("two-page Preview", () => {
+  async function openLongDocument(page) {
+    await page.setViewportSize({width: 1440, height: 900});
+    const text = '# Reading test\n\n[Jump to destination](#destination)\n\n' +
+      Array.from({length: 60}, (_, i) => `## Section ${i}\n\nPassage ${i}. ${'Readable text fills this page with enough lines to exercise pagination. '.repeat(9)}\n\n`).join('') +
+      '## Destination\n\nUNIQUE DESTINATION\n\n';
+    await fs.writeFile(path.join(workspace, "long.md"), text);
+    await open(page, path.join(workspace, "long.md"));
+  }
+  async function spread(page) {
+    await page.getByRole('button', {name: 'Two-page layout', exact: true}).click();
+    await expect(page.locator('html')).toHaveAttribute('data-paged', 'yes');
+  }
+  async function visibleText(page) {
+    return page.locator('#preview').evaluate(article => {
+      const pane = article.parentElement.getBoundingClientRect();
+      return [...article.querySelectorAll('h1,h2,p')].filter(n => [...n.getClientRects()].some(r =>
+        r.right > pane.left + 36 && r.left < pane.right - 36 && r.bottom > pane.top + 28 && r.top < pane.bottom - 24)).map(n => n.textContent).join('\n');
+    });
+  }
+  test('centers the selected reading width inside each page and preserves search through typography changes', async ({page}) => {
+    await openLongDocument(page);
+    await invoke(page, 'reader_set_preferences', {changes: {measure: 100}});
+    await spread(page);
+    const textBox = () => page.locator('#preview > p').first().evaluate(node => {
+      const r = node.getClientRects()[0];
+      const preview = document.querySelector('#preview');
+      const gap = parseFloat(getComputedStyle(preview).columnGap);
+      return {left: r.left, width: r.width, pitch: r.width + gap};
+    });
+    const full = await textBox();
+    for (const measure of [100, 65, 50]) {
+      await invoke(page, 'reader_set_preferences', {changes: {measure}});
+      await expect.poll(async () => Math.abs((await textBox()).width / full.width - measure / 100)).toBeLessThan(.002);
+      const box = await textBox();
+      expect(Math.abs(box.pitch - full.pitch)).toBeLessThan(1);
+      expect(Math.abs(box.left - full.left - full.width * (1 - measure / 100) / 2)).toBeLessThan(1);
+      await page.screenshot({path: `.playwright-cli/two-page/width-${measure}.png`, animations: 'disabled'});
+    }
+    await page.locator('#previewpane').click({position: {x: 20, y: 20}});
+    await page.keyboard.press('ControlOrMeta+f');
+    await page.locator('#find-q').fill('Passage 20.');
+    await expect.poll(() => visibleText(page)).toContain('Passage 20.');
+    await page.keyboard.press('Escape');
+    const originalSize = await page.locator('#preview').evaluate(n => parseFloat(getComputedStyle(n).fontSize));
+    await page.keyboard.press('ControlOrMeta+=');
+    await expect.poll(() => page.locator('#preview').evaluate(n => parseFloat(getComputedStyle(n).fontSize))).toBeGreaterThan(originalSize);
+    await expect.poll(() => visibleText(page)).toContain('Passage 20.');
+    await page.keyboard.press('ControlOrMeta+-');
+    await expect.poll(() => page.locator('#preview').evaluate(n => parseFloat(getComputedStyle(n).fontSize))).toBe(originalSize);
+    await expect.poll(() => visibleText(page)).toContain('Passage 20.');
+    for (const measure of [65, 100, 50]) {
+      await invoke(page, 'reader_set_preferences', {changes: {measure}});
+      await expect.poll(() => visibleText(page)).toContain('Passage 20.');
+    }
+    await page.getByRole('button', {name:'Single column', exact:true}).click();
+    const single50 = await page.locator('#preview').evaluate(n => n.getBoundingClientRect().width);
+    await invoke(page, 'reader_set_preferences', {changes:{measure:100}});
+    await expect.poll(() => page.locator('#preview').evaluate(n => n.getBoundingClientRect().width)).toBe(single50 * 2);
+  });
+  test('shows keyboard-operable layout icons only in Preview and reserves outer arrow rails', async ({page}) => {
+    await openLongDocument(page);
+    const single = page.getByRole('button', {name: 'Single column', exact: true});
+    const two = page.getByRole('button', {name: 'Two-page layout', exact: true});
+    await expect(single).toHaveAttribute('aria-pressed', 'true');
+    await two.focus();
+    await page.keyboard.press('Enter');
+    await expect(two).toHaveAttribute('aria-pressed', 'true');
+    await expect(single).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('#page-prev')).toBeDisabled();
+    await page.locator('#page-next').focus();
+    await page.keyboard.press('Space');
+    await expect(page.locator('#page-label')).toContainText('Pages 3–4');
+    const geometry = await page.evaluate(() => {
+      const pane = document.querySelector('#previewpane').getBoundingClientRect();
+      const prev = document.querySelector('#page-prev').getBoundingClientRect();
+      const next = document.querySelector('#page-next').getBoundingClientRect();
+      return {leftClear: prev.right <= pane.left, rightClear: next.left >= pane.right,
+        leftCenter: Math.abs((prev.top + prev.bottom - pane.top - pane.bottom) / 2),
+        rightCenter: Math.abs((next.top + next.bottom - pane.top - pane.bottom) / 2)};
+    });
+    expect(geometry.leftClear && geometry.rightClear).toBe(true);
+    expect(geometry.leftCenter).toBeLessThan(1);
+    expect(geometry.rightCenter).toBeLessThan(1);
+    await expect(page.locator('#page-nav button')).toHaveCount(0);
+    await page.screenshot({path: '.playwright-cli/two-page/ui-refinement-light.png', animations: 'disabled'});
+    await invoke(page, 'reader_set_preferences', {changes: {theme: 'dark'}});
+    await page.screenshot({path: '.playwright-cli/two-page/ui-refinement-dark.png', animations: 'disabled'});
+    for (const mode of ['split', 'edit']) {
+      await page.locator(`.seg[data-mode=${mode}]`).click();
+      await expect(page.locator('#preview-layout')).toBeHidden();
+      await expect(page.locator('#page-next')).toBeHidden();
+    }
+    await page.locator('.seg[data-mode=preview]').click();
+    await expect(two).toHaveAttribute('aria-pressed', 'true');
+    await single.focus();
+    await page.keyboard.press('Space');
+    await expect(page.locator('html')).toHaveAttribute('data-paged', 'no');
+    await expect(single).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#page-next')).toBeHidden();
+    await two.click();
+    await page.setViewportSize({width: 900, height: 900});
+    await expect(page.locator('html')).toHaveAttribute('data-paged', 'no');
+    await expect(two).toBeVisible();
+    await expect(page.locator('#page-prev')).toBeHidden();
+    expect(await page.locator('#btn-settings').evaluate(button =>
+      button.getBoundingClientRect().right <= document.querySelector('#toolbar').getBoundingClientRect().right)).toBe(true);
+    await page.screenshot({path: '.playwright-cli/two-page/ui-refinement-narrow.png', animations: 'disabled'});
+  });
+  test('turns one spread per wheel gesture, preserves passage across modes and narrow fallback', async ({page}) => {
+    await openLongDocument(page);
+    await expect(page.locator('html')).not.toHaveAttribute('data-paged', 'yes');
+    await spread(page);
+    const first = await visibleText(page);
+    await page.locator('#previewpane').click({position: {x: 20, y: 20}});
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator('#page-label')).toContainText('Pages 3–4');
+    expect(await visibleText(page)).not.toEqual(first);
+    await page.locator('#previewpane').dispatchEvent('wheel', {deltaY: 120});
+    for (let i = 0; i < 12; i++) await page.locator('#previewpane').dispatchEvent('wheel', {deltaY: 60 - i});
+    await expect(page.locator('#page-label')).toContainText('Pages 5–6');
+    const passage = (await visibleText(page)).match(/Passage \d+/)[0];
+    await page.locator('.seg[data-mode=split]').click();
+    await expect(page.locator('html')).toHaveAttribute('data-paged', 'no');
+    await page.locator('.seg[data-mode=preview]').click();
+    await expect(page.locator('#page-label')).toContainText('Pages 5–6');
+    await page.setViewportSize({width: 900, height: 900});
+    await expect(page.locator('html')).toHaveAttribute('data-paged', 'no');
+    await page.setViewportSize({width: 1440, height: 900});
+    await expect(page.locator('html')).toHaveAttribute('data-paged', 'yes');
+    expect(await visibleText(page)).toContain(passage);
+    await page.screenshot({path: '.playwright-cli/two-page/spread-light.png'});
+    await invoke(page, 'reader_set_preferences', {changes: {theme: 'dark'}});
+    await page.screenshot({path: '.playwright-cli/two-page/spread-dark.png', animations: 'disabled'});
+  });
+  test('reveals heading and search targets, restores history and refresh, and keeps font reflow near the passage', async ({page}) => {
+    await openLongDocument(page);
+    await spread(page);
+    await page.getByRole('link', {name: 'Jump to destination'}).click();
+    await expect.poll(() => visibleText(page)).toContain('UNIQUE DESTINATION');
+    const label = await page.locator('#page-label').textContent();
+    await open(page, path.join(workspace, 'gamma.md'));
+    await invoke(page, 'reader_navigate_history', {direction: 'back'});
+    await expect(page.locator('#page-label')).toHaveText(label);
+    await page.locator('#btn-refresh').click();
+    await expect.poll(() => visibleText(page)).toContain('UNIQUE DESTINATION');
+    await page.keyboard.press('ControlOrMeta+f');
+    await page.locator('#find-q').fill('Passage 20.');
+    await expect.poll(() => visibleText(page)).toContain('Passage 20.');
+    await page.keyboard.press('Escape');
+    await invoke(page, 'reader_set_preferences', {changes: {fontSize: 20}});
+    await expect.poll(() => visibleText(page)).toContain('Passage 20.');
+  });
+  test('keeps oversized blocks native, reflows delayed images, and excludes code documents', async ({page}) => {
+    await openLongDocument(page);
+    await spread(page);
+    const rich = '# Oversized content\n\n```text\n' + 'a wide code line '.repeat(30) + '\n' + 'a tall code block\n'.repeat(70) + 'LOW_CODE_TARGET\n' +
+      '```\n\n| Column | Value |\n| --- | --- |\n' + '| cell | value |\n'.repeat(80) + '| LOW_TABLE_TARGET | final row |\n' +
+      '\n```mermaid\ngraph LR\n A[Beginning]-->B[Middle]-->C[End]\n```\n';
+    await fs.writeFile(path.join(workspace, 'rich.md'), rich);
+    await open(page, path.join(workspace, 'rich.md'));
+    await expect(page.locator('#preview pre')).toHaveAttribute('tabindex', '0');
+    await page.locator('#preview pre').focus();
+    const label = await page.locator('#page-label').textContent();
+    await page.keyboard.press('ArrowDown');
+    await expect(page.locator('#page-label')).toHaveText(label);
+    await expect.poll(() => page.locator('#preview pre').evaluate(n => n.scrollTop)).toBeGreaterThan(0);
+    await page.locator('#preview pre').dispatchEvent('wheel', {deltaY: 120});
+    await expect(page.locator('#page-label')).toHaveText(label);
+    await page.locator('#preview table').focus();
+    await page.keyboard.press('ArrowDown');
+    await expect.poll(() => page.locator('#preview table').evaluate(n => n.scrollTop)).toBeGreaterThan(0);
+    await expect(page.locator('.mermaid-diagram svg')).toHaveCount(1);
+    await expect(page.locator('.mermaid-diagram')).toHaveAttribute('tabindex', '0');
+    await page.locator('.mermaid-diagram').focus();
+    await expect(page.locator('#page-label')).toContainText('Pages 3–4');
+    await page.screenshot({path: '.playwright-cli/two-page/oversized-content.png'});
+
+    await page.locator('#previewpane').click({position: {x: 20, y: 20}});
+    await page.keyboard.press('ControlOrMeta+f');
+    for (const text of ['LOW_CODE_TARGET', 'LOW_TABLE_TARGET']) {
+      await page.locator('#find-q').fill(text);
+      await expect.poll(() => page.locator('mark.find-hit.is-current').first().evaluate(mark => {
+        const r = mark.getBoundingClientRect();
+        const frame = mark.closest('pre,table').getBoundingClientRect();
+        const pane = document.querySelector('#previewpane').getBoundingClientRect();
+        return r.top >= frame.top && r.bottom <= frame.bottom && r.left >= pane.left && r.right <= pane.right;
+      })).toBe(true);
+    }
+    await page.keyboard.press('Escape');
+
+    let imageRequested = false;
+    let releaseImage;
+    const imageReleased = new Promise(resolve => { releaseImage = resolve; });
+    await page.route('**/api/raw?**', async route => {
+      if (new URL(route.request().url()).searchParams.get('path')?.endsWith('/late.svg')) {
+        imageRequested = true;
+        await imageReleased;
+        await route.fulfill({contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600"><rect width="400" height="600" fill="tan"/></svg>'});
+      } else await route.continue();
+    });
+    await fs.writeFile(path.join(workspace, 'late.svg'), imageSVG('tan'));
+    const long = await fs.readFile(path.join(workspace, 'long.md'), 'utf8');
+    await fs.writeFile(path.join(workspace, 'long.md'), '![Delayed image](late.svg)\n\n' + long);
+    await open(page, path.join(workspace, 'long.md'));
+    await page.locator('#previewpane').click({position: {x: 20, y: 20}});
+    await page.keyboard.press('ControlOrMeta+f');
+    await page.locator('#find-q').fill('Passage 20.');
+    await expect.poll(() => visibleText(page)).toContain('Passage 20.');
+    expect(imageRequested).toBe(true);
+    releaseImage();
+    await expect.poll(() => page.locator('#preview img').evaluate(n => n.complete)).toBe(true);
+    await expect.poll(() => visibleText(page)).toContain('Passage 20.');
+    await page.keyboard.press('Escape');
+    await fs.writeFile(path.join(workspace, 'sample.py'), 'print("code view")\n');
+    await open(page, path.join(workspace, 'sample.py'));
+    await expect(page.locator('html')).toHaveAttribute('data-paged', 'no');
+    await expect(page.locator('#preview-layout')).toBeHidden();
+    await open(page, path.join(workspace, 'long.md'));
+    await expect(page.locator('html')).toHaveAttribute('data-paged', 'yes');
+  });
+
+});

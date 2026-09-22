@@ -2,7 +2,12 @@
 
 All notable changes to Reader. Versions follow [semantic versioning](https://semver.org).
 
-## Unreleased
+## 2.4.0
+
+- Markdown Preview now offers a two-page layout from the visible page icons beside the view modes.
+  Reading width applies separately to each page with balanced margins.
+  Arrow keys and wheel gestures turn spreads, and narrow windows return to a
+  single column. Spread arrows sit at the outer reading edges. The toolbar groups document, view, and app controls.
 
 - Mermaid diagrams are drawn in Reader's own palette and interface face, so
   they follow the theme, the paper tint and the accent instead of arriving as
