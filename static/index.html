@@ -126,14 +126,7 @@
 
       <div class="spacer"></div>
 
-      <div class="segmented" role="group" aria-label="View mode">
-        <button data-mode="preview" class="seg" title="Preview (⌘E)" data-kbd>Preview</button>
-        <button data-mode="split" class="seg" title="Split view">Split</button>
-        <button data-mode="edit" class="seg" title="Edit (⌘E)" data-kbd>Edit</button>
-      </div>
-
-      <span class="tool-sep"></span>
-
+      <div class="toolbar-group" role="group" aria-label="Document actions">
       <button class="icon-btn accent" id="btn-save" title="Save (⌘S)" aria-label="Save" disabled data-kbd>
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.8v9.4"/><path d="M6.2 8.6 10 12.4l3.8-3.8"/><path d="M3.6 13.4v2.2a1.2 1.2 0 0 0 1.2 1.2h10.4a1.2 1.2 0 0 0 1.2-1.2v-2.2"/></svg>
       </button>
@@ -143,6 +136,27 @@
       <button class="icon-btn" id="btn-refresh" title="Reload from disk (⌘R)" aria-label="Reload from disk" data-kbd>
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.6 10a6.6 6.6 0 1 1-2-4.7"/><path d="M16.8 3.4v4h-4"/></svg>
       </button>
+      </div>
+      <span class="tool-sep" aria-hidden="true"></span>
+      <div class="view-controls">
+      <div class="segmented" role="group" aria-label="View mode">
+        <button data-mode="preview" class="seg" title="Preview (⌘E)" data-kbd>Preview</button>
+        <button data-mode="split" class="seg" title="Split view">Split</button>
+        <button data-mode="edit" class="seg" title="Edit (⌘E)" data-kbd>Edit</button>
+      </div>
+
+      <div id="preview-layout" class="segmented" role="group" aria-label="Preview layout">
+        <button class="icon-btn layout-choice" data-layout="single" title="Single column" aria-label="Single column" aria-pressed="true">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="5.5" y="3" width="9" height="14" rx="1.2"/></svg>
+        </button>
+        <button class="icon-btn layout-choice" data-layout="spread" title="Two-page layout" aria-label="Two-page layout" aria-pressed="false">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="3" width="7" height="14" rx="1.2"/><rect x="11" y="3" width="7" height="14" rx="1.2"/></svg>
+        </button>
+      </div>
+      </div>
+
+      <span class="tool-sep" aria-hidden="true"></span>
+      <div class="toolbar-group" role="group" aria-label="App controls">
       <button class="icon-btn" id="btn-theme" title="Appearance: match system" aria-label="Switch theme">
         <svg class="ic-auto" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="6.4"/><path d="M10 3.6v12.8" class="fillhalf"/></svg>
         <svg class="ic-light" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.9"/><path d="M10 1.4v2.1M10 16.5v2.1M1.4 10h2.1M16.5 10h2.1M3.9 3.9l1.5 1.5M14.6 14.6l1.5 1.5M16.1 3.9l-1.5 1.5M5.4 14.6l-1.5 1.5"/></svg>
@@ -153,11 +167,10 @@
         <svg class="ic-exit" viewBox="0 0 20 20" aria-hidden="true"><path d="M2.8 7.4h4.6V2.8M17.2 7.4h-4.6V2.8M17.2 12.6h-4.6v4.6M2.8 12.6h4.6v4.6"/></svg>
       </button>
 
-      <span class="tool-sep"></span>
-
       <button class="icon-btn" id="btn-settings" title="Settings (⌘,)" aria-label="Settings" data-kbd>
         <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="2.6"/><path d="M15.9 12.2a1.3 1.3 0 0 0 .26 1.44l.05.05a1.6 1.6 0 1 1-2.26 2.26l-.05-.05a1.3 1.3 0 0 0-1.44-.26 1.3 1.3 0 0 0-.79 1.19v.13a1.6 1.6 0 0 1-3.2 0v-.07a1.3 1.3 0 0 0-.85-1.19 1.3 1.3 0 0 0-1.44.26l-.05.05a1.6 1.6 0 1 1-2.26-2.26l.05-.05a1.3 1.3 0 0 0 .26-1.44 1.3 1.3 0 0 0-1.19-.79H2.8a1.6 1.6 0 0 1 0-3.2h.07a1.3 1.3 0 0 0 1.19-.85 1.3 1.3 0 0 0-.26-1.44l-.05-.05A1.6 1.6 0 1 1 6.01 3.7l.05.05a1.3 1.3 0 0 0 1.44.26h.06a1.3 1.3 0 0 0 .79-1.19V2.8a1.6 1.6 0 0 1 3.2 0v.07a1.3 1.3 0 0 0 .79 1.19 1.3 1.3 0 0 0 1.44-.26l.05-.05a1.6 1.6 0 1 1 2.26 2.26l-.05.05a1.3 1.3 0 0 0-.26 1.44v.06a1.3 1.3 0 0 0 1.19.79h.13a1.6 1.6 0 0 1 0 3.2h-.07a1.3 1.3 0 0 0-1.19.79z"/></svg>
       </button>
+      </div>
     </header>
 
     <div id="diskbar" hidden>
@@ -192,10 +205,24 @@
                   placeholder="Nothing open yet — pick a file from the panel." aria-label="Document source"></textarea>
       </section>
       <div id="gutter"></div>
+      <div class="page-rail">
+        <button id="page-prev" class="icon-btn" title="Previous two pages" aria-label="Previous two pages">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12 4 6 10l6 6"/></svg>
+        </button>
+      </div>
       <section id="previewpane">
         <article id="preview" class="prose"></article>
       </section>
+      <div class="page-rail">
+        <button id="page-next" class="icon-btn" title="Next two pages" aria-label="Next two pages">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 4 6 6-6 6"/></svg>
+        </button>
+      </div>
     </div>
+
+    <nav id="page-nav" aria-label="Reading pages" hidden>
+      <span id="page-label" role="status" aria-live="polite"></span>
+    </nav>
 
     <div id="empty">
       <div class="empty-inner">

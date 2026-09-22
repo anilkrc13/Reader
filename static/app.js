@@ -110,7 +110,7 @@ const DEFAULTS = {
 
 /* session state that is persisted but is not a "setting" (Reset keeps these) */
 const SESSION_DEFAULTS = {
-  mode: "preview", hidden: false, width: 288,
+  mode: "preview", previewLayout: "single", hidden: false, width: 288,
   rootDir: null, lastFile: null,
   recents: [], recentsOpen: true,
   pinned: null, pinnedOpen: true,   // null = not seeded yet
@@ -243,6 +243,7 @@ function trailMark() {
   const here = state.trail[state.trailAt];
   if (!here || !state.file || here.path !== state.file.path) return;
   here.top = el.previewpane.scrollTop;
+  here.readingAnchor = paging.anchor || captureReadingAnchor();
   here.editorTop = el.editor.scrollTop;
   here.caret = el.editor.selectionStart;
 }
@@ -487,6 +488,7 @@ const mq = window.matchMedia("(prefers-color-scheme: dark)");
 const resolvedTheme = () => (S.theme === "auto" ? (mq.matches ? "dark" : "light") : S.theme);
 
 function applySettings() {
+  schedulePreviewLayout();
   const st = root.style;
   const dark = resolvedTheme() === "dark";
 
@@ -775,14 +777,14 @@ function fitMermaidHost(host) {
   const svg = host.querySelector("svg");
   if (!svg) return;
   const natural = mermaidNaturalWidth(svg);
-  const column = host.parentElement ? host.parentElement.clientWidth : 0;
+  const column = paging.active ? paging.columnWidth : (host.parentElement ? host.parentElement.clientWidth : 0);
   const paneEl = document.getElementById("previewpane");
-  const pane = paneEl ? paneEl.clientWidth - MERMAID_PANE_GUTTER * 2 : column;
+  const pane = paging.active ? column : (paneEl ? paneEl.clientWidth - MERMAID_PANE_GUTTER * 2 : column);
   const pad = 26;                       // host padding + hairline, both sides
   host.style.width = "";
   host.style.marginLeft = "";
   if (!natural || !column || natural + pad <= column) {
-    host.classList.remove("wide", "expandable");
+    host.classList.remove("wide", "expandable", "scrolls");
     return;
   }
   const width = Math.max(column, Math.min(natural + pad, pane));
@@ -1081,6 +1083,11 @@ function frontMatterHtml(meta) {
 }
 
 function render(text) {
+  const sameDocument = paging.path === state.file?.path;
+  const readingAnchor = sameDocument ? paging.anchor : null;
+  paging.path = state.file?.path;
+  if (!sameDocument) { paging.anchor = null; paging.page = 0; }
+  queueMicrotask(() => syncPreviewLayout(readingAnchor));
   const mermaidGeneration = ++state.mermaidGeneration;
   state.lineAnchors = null;
   invalidateSyncMaps();
@@ -1322,6 +1329,11 @@ const foldAvailable = () =>
 /* The section being read: the last heading at or above the top of the pane.
    Above the first heading, that is the first one. */
 function sectionAtReadingPoint(sections) {
+  if (paging.active) {
+    const index = (paging.anchor || captureReadingAnchor()).block || 0;
+    return sections.filter(sec => !sec.head.classList.contains("fold-hidden") &&
+      [...el.preview.children].indexOf(sec.head) <= index).at(-1) || sections[0];
+  }
   const mark = el.previewpane.getBoundingClientRect().top + 4;
   let best = null;
   for (const sec of sections) {
@@ -1342,6 +1354,7 @@ function parentSection(sections, sec) {
 /* Keeps the heading you acted on where you can see it: collapsing a long
    section pulls the page up under the reader otherwise. */
 function keepHeadingInView(head) {
+  if (paging.active) { syncPreviewLayout(); revealPreviewTarget(head); return; }
   const paneTop = el.previewpane.getBoundingClientRect().top;
   const top = head.getBoundingClientRect().top;
   if (top < paneTop + 4 || top > el.previewpane.getBoundingClientRect().bottom - 40) {
@@ -1506,6 +1519,7 @@ function renderCSV(text) {
 }
 
 function renderPDF() {
+  syncPreviewLayout(null);
   el.preview.className = "prose";
   el.preview.innerHTML = "";
   const frame = document.createElement("iframe");
@@ -1660,6 +1674,7 @@ async function openFile(path, {keepScroll = false, silent = false, record = true
     return state.file.path;
   }
 
+  const readingAnchor = keepScroll ? captureReadingAnchor() : null;
   const pRatio = keepScroll ? scrollRatio(el.previewpane) : 0;
   const eRatio = keepScroll ? scrollRatio(el.editor) : 0;
   const caret = keepScroll ? el.editor.selectionStart : 0;
@@ -1702,11 +1717,13 @@ async function openFile(path, {keepScroll = false, silent = false, record = true
   if (restore) {
     /* Back and forward: an absolute offset, not a ratio, because the reader is
        returning to a specific place and the document has not changed shape. */
-    restoreScroll(el.previewpane, restore.top);
+    if (restore.readingAnchor && (paging.active || S.previewLayout === "spread")) restoreReadingAnchor(restore.readingAnchor);
+    else restoreScroll(el.previewpane, restore.top);
     restoreScroll(el.editor, restore.editorTop);
     el.editor.setSelectionRange(restore.caret || 0, restore.caret || 0);
   } else {
-    el.previewpane.scrollTop = keepScroll ? pRatio * maxScroll(el.previewpane) : 0;
+    if (paging.active) restoreReadingAnchor(readingAnchor || {offset: 0});
+    else el.previewpane.scrollTop = keepScroll ? pRatio * maxScroll(el.previewpane) : 0;
     el.editor.scrollTop = keepScroll ? eRatio * maxScroll(el.editor) : 0;
     if (keepScroll) el.editor.setSelectionRange(caret, caret);
   }
@@ -3085,13 +3102,262 @@ linkScroll(el.previewpane, el.editor);
 new ResizeObserver(invalidateSyncMaps).observe(el.editor);
 new ResizeObserver(() => { state.previewTops = null; }).observe(el.previewpane);
 
+/* Two-page Preview keeps one rendered document. Text offsets survive column
+   reflow and find's inline marks without cloning content or changing edits. */
+const paging = {
+  active: false, page: 0, stride: 1, columnWidth: 0, origin: 0, top: 0, count: 1, anchor: null, path: null,
+  frame: 0, wheelAt: 0, wheelSum: 0, wheelUsed: false,
+};
+
+function previewTextNodes(container = el.preview) {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  return nodes;
+}
+
+/* Locate the first visible character, including the middle of a paragraph
+   continued from an earlier page. The offset counts hidden text too, so
+   unfolding and highlighting do not change the document's coordinate system. */
+function captureReadingAnchor() {
+  const pane = el.previewpane.getBoundingClientRect();
+  const left = pane.left + (paging.active ? paging.origin : 0);
+  const top = pane.top + (paging.active ? paging.top : 0);
+  let offset = 0, previousBlock = null;
+  const range = document.createRange();
+  for (const node of previewTextNodes()) {
+    if (node.parentElement === el.preview) continue;
+    let block = node.parentElement;
+    while (block.parentElement !== el.preview) block = block.parentElement;
+    if (block !== previousBlock) { offset = 0; previousBlock = block; }
+    range.selectNodeContents(node);
+    const visible = [...range.getClientRects()].some(r =>
+      r.width && r.bottom > top && r.top < pane.bottom && r.right > left && r.left < pane.right);
+    if (visible && node.textContent.trim()) {
+      for (let i = 0; i < node.length; i++) {
+        range.setStart(node, i); range.setEnd(node, i + 1);
+        const r = range.getBoundingClientRect();
+        if (r.width && r.bottom > top && r.top < pane.bottom && r.left >= left - 1 && r.left < pane.right) {
+          return {block: [...el.preview.children].indexOf(block), offset: offset + i};
+        }
+      }
+    }
+    offset += node.length;
+  }
+  const block = [...el.preview.children].findIndex(node => [...node.getClientRects()].some(r =>
+    r.right > left && r.left < pane.right && r.bottom > top && r.top < pane.bottom));
+  return {block: Math.max(0, block), offset: 0};
+}
+
+function readingRange(anchor) {
+  if (!anchor) return null;
+  let offset = anchor.offset;
+  const block = el.preview.children[anchor.block || 0];
+  if (!block) return null;
+  for (const node of previewTextNodes(block)) {
+    if (offset < node.length) {
+      const range = document.createRange();
+      range.setStart(node, offset); range.setEnd(node, offset + 1);
+      return range;
+    }
+    offset -= node.length;
+  }
+  const range = document.createRange();
+  range.selectNode(block);
+  return range;
+}
+
+function updatePageNav() {
+  const first = paging.page * 2 + 1;
+  $("page-label").textContent = `Pages ${first}–${Math.min(first + 1, paging.count)} of ${paging.count}`;
+  $("page-prev").disabled = paging.page === 0;
+  $("page-next").disabled = paging.page >= Math.ceil(paging.count / 2) - 1;
+}
+
+function showSpread(page, remember = true) {
+  paging.page = Math.max(0, Math.min(page, Math.ceil(paging.count / 2) - 1));
+  el.preview.style.setProperty("--page-offset", `${-paging.page * paging.stride}px`);
+  el.previewpane.scrollLeft = 0;
+  el.previewpane.scrollTop = 0;
+  updatePageNav();
+  if (remember) paging.anchor = captureReadingAnchor();
+}
+
+function restoreReadingAnchor(anchor) {
+  const range = readingRange(anchor);
+  if (!range) { if (paging.active) showSpread(0); return; }
+  const rect = range.getBoundingClientRect();
+  const pane = el.previewpane.getBoundingClientRect();
+  if (paging.active) {
+    const x = rect.left - pane.left - paging.origin + el.previewpane.scrollLeft + paging.page * paging.stride;
+    showSpread(Math.floor((x + 1) / paging.stride), false);
+  } else {
+    el.previewpane.scrollTop += rect.top - pane.top;
+    paging.restoredTop = el.previewpane.scrollTop;
+  }
+  paging.anchor = anchor;
+}
+
+/* Called after viewport, typography, or document layout changes. Keep the
+   previously recorded passage rather than measuring an already reflowed page. */
+function syncPreviewLayout(anchor = paging.anchor) {
+  const available = state.file?.kind === "md" && root.dataset.mode === "preview";
+  const railWidth = parseFloat(getComputedStyle($("panes")).getPropertyValue("--page-rail-width"));
+  const active = available && S.previewLayout === "spread" && $("panes").clientWidth - railWidth * 2 >= 760 && el.previewpane.clientHeight >= 300;
+  const changed = active !== paging.active;
+  paging.active = active;
+  root.dataset.paged = active ? "yes" : "no";
+  $("page-nav").hidden = !active;
+  $("preview-layout").querySelectorAll("[data-layout]").forEach(b => {
+    b.setAttribute("aria-pressed", String(b.dataset.layout === (S.previewLayout === "spread" ? "spread" : "single")));
+  });
+  if (active) {
+    const paneStyle = getComputedStyle(el.previewpane);
+    const paddingLeft = parseFloat(paneStyle.paddingLeft);
+    const paddingRight = parseFloat(paneStyle.paddingRight);
+    paging.top = parseFloat(paneStyle.paddingTop);
+    const height = el.previewpane.clientHeight - paging.top - parseFloat(paneStyle.paddingBottom);
+    const innerWidth = el.previewpane.clientWidth - paddingLeft - paddingRight;
+    const spreadGap = parseFloat(paneStyle.getPropertyValue("--spread-gap"));
+    const pageWidth = (innerWidth - spreadGap) / 2;
+    // Keep the page pitch fixed. Narrowing text adds equal inner margins to
+    // each page, increasing the column gap without shrinking the spread.
+    const inset = pageWidth * (1 - S.measure / 100) / 2;
+    el.preview.style.setProperty("--page-height", `${height}px`);
+    el.preview.style.setProperty("--page-inset", `${inset}px`);
+    el.preview.style.setProperty("--page-gap", `${spreadGap + inset * 2}px`);
+    const articleStyle = getComputedStyle(el.preview);
+    const gap = parseFloat(articleStyle.columnGap);
+    paging.columnWidth = (el.preview.getBoundingClientRect().width - gap) / 2;
+    paging.stride = 2 * (paging.columnWidth + gap);
+    paging.origin = paddingLeft + parseFloat(articleStyle.marginLeft);
+    refitMermaid();
+    paging.count = Math.max(1, Math.round((el.preview.scrollWidth + gap) / (paging.stride / 2)));
+    showSpread(paging.page, false);
+  } else {
+    el.preview.style.removeProperty("--page-offset");
+    el.previewpane.scrollLeft = 0;
+  }
+  el.preview.querySelectorAll("pre,table,.mermaid-diagram").forEach(block => {
+    if (active && !block.hasAttribute("tabindex")) {
+      block.tabIndex = 0;
+      block.dataset.pagedTabstop = "yes";
+    } else if (!active && block.dataset.pagedTabstop) {
+      block.removeAttribute("tabindex");
+      delete block.dataset.pagedTabstop;
+    }
+  });
+  if (changed && !active) refitMermaid();
+  if (anchor && root.dataset.mode !== "edit" && (active || changed)) restoreReadingAnchor(anchor);
+}
+
+function schedulePreviewLayout() {
+  if (paging.frame) return;
+  paging.frame = requestAnimationFrame(() => {
+    paging.frame = 0;
+    syncPreviewLayout();
+  });
+}
+
+/* Overflow frames stay on one page even when their contents extend beyond
+   it. Search must reveal both the frame and the matching text inside it. */
+function previewOverflowParents(target) {
+  const parents = [];
+  for (let node = target.parentElement; node && node !== el.preview; node = node.parentElement) {
+    const style = getComputedStyle(node);
+    if ((/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight + 1) ||
+        (/(auto|scroll)/.test(style.overflowX) && node.scrollWidth > node.clientWidth + 1)) parents.push(node);
+  }
+  return parents;
+}
+
+/* Search and heading links reveal the containing spread. Continuous Preview
+   keeps its existing smooth scrolling behavior. */
+function revealPreviewTarget(target, block = "start") {
+  if (paging.active) {
+    const parents = previewOverflowParents(target);
+    const rect = (parents.at(-1) || target).getClientRects()[0];
+    if (!rect) return;
+    const x = rect.left - el.previewpane.getBoundingClientRect().left - paging.origin + el.previewpane.scrollLeft + paging.page * paging.stride;
+    showSpread(Math.floor((x + 1) / paging.stride));
+    for (const parent of parents) {
+      const r = target.getBoundingClientRect(), frame = parent.getBoundingClientRect();
+      if (r.top < frame.top || r.bottom > frame.bottom) parent.scrollTop += r.top - frame.top - (parent.clientHeight - r.height) / 2;
+      if (r.left < frame.left || r.right > frame.right) parent.scrollLeft += r.left - frame.left - (parent.clientWidth - r.width) / 2;
+    }
+    const before = document.createRange();
+    let block = target;
+    while (block.parentElement !== el.preview) block = block.parentElement;
+    before.selectNodeContents(block);
+    if (target === block) before.collapse(true);
+    else before.setEndBefore(target);
+    paging.anchor = {block: [...el.preview.children].indexOf(block), offset: before.toString().length};
+  } else target.scrollIntoView({behavior: "smooth", block});
+}
+
+/* A scrollable code block, table or diagram owns arrows and wheel gestures,
+   including at its edge. Reaching the edge must not unexpectedly turn a page. */
+function nativePreviewInput(target) {
+  if (target.closest("input,textarea,select,button,summary,[contenteditable=true]")) return true;
+  for (let node = target; node && node !== el.previewpane; node = node.parentElement) {
+    if (node === el.preview) break;
+    const style = getComputedStyle(node);
+    if ((/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight + 1) ||
+        (/(auto|scroll)/.test(style.overflowX) && node.scrollWidth > node.clientWidth + 1)) return true;
+  }
+  return false;
+}
+
+el.previewpane.addEventListener("wheel", ev => {
+  if (!paging.active || ev.ctrlKey || ev.metaKey || overlayOpen() || nativePreviewInput(ev.target)) return;
+  if (Math.abs(ev.deltaY) <= Math.abs(ev.deltaX)) return;
+  ev.preventDefault();
+  const now = performance.now();
+  // Trackpad inertia is one gesture until events have stopped for 220 ms.
+  if (now - paging.wheelAt > 220) { paging.wheelSum = 0; paging.wheelUsed = false; }
+  paging.wheelAt = now;
+  if (paging.wheelUsed) return;
+  paging.wheelSum += ev.deltaY * (ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? el.previewpane.clientHeight : 1);
+  if (Math.abs(paging.wheelSum) >= 35) {
+    showSpread(paging.page + Math.sign(paging.wheelSum));
+    paging.wheelUsed = true;
+  }
+}, {passive: false});
+
+el.previewpane.addEventListener("scroll", () => {
+  if (!paging.active && root.dataset.mode !== "edit" && Math.abs(el.previewpane.scrollTop - (paging.restoredTop ?? -2)) > 1) {
+    paging.restoredTop = null;
+    paging.anchor = captureReadingAnchor();
+  }
+});
+el.preview.addEventListener("load", schedulePreviewLayout, true);
+el.preview.addEventListener("focusin", ev => {
+  if (paging.active) revealPreviewTarget(ev.target);
+});
+new ResizeObserver(schedulePreviewLayout).observe(el.previewpane);
+new MutationObserver(schedulePreviewLayout).observe(el.preview, {childList: true, subtree: true, characterData: true});
+document.fonts?.addEventListener("loadingdone", schedulePreviewLayout);
+$("page-prev").onclick = () => showSpread(paging.page - 1);
+$("page-next").onclick = () => showSpread(paging.page + 1);
+$("preview-layout").querySelectorAll("[data-layout]").forEach(button => {
+  button.onclick = () => {
+    const anchor = captureReadingAnchor();
+    S.previewLayout = button.dataset.layout;
+    savePrefs();
+    syncPreviewLayout(anchor);
+  };
+});
+
 function setMode(mode) {
+  const anchor = paging.anchor || captureReadingAnchor();
   if (state.file && state.file.kind === "pdf" && mode !== "preview") return;
   S.mode = mode;
   root.dataset.mode = mode;
+  invalidateSyncMaps();
+  syncPreviewLayout(anchor);
   savePrefs();
   hideFmtBar();
-  if (mode !== "preview") setTimeout(() => el.editor.focus(), 0);
+  if (mode !== "preview") setTimeout(() => el.editor.focus({preventScroll: true}), 0);
 }
 /* The corner button reads differently by state: the toolbar one only ever
    reveals; the panel's own one hides when pinned, pins when only peeking. */
@@ -3529,7 +3795,7 @@ el.preview.addEventListener("click", (ev) => {
     const target = el.preview.querySelector("#" + CSS.escape(href.slice(1)));
     if (target) {
       revealFolds(target);
-      target.scrollIntoView({behavior: "smooth", block: "start"});
+      revealPreviewTarget(target);
     }
     return;
   }
@@ -3705,6 +3971,13 @@ document.addEventListener("keydown", (ev) => {
   /* 4. Back and forward. Bare arrows while reading; they are left alone when
      the caret owns them or a dialog is up. ⌘[ and ⌘] work everywhere, incl.
      the editor -- unlike ⌘←/⌘→, which macOS uses for start and end of line. */
+  if (paging.active && !meta && !ev.altKey && !ev.shiftKey && !editingText() && !overlayOpen() &&
+      ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(ev.key)) {
+    if (nativePreviewInput(ev.target)) return;
+    ev.preventDefault();
+    if (!ev.repeat) showSpread(paging.page + (["ArrowRight", "ArrowDown"].includes(ev.key) ? 1 : -1));
+    return;
+  }
   const arrow = ev.key === "ArrowLeft" ? -1 : ev.key === "ArrowRight" ? 1 : 0;
   if (arrow && !meta && !ev.altKey && !ev.shiftKey && !editingText() && !overlayOpen()) {
     ev.preventDefault(); trailGo(arrow); return;
@@ -4084,7 +4357,7 @@ function findReveal() {
   /* a match under a collapsed heading opens it: being told there are matches
      and shown none of them is worse than losing the fold */
   revealFolds(mark);
-  mark.scrollIntoView({block: "center", behavior: "smooth"});
+  revealPreviewTarget(mark, "center");
 }
 
 function findStep(delta) {

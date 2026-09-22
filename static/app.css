@@ -1293,3 +1293,50 @@ html[data-theme=dark] .mermaid-diagram{--diagram-bg:color-mix(in srgb,var(--pane
   body,#previewpane{overflow:visible}
   .prose{padding:0;max-width:none}
 }
+
+/* Preview uses the same document DOM in both layouts, so selection, links,
+   folds and quick edits retain their source mapping. Each column is one page. */
+.toolbar-group{display:flex;align-items:center;gap:.25rem;flex:none}
+.segmented{flex:none}
+.view-controls{display:flex;align-items:center;gap:.4375rem;flex:none}
+#preview-layout .layout-choice{background:transparent;border-color:transparent;box-shadow:none;width:1.875rem;height:1.75rem;color:var(--text-3)}
+#preview-layout .layout-choice:hover{color:var(--text);background:var(--raised)}
+#preview-layout .layout-choice[aria-pressed=true]{background:var(--raised);color:var(--accent-text);box-shadow:var(--shadow);border-color:var(--border)}
+html:not([data-mode=preview]) #preview-layout,
+html:not([data-doc=md]) #preview-layout{display:none}
+/* Separate rails reserve space outside the scrollable reading pane. Their
+   buttons cannot overlap prose, oversized blocks, or a content scrollbar. */
+#panes{--page-rail-width:40px;--spread-gap:56px}
+.page-rail{display:none;flex:0 0 var(--page-rail-width);align-items:center;justify-content:center}
+html[data-paged=yes] .page-rail{display:flex}
+.page-rail .icon-btn{height:2.75rem;background:transparent;border-color:transparent;box-shadow:none;color:var(--text-3)}
+.page-rail .icon-btn:hover:not(:disabled){background:var(--panel);border-color:var(--border);color:var(--text)}
+.page-rail .icon-btn:disabled{opacity:.3;cursor:default}
+#page-nav{flex:none;display:flex;align-items:center;justify-content:center;gap:1.25rem;height:2.5rem;
+  border-top:1px solid var(--border-soft);font-size:.75rem;color:var(--text-3)}
+#page-nav[hidden]{display:none}
+html[data-paged=yes] #previewpane{overflow:hidden;padding:28px 36px 24px;position:relative;overflow-anchor:none}
+html[data-paged=yes] #preview{
+  max-width:none;width:calc(100% - 2 * var(--page-inset,0px));height:var(--page-height);margin:0 var(--page-inset,0px);padding:0;
+  column-count:2;column-gap:var(--page-gap,var(--spread-gap));column-fill:auto;column-rule:1px solid var(--border-soft);
+  transform:translateX(var(--page-offset,0px));overflow:visible;
+}
+html[data-paged=yes] #preview :is(h1,h2,h3,h4,h5,h6){break-after:avoid}
+html[data-paged=yes] #preview :is(pre,table,.mermaid-diagram){
+  break-inside:avoid;max-height:var(--page-height);max-width:100%;overflow:auto;overscroll-behavior:contain;
+}
+html[data-paged=yes] #preview table.frontmatter{display:block;min-width:0}
+html[data-paged=yes] #preview .mermaid-diagram{width:100%!important;margin-left:0!important;margin-right:0!important}
+html[data-paged=yes] #preview img{max-height:var(--page-height);object-fit:contain;break-inside:avoid}
+@media print{
+  #page-nav,.page-rail{display:none!important}
+  html[data-paged=yes] #previewpane{padding:0;overflow:visible}
+  html[data-paged=yes] #preview{height:auto;width:100%;margin:0;columns:auto;transform:none}
+  html[data-paged=yes] #preview :is(pre,table,.mermaid-diagram,img){max-height:none}
+}
+
+@media (max-width:1100px){
+  #toolbar{gap:.25rem;padding-left:.5rem;padding-right:.5rem}
+  #toolbar .seg{padding-left:.5rem;padding-right:.5rem}
+  #toolbar .toolbar-group{gap:.125rem}
+}

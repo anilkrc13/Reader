@@ -50,7 +50,7 @@ turning Reader into a browser app.
 | **Row menu** | Hover any row and press **⋯** (or right-click it). Files offer **Open**, **Rename…** and **Move to Trash…**; folders offer **Browse from here**, **Pin this folder** and **Rename…** — deliberately no delete, since too much can disappear in one click. Deleting a file always asks first and moves it to the macOS Trash, so you can put it back from Finder. Renaming without typing an extension keeps the current one, and the open document follows its own rename. |
 | **Panel side** | The panel icon at the top of the file panel flips it between the left and right edge; the reveal button follows it. The `‹` icon hides the panel and `⌘\` brings it back — or just rest the pointer on that edge and the panel floats out until you leave it, like a modern desktop app. |
 | **Hidden files** | Names beginning with a dot are left out of the tree. `⇧⌘.` shows them and hides them again, the same as in Finder, and *Files & watching* has the same switch. |
-| **Modes** | **Preview**, **Split** and **Edit**. `⌘E` toggles preview and edit. In split view the two sides scroll together. |
+| **Modes** | **Preview**, **Split** and **Edit**. `⌘E` toggles preview and edit. In split view the two sides scroll together. The page icons beside the mode selector offer Single column (the default) or Two-page layout for Markdown Preview. |
 | **Save** | `⌘S`, or the save button. The orange dot next to the filename means unsaved changes. |
 | **Copy** | The copy icon puts the whole document on the clipboard in two flavours at once: formatted, for rich editors (Word, Docs, mail), and the raw markdown for plain-text targets. Code files copy as plain text. |
 | **Auto-refresh** | While you read, the open document and its embedded local images are watched. If something else rewrites them, the app refreshes the relevant preview content and keeps your place. If you have unsaved edits it never overwrites them — it shows a bar offering **Reload from disk** or **Keep mine**. |
@@ -141,6 +141,14 @@ arbitrary web pages out of the process holding Reader's folder permissions. Only
 these four schemes are handed on; a document cannot start a program merely by
 linking to it. Reader's own window never navigates away from its local server,
 so a link cannot replace the app with a web page and leave you with no way back.
+
+In Two-page Preview, the reading-width percentage applies separately to each
+page, with centered text and balanced margins. Read the left page then the right. Arrow keys or a vertical
+wheel gesture turn two pages at a time. The arrows at the outer edges of the
+reading area also turn spreads; the page count stays at the bottom. Narrow windows use a single column until
+there is room for a spread. Code blocks, tables, and diagrams keep their own
+scrolling; focus a block to scroll it with the keyboard. History buttons and
+`⌘[` / `⌘]` still navigate between documents.
 
 Links live in the rendered document, so they are clickable in Preview and on the
 preview side of Split. The editor shows the source, where a link is just text.
