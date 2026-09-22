@@ -2,7 +2,7 @@
 
 All notable changes to Reader. Versions follow [semantic versioning](https://semver.org).
 
-## Unreleased
+## 2.4.0
 
 - Markdown Preview now offers a two-page layout from the visible page icons beside the view modes.
   Reading width applies separately to each page with balanced margins.

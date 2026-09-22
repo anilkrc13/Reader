@@ -1,7 +1,7 @@
 # owned by skills/repository-context/scripts/context_freshness.py -- do not hand-edit
 {
-  "aggregate": "895b6c53762589802c90a47fbd936f38be0d0709b446a377a1b92b5c2aa6d330",
-  "commit": "f3b51d8d0ffe3d9543a2d7647cead0fe92085a69",
+  "aggregate": "4b056b3d0da8136b9875f78127d09bebf501474e01fa9249d516ffc40d067c7f",
+  "commit": "d2c65f14d1b1d9f3cb5eb2f4311d55334bc0a9c0",
   "exclude": [],
   "files": {
     ".github/ISSUE_TEMPLATE/bug_report.md": {
@@ -37,8 +37,8 @@
     "CHANGELOG.md": {
       "executable": false,
       "kind": "file",
-      "length": 10240,
-      "sha256": "f4887298e53c0ad150cfd817f7121cbf5c945cfb840ffaa79ea1ce41898fc420"
+      "length": 10235,
+      "sha256": "74523c6b16fea286df3d0d06817a11a4fd99e92781752cb1f503dcdaf55894df"
     },
     "CONTRIBUTING.md": {
       "executable": false,
@@ -68,7 +68,7 @@
       "executable": false,
       "kind": "file",
       "length": 6,
-      "sha256": "a42caf4a54bbbe27aa45b6efbc6356c5e299b19763e728b6cdb7201b02ebbe36"
+      "sha256": "2ad7b0c3f0ede58c3165b7a8a5479e890a758d39bfe8683eaef50ce6afad7232"
     },
     "install/Reader.command": {
       "executable": true,
