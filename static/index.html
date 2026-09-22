@@ -141,8 +141,14 @@
       <div class="view-controls">
       <div class="segmented" role="group" aria-label="View mode">
         <button data-mode="preview" class="seg" title="Preview (⌘E)" data-kbd>Preview</button>
-        <button data-mode="split" class="seg" title="Split view">Split</button>
         <button data-mode="edit" class="seg" title="Edit (⌘E)" data-kbd>Edit</button>
+      </div>
+
+      <!-- Editing either shows the preview beside the editor or does not. -->
+      <div id="edit-preview" class="segmented" role="group" aria-label="Editor layout">
+      <button class="icon-btn layout-choice" id="btn-edit-preview" title="Show preview beside the editor" aria-label="Show preview beside the editor" aria-pressed="false">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="1.6"/><path d="M10 3.5v13"/><path d="M12.4 7.2h2.8M12.4 10h2.8M12.4 12.8h1.8"/></svg>
+      </button>
       </div>
 
       <div id="preview-layout" class="segmented" role="group" aria-label="Preview layout">
@@ -695,7 +701,7 @@
               <div class="set-control"><button class="switch" role="switch" data-set="spellcheck" aria-checked="false" aria-label="Spell check"></button></div>
             </div>
             <div class="set-row">
-              <div class="set-label"><b>Synchronise scrolling</b><span>In split view, scrolling one side moves the other.</span></div>
+              <div class="set-label"><b>Synchronise scrolling</b><span>While the preview is shown beside the editor, scrolling one side moves the other.</span></div>
               <div class="set-control"><button class="switch" role="switch" data-set="syncScroll" aria-checked="true" aria-label="Synchronise scrolling"></button></div>
             </div>
             <div class="set-row">
@@ -824,6 +830,10 @@
             <h4 class="group-title">Window</h4>
             <table class="keys">
               <tbody>
+                <tr><td>New tab, in the folder you are browsing (app)</td><td><kbd class="k" data-kbd>⌘T</kbd></td></tr>
+                <tr><td>New window (app)</td><td><kbd class="k" data-kbd>⇧⌘N</kbd></td></tr>
+                <tr><td>Close the tab (app)</td><td><kbd class="k" data-kbd>⌘W</kbd></td></tr>
+                <tr><td>Open a link in a new tab (app)</td><td><kbd class="k" data-kbd>⌘</kbd>-click</td></tr>
                 <tr><td>Settings</td><td><kbd class="k" data-kbd>⌘,</kbd></td></tr>
                 <tr><td>Full screen</td><td><kbd class="k" data-kbd>⌃⌘F</kbd></td></tr>
                 <tr><td>Close settings / leave full screen</td><td><kbd class="k">Esc</kbd></td></tr>

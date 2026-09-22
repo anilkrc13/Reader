@@ -32,11 +32,12 @@ Finder open is therefore read-only. The native folder picker can use folders
 already covered by grants; securely adding a new external root is a separate
 capability-design task, not a browser API.
 
-A document link is not a Finder open. The context menu's Open Link and Open
-Link in New Window give the page the path the link resolved to, exactly as a
-click would. A window started for Open Link in New Window receives that path
-after its server is up, never as a startup path, so the author's link target
-never becomes a write grant.
+A document link is not a Finder open. The context menu's Open Link, Open Link
+in New Tab and Open Link in New Window, and a ⌘-click, give the page the path
+the link resolved to, exactly as a click would. A new tab or window receives
+that path after its page loads, never as a server startup path, so the
+author's link target never becomes a write grant. All windows and tabs share
+one server and so one set of grants.
 
 ## Regression evidence
 

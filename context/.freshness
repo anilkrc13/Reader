@@ -1,7 +1,7 @@
 # owned by skills/repository-context/scripts/context_freshness.py -- do not hand-edit
 {
-  "aggregate": "aa8365ec5f666975edd9970189e07a18399481502a78ec2f03de09c3372ba071",
-  "commit": "d7728a5d931cfd66c8bb720152aaf748c87f71da",
+  "aggregate": "9ad0b4ac9b807cfe8f0d3e3dfa9f4d51ff97b0ac904eb15242d9ae767f28aa31",
+  "commit": "4fe89b273109c8458fc0eae270f124c5bc4e61d8",
   "exclude": [],
   "files": {
     ".github/ISSUE_TEMPLATE/bug_report.md": {
@@ -37,8 +37,8 @@
     "CHANGELOG.md": {
       "executable": false,
       "kind": "file",
-      "length": 11266,
-      "sha256": "d26bc535f210ae34f413daa100e55304d9ac7097f75e4812795ec47f55865f7f"
+      "length": 12351,
+      "sha256": "a59e32a857bdbec178879cff0a9b9ff79d92e669526a58d827eb47e11666d58f"
     },
     "CONTRIBUTING.md": {
       "executable": false,
@@ -55,8 +55,8 @@
     "README.md": {
       "executable": false,
       "kind": "file",
-      "length": 17465,
-      "sha256": "91172bbf6b507084f82f50ffd8484cc17a0f1456b0fa2abefa8ac4ed9c1b534d"
+      "length": 18280,
+      "sha256": "df84bfcb158d1dd9879a6f03b49fcbda09887e2f0dbe7760866cdff87a93a529"
     },
     "SECURITY.md": {
       "executable": false,
@@ -187,8 +187,8 @@
     "macos/ReaderLauncher.swift": {
       "executable": false,
       "kind": "file",
-      "length": 74007,
-      "sha256": "811e25b35bdfd7e3db2677bd8b28e8feebac19cbcd3b84e1fbaa951648453600"
+      "length": 93562,
+      "sha256": "7e90862f002fdc908b135578d033820553ff728f0802516c693b9a33f1cfee44"
     },
     "macos/build-app.sh": {
       "executable": true,
@@ -265,14 +265,14 @@
     "static/app.css": {
       "executable": false,
       "kind": "file",
-      "length": 79641,
-      "sha256": "ca6f3271673347b9eee4f4ece7c7b16e2c729f6b33be023a0231906cf4ebf4c7"
+      "length": 80292,
+      "sha256": "61fc3bc1a47d08931f90d2c2f35c44b2805a6d60b948f15b8f4d8f300512255b"
     },
     "static/app.js": {
       "executable": false,
       "kind": "file",
-      "length": 221892,
-      "sha256": "e0fdb09437909c84b120b46a7d15472449e27e03495162e1d5ad84f73279ce86"
+      "length": 227570,
+      "sha256": "1b40934e14df1404cd5967d12dce124d43569eeef081d5446b92e0b1a0d582ae"
     },
     "static/fonts/ebgaramond-latin-variable-italic.ttf": {
       "executable": false,
@@ -487,8 +487,8 @@
     "static/index.html": {
       "executable": false,
       "kind": "file",
-      "length": 53217,
-      "sha256": "a73886a087287f5d2c054e7d40a4fa3542cf2bdebdc6eeb6d8f488d624f5da4f"
+      "length": 54154,
+      "sha256": "ab74b00fe415c9f1405ddd1fbb27c3aaa65b6614fdb052bf4f52e43d675e3c28"
     },
     "static/marked.min.js": {
       "executable": false,
@@ -517,8 +517,8 @@
     "tests/browser/webmcp.spec.js": {
       "executable": false,
       "kind": "file",
-      "length": 40826,
-      "sha256": "74d82fa0e277d49c8fcd4decb298d35ed30d418652fa1206e4244531155ffa94"
+      "length": 48260,
+      "sha256": "fbb22b1975f94dbcbf1f5e93130716b80a8be2b548530c5c530f25dd53d6b393"
     },
     "tests/manual/update-feed-server.py": {
       "executable": false,

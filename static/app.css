@@ -410,7 +410,7 @@ html:not([data-watch=on]) .live{display:none}
   transition:all var(--speed)}
 .seg:hover{color:var(--text)}
 html[data-mode=preview] .seg[data-mode=preview],
-html[data-mode=split] .seg[data-mode=split],
+html[data-mode=split] .seg[data-mode=edit],
 html[data-mode=edit] .seg[data-mode=edit]{background:var(--raised);color:var(--text);box-shadow:var(--shadow)}
 
 html[data-themepref=auto] #btn-theme .ic-light,html[data-themepref=auto] #btn-theme .ic-dark,
@@ -1301,9 +1301,18 @@ html[data-theme=dark] .mermaid-diagram{--diagram-bg:color-mix(in srgb,var(--pane
 .toolbar-group{display:flex;align-items:center;gap:.25rem;flex:none}
 .segmented{flex:none}
 .view-controls{display:flex;align-items:center;gap:.4375rem;flex:none}
-#preview-layout .layout-choice{background:transparent;border-color:transparent;box-shadow:none;width:1.875rem;height:1.75rem;color:var(--text-3)}
-#preview-layout .layout-choice:hover{color:var(--text);background:var(--raised)}
-#preview-layout .layout-choice[aria-pressed=true]{background:var(--raised);color:var(--accent-text);box-shadow:var(--shadow);border-color:var(--border)}
+:is(#preview-layout,#edit-preview) .layout-choice{background:transparent;border-color:transparent;box-shadow:none;width:1.875rem;height:1.75rem;color:var(--text-3)}
+:is(#preview-layout,#edit-preview) .layout-choice:hover{color:var(--text);background:var(--raised)}
+:is(#preview-layout,#edit-preview) .layout-choice[aria-pressed=true]{background:var(--raised);color:var(--accent-text);box-shadow:var(--shadow);border-color:var(--border)}
+/* The macOS app's title bar has these; the page's copies return in full
+   screen, where macOS hides the title bar, and in a browser. */
+html[data-native-chrome=on] :is(#btn-panel,#btn-show,.trail-nav),
+html[data-native-chrome=on] .toolbar-group[aria-label="App controls"],
+html[data-native-chrome=on] .tool-sep:has(+ .toolbar-group[aria-label="App controls"]){display:none!important}
+
+/* The preview toggle belongs to editing, where the page icons do not apply,
+   so it takes their place and their look. */
+html[data-mode=preview] #edit-preview,html[data-doc=pdf] #edit-preview{display:none}
 html:not([data-mode=preview]) #preview-layout,
 html:not([data-doc=md]) #preview-layout{display:none}
 /* Page turning takes no layout width. The footer holds the visible buttons;

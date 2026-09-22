@@ -18,6 +18,21 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
   their start and end of line meaning while typing. Settings lists them with
   the two-page page-turn keys.
 - The Charcoal dark surface is lighter, so it reads clearly apart from Ink.
+- Preview, Split and Edit become two modes, **Preview** and **Edit**. Edit has
+  a toggle that shows or hides the preview beside the editor, which is what
+  Split was, and reopens the way it was left. `⌘E` switches the two.
+- The single or two-page layout and Edit's preview now belong to a tab, so
+  changing them in one tab no longer changes every other tab.
+- In the macOS app, the title bar row holds the panel, back and forward
+  buttons beside the window buttons, and theme and settings at the other end,
+  so Reader's toolbar is only about the document. The page shows its own
+  copies again in full screen, where macOS hides the title bar. The full
+  screen button is gone from the app; the green window button and `⌃⌘F` do it.
+- The macOS app has tabs. `⌘T`, the tab bar's `+`, `⌘`-click on a link and
+  right-click **Open Link in New Tab** open one, and `⌘W` closes it. New
+  Window now opens a window of the same app rather than a second copy, so
+  tabs can move between windows. Reopening Reader restores every window with
+  its tabs, each at its own document.
 
 ## 2.4.0
 
