@@ -483,6 +483,36 @@ test("searches, opens a deep result, and navigates back and forward", async ({pa
   result = await invoke(page, "reader_navigate_history", {direction: "forward"});
   expect(result.state.activeDocument.path).toBe(beta);
   expect(result.state.renderedText).toContain("Deep result body");
+  const activePath = async () => (await invoke(page, "reader_get_state", {})).activeDocument.path;
+  await page.locator("#previewpane").click({position: {x: 400, y: 12}});
+  await page.keyboard.press("Meta+ArrowLeft");
+  await expect.poll(activePath).toBe(alpha);
+  await page.keyboard.press("Meta+ArrowRight");
+  await expect.poll(activePath).toBe(beta);
+  // In the editor ⌘← stays start of line.
+  await page.locator(".seg[data-mode=edit]").click();
+  await page.locator("#editor").focus();
+  await page.keyboard.press("Meta+ArrowLeft");
+  expect(await activePath()).toBe(beta);
+});
+
+test("gives local links a Reader address the native menu can open, and opens them as a click does", async ({page}) => {
+  const beta = path.join(workspace, "deep", "known phrase beta.md");
+  const linker = path.join(workspace, "linker.md");
+  await fs.writeFile(linker, "[Beta](deep/known%20phrase%20beta.md#part)\n");
+  await open(page, linker);
+  const link = page.getByRole("link", {name: "Beta"});
+  await expect(link).toHaveAttribute("href", "/open?path=" + encodeURIComponent(beta) + "#part");
+  await expect(link).toHaveAttribute("data-local", beta);
+  const activePath = async () => (await invoke(page, "reader_get_state", {})).activeDocument.path;
+  await link.click();
+  await expect.poll(activePath).toBe(beta);
+  await expect(page).toHaveURL(/\/$/);
+  // What the macOS app calls for the context menu's Open Link.
+  await open(page, linker);
+  await page.evaluate((p) => window.reader.openLink(p), beta);
+  await expect.poll(activePath).toBe(beta);
+  expect(await page.evaluate(() => window.reader.openLink("relative.md"))).toBeNull();
 });
 
 test("round-trips a task and constrains file moves to the temporary workspace", async ({page}) => {
@@ -543,11 +573,13 @@ test.describe("two-page Preview", () => {
   async function visibleText(page) {
     return page.locator('#preview').evaluate(article => {
       const pane = article.parentElement.getBoundingClientRect();
+      // Outside the text area the spread is clipped; the edge zones span exactly that margin.
+      const margin = article.parentElement.querySelector('.page-edge').getBoundingClientRect().width || 36;
       return [...article.querySelectorAll('h1,h2,p')].filter(n => [...n.getClientRects()].some(r =>
-        r.right > pane.left + 36 && r.left < pane.right - 36 && r.bottom > pane.top + 28 && r.top < pane.bottom - 24)).map(n => n.textContent).join('\n');
+        r.right > pane.left + margin && r.left < pane.right - margin && r.bottom > pane.top + 28 && r.top < pane.bottom - 24)).map(n => n.textContent).join('\n');
     });
   }
-  test('centers the selected reading width inside each page and preserves search through typography changes', async ({page}) => {
+  test('splits the width a narrower measure frees like a book spread, gutter matching an outer margin, and preserves search through typography changes', async ({page}) => {
     await openLongDocument(page);
     await invoke(page, 'reader_set_preferences', {changes: {measure: 100}});
     await spread(page);
@@ -555,18 +587,19 @@ test.describe("two-page Preview", () => {
       const r = node.getClientRects()[0];
       const preview = document.querySelector('#preview');
       const gap = parseFloat(getComputedStyle(preview).columnGap);
-      return {left: r.left, width: r.width, pitch: r.width + gap};
+      return {left: r.left, width: r.width, gap, outer: r.left - document.querySelector('#previewpane').getBoundingClientRect().left};
     });
     const full = await textBox();
+    expect(full.gap).toBe(56);
     for (const measure of [100, 65, 50]) {
       await invoke(page, 'reader_set_preferences', {changes: {measure}});
       await expect.poll(async () => Math.abs((await textBox()).width / full.width - measure / 100)).toBeLessThan(.002);
       const box = await textBox();
-      expect(Math.abs(box.pitch - full.pitch)).toBeLessThan(1);
-      expect(Math.abs(box.left - full.left - full.width * (1 - measure / 100) / 2)).toBeLessThan(1);
+      expect(Math.abs(box.gap - Math.max(56, box.outer))).toBeLessThan(1);
+      expect(Math.abs(2 * box.outer + box.gap - (2 * full.outer + full.gap) - 2 * full.width * (1 - measure / 100))).toBeLessThan(1);
       await page.screenshot({path: `.playwright-cli/two-page/width-${measure}.png`, animations: 'disabled'});
     }
-    await page.locator('#previewpane').click({position: {x: 20, y: 20}});
+    await page.locator('#previewpane').click({position: {x: 400, y: 12}});
     await page.keyboard.press('ControlOrMeta+f');
     await page.locator('#find-q').fill('Passage 20.');
     await expect.poll(() => visibleText(page)).toContain('Passage 20.');
@@ -587,7 +620,7 @@ test.describe("two-page Preview", () => {
     await invoke(page, 'reader_set_preferences', {changes:{measure:100}});
     await expect.poll(() => page.locator('#preview').evaluate(n => n.getBoundingClientRect().width)).toBe(single50 * 2);
   });
-  test('shows keyboard-operable layout icons only in Preview and reserves outer arrow rails', async ({page}) => {
+  test('shows keyboard-operable layout icons only in Preview and turns pages from the footer and outer margins', async ({page}) => {
     await openLongDocument(page);
     const single = page.getByRole('button', {name: 'Single column', exact: true});
     const two = page.getByRole('button', {name: 'Two-page layout', exact: true});
@@ -602,16 +635,25 @@ test.describe("two-page Preview", () => {
     await expect(page.locator('#page-label')).toContainText('Pages 3–4');
     const geometry = await page.evaluate(() => {
       const pane = document.querySelector('#previewpane').getBoundingClientRect();
-      const prev = document.querySelector('#page-prev').getBoundingClientRect();
-      const next = document.querySelector('#page-next').getBoundingClientRect();
-      return {leftClear: prev.right <= pane.left, rightClear: next.left >= pane.right,
-        leftCenter: Math.abs((prev.top + prev.bottom - pane.top - pane.bottom) / 2),
-        rightCenter: Math.abs((next.top + next.bottom - pane.top - pane.bottom) / 2)};
+      const nav = document.querySelector('#page-nav').getBoundingClientRect();
+      const panes = document.querySelector('#panes').getBoundingClientRect();
+      // Text begins after the pane padding and the text-width inset; #preview
+      // itself is translated to the current spread, so measure its styles.
+      const style = n => getComputedStyle(document.querySelector(n));
+      const margin = parseFloat(style('#previewpane').paddingLeft) + parseFloat(style('#preview').marginLeft);
+      const [left, right] = [...document.querySelectorAll('.page-edge')].map(n => n.getBoundingClientRect());
+      const inNav = id => { const r = document.getElementById(id).getBoundingClientRect(); return r.top >= nav.top && r.bottom <= nav.bottom; };
+      return {buttonsInNav: inNav('page-prev') && inNav('page-next'), fullWidth: pane.width === panes.width,
+        edgesClearText: left.left === pane.left && Math.abs(left.width - margin) < 1 && right.right === pane.right && Math.abs(right.width - margin) < 1};
     });
-    expect(geometry.leftClear && geometry.rightClear).toBe(true);
-    expect(geometry.leftCenter).toBeLessThan(1);
-    expect(geometry.rightCenter).toBeLessThan(1);
-    await expect(page.locator('#page-nav button')).toHaveCount(0);
+    expect(geometry).toEqual({buttonsInNav: true, fullWidth: true, edgesClearText: true});
+    await page.locator('.page-edge[data-dir="1"]').click();
+    await expect(page.locator('#page-label')).toContainText('Pages 5–6');
+    await page.locator('.page-edge[data-dir="-1"]').click();
+    await expect(page.locator('#page-label')).toContainText('Pages 3–4');
+    await page.evaluate(() => getSelection().selectAllChildren(document.querySelector('#preview p')));
+    await page.locator('.page-edge[data-dir="1"]').click();
+    await expect(page.locator('#page-label')).toContainText('Pages 3–4');
     await page.screenshot({path: '.playwright-cli/two-page/ui-refinement-light.png', animations: 'disabled'});
     await invoke(page, 'reader_set_preferences', {changes: {theme: 'dark'}});
     await page.screenshot({path: '.playwright-cli/two-page/ui-refinement-dark.png', animations: 'disabled'});
@@ -636,12 +678,41 @@ test.describe("two-page Preview", () => {
       button.getBoundingClientRect().right <= document.querySelector('#toolbar').getBoundingClientRect().right)).toBe(true);
     await page.screenshot({path: '.playwright-cli/two-page/ui-refinement-narrow.png', animations: 'disabled'});
   });
+  test('draws the spine on every paper, light and dark, and drops it for a lone last page', async ({page}) => {
+    await openLongDocument(page);
+    await spread(page);
+    const papers = [['light', 'paper', 'cream'], ['light', 'paper', 'white'], ['light', 'paper', 'sepia'], ['light', 'paper', 'grey'],
+      ['dark', 'paperDark', 'ink'], ['dark', 'paperDark', 'charcoal'], ['dark', 'paperDark', 'black']];
+    for (const [theme, key, paper] of papers) {
+      // Paper is not an automation preference; the stylesheet keys off the attribute.
+      await invoke(page, 'reader_set_preferences', {changes: {theme}});
+      await page.evaluate(([key, paper]) => { document.documentElement.dataset[key] = paper; }, [key, paper]);
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      const spine = await page.locator('#previewpane').evaluate(pane => {
+        const tone = getComputedStyle(pane, '::before');
+        const rect = pane.getBoundingClientRect();
+        return {image: tone.backgroundImage, width: parseFloat(tone.width), centre: rect.left + rect.width / 2,
+          crease: getComputedStyle(pane, '::after').backgroundImage};
+      });
+      expect(spine.image).toContain('gradient');
+      expect(spine.crease).toContain('gradient');
+      expect(spine.width).toBeGreaterThanOrEqual(56);
+      const box = await page.locator('#previewpane').boundingBox();
+      await page.screenshot({path: `.playwright-cli/two-page/spine-${theme}-${paper}.png`, animations: 'disabled',
+        clip: {x: spine.centre - 300, y: box.y, width: 600, height: 360}});
+    }
+    const count = await page.evaluate(() => Number(document.querySelector('#page-label').textContent.match(/of (\d+)/)[1]));
+    if (count % 2) {
+      await page.evaluate(() => { for (let i = 0; i < 100; i++) document.querySelector('#page-next').click(); });
+      expect(await page.locator('#previewpane').evaluate(pane => getComputedStyle(pane, '::before').content)).toBe('none');
+    }
+  });
   test('turns one spread per wheel gesture, preserves passage across modes and narrow fallback', async ({page}) => {
     await openLongDocument(page);
     await expect(page.locator('html')).not.toHaveAttribute('data-paged', 'yes');
     await spread(page);
     const first = await visibleText(page);
-    await page.locator('#previewpane').click({position: {x: 20, y: 20}});
+    await page.locator('#previewpane').click({position: {x: 400, y: 12}});
     await page.keyboard.press('ArrowRight');
     await expect(page.locator('#page-label')).toContainText('Pages 3–4');
     expect(await visibleText(page)).not.toEqual(first);
@@ -705,7 +776,7 @@ test.describe("two-page Preview", () => {
     await expect(page.locator('#page-label')).toContainText('Pages 3–4');
     await page.screenshot({path: '.playwright-cli/two-page/oversized-content.png'});
 
-    await page.locator('#previewpane').click({position: {x: 20, y: 20}});
+    await page.locator('#previewpane').click({position: {x: 400, y: 12}});
     await page.keyboard.press('ControlOrMeta+f');
     for (const text of ['LOW_CODE_TARGET', 'LOW_TABLE_TARGET']) {
       await page.locator('#find-q').fill(text);
@@ -732,7 +803,7 @@ test.describe("two-page Preview", () => {
     const long = await fs.readFile(path.join(workspace, 'long.md'), 'utf8');
     await fs.writeFile(path.join(workspace, 'long.md'), '![Delayed image](late.svg)\n\n' + long);
     await open(page, path.join(workspace, 'long.md'));
-    await page.locator('#previewpane').click({position: {x: 20, y: 20}});
+    await page.locator('#previewpane').click({position: {x: 400, y: 12}});
     await page.keyboard.press('ControlOrMeta+f');
     await page.locator('#find-q').fill('Passage 20.');
     await expect.poll(() => visibleText(page)).toContain('Passage 20.');

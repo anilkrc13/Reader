@@ -57,7 +57,7 @@ turning Reader into a browser app.
 | **Refresh** | `⌘R`, or the circular arrow, to reload by hand. |
 | **Full screen** | The corners icon, or `⌃⌘F`. `Esc` leaves it. |
 | **New document** | `⌘N` asks for a name and creates an empty markdown file next to the document you are reading — or, with nothing open, in the folder you are browsing. Either way the dialog shows the folder and offers **Change** to pick another one. In the app that opens Finder's own folder chooser, with your sidebar, favourites, `⌘⇧G` and **New Folder**; in a browser, which cannot open a Mac panel, a small folder list appears in the dialog instead. A folder Reader may not write to is refused the moment you choose it, saying why, rather than failing later. Nothing is written until you press **Create**. Leave the extension off and it is a `.md`. Only markdown can be created, an existing file is never overwritten, and the new document opens ready to edit. |
-| **Back and forward** | The `‹` and `›` arrows, `⌘[` / `⌘]`, or bare `←` / `→` while reading. Each document in the trail remembers where you were in it, so going back returns you to the paragraph you left rather than to the top — and going forward again returns you to where you were reading there. In Edit mode the editor's scroll and caret come back with it. |
+| **Back and forward** | The `‹` and `›` arrows, `⌘←` / `⌘→` or `⌘[` / `⌘]`, or bare `←` / `→` while reading in a single column. `⌘←` / `⌘→` keep their start and end of line meaning while you are typing; `⌘[` / `⌘]` work everywhere. Each document in the trail remembers where you were in it, so going back returns you to the paragraph you left rather than to the top — and going forward again returns you to where you were reading there. In Edit mode the editor's scroll and caret come back with it. |
 | **Find** | `⌘F` opens a find bar above the document. It highlights every match, counts them, and `⌘G` / `⇧⌘G` — or `↵` / `⇧↵` — step between them; `Esc` closes it. A match is found even where it spans styling, so searching `one two` finds **one** two. There is no toolbar button: the shortcut is the whole interface. |
 | **Find a file** | `⌘F` while the file panel has focus searches names instead, anywhere below the folder you are browsing — including folders you never expanded. Each hit shows the folder holding it, `↑`/`↓` move, `↵` opens it and takes the tree with it. |
 | **Settings** | `⌘,` or the gear. See below. |
@@ -142,13 +142,15 @@ these four schemes are handed on; a document cannot start a program merely by
 linking to it. Reader's own window never navigates away from its local server,
 so a link cannot replace the app with a web page and leave you with no way back.
 
-In Two-page Preview, the reading-width percentage applies separately to each
-page, with centered text and balanced margins. Read the left page then the right. Arrow keys or a vertical
-wheel gesture turn two pages at a time. The arrows at the outer edges of the
-reading area also turn spreads; the page count stays at the bottom. Narrow windows use a single column until
-there is room for a spread. Code blocks, tables, and diagrams keep their own
-scrolling; focus a block to scroll it with the keyboard. History buttons and
-`⌘[` / `⌘]` still navigate between documents.
+In Two-page Preview, the reading-width percentage sets each page's text width,
+and the spread is laid out like an open book: the gutter between the pages is as
+wide as an outer margin, never narrower than the default gap. Read the left page
+then the right. Arrow keys or a vertical wheel gesture turn two pages at a time.
+The `‹` and `›` beside the page count at the bottom turn spreads, and so does a
+click in either outer margin, where a chevron appears on hover. Narrow windows
+use a single column until there is room for a spread. Code blocks, tables, and
+diagrams keep their own scrolling; focus a block to scroll it with the keyboard.
+History buttons, `⌘←` / `⌘→` and `⌘[` / `⌘]` still navigate between documents.
 
 Links live in the rendered document, so they are clickable in Preview and on the
 preview side of Split. The editor shows the source, where a link is just text.

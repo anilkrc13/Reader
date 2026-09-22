@@ -1135,7 +1135,15 @@ function render(text) {
       a.target = "_blank"; a.rel = "noopener noreferrer";
       return;
     }
-    a.dataset.local = absolutise(href.split("#")[0], dir);
+    const [ref, fragment] = href.split("#");
+    a.dataset.local = absolutise(ref, dir);
+    /* The raw relative href would resolve against Reader's server, not the
+       document's folder, so the native menu's Open Link would load a page that
+       does not exist. /open is never loaded: the macOS app intercepts it and
+       opens the path as a click would. (A file:// href would be blocked by
+       WebKit before the app is asked.) Clicks go through followLocalLink. */
+    a.href = "/open?path=" + encodeURIComponent(a.dataset.local) +
+             (fragment === undefined ? "" : "#" + fragment);
   });
   el.preview.querySelectorAll("li > input[type=checkbox]").forEach((box) => {
     const item = box.parentElement;
@@ -3172,6 +3180,10 @@ function updatePageNav() {
   $("page-label").textContent = `Pages ${first}–${Math.min(first + 1, paging.count)} of ${paging.count}`;
   $("page-prev").disabled = paging.page === 0;
   $("page-next").disabled = paging.page >= Math.ceil(paging.count / 2) - 1;
+  el.previewpane.classList.toggle("lone-page", first === paging.count);
+  el.previewpane.querySelectorAll(".page-edge").forEach(edge => {
+    edge.classList.toggle("is-off", $(edge.dataset.dir === "1" ? "page-next" : "page-prev").disabled);
+  });
 }
 
 function showSpread(page, remember = true) {
@@ -3202,8 +3214,7 @@ function restoreReadingAnchor(anchor) {
    previously recorded passage rather than measuring an already reflowed page. */
 function syncPreviewLayout(anchor = paging.anchor) {
   const available = state.file?.kind === "md" && root.dataset.mode === "preview";
-  const railWidth = parseFloat(getComputedStyle($("panes")).getPropertyValue("--page-rail-width"));
-  const active = available && S.previewLayout === "spread" && $("panes").clientWidth - railWidth * 2 >= 760 && el.previewpane.clientHeight >= 300;
+  const active = available && S.previewLayout === "spread" && $("panes").clientWidth >= 840 && el.previewpane.clientHeight >= 300;
   const changed = active !== paging.active;
   paging.active = active;
   root.dataset.paged = active ? "yes" : "no";
@@ -3220,17 +3231,24 @@ function syncPreviewLayout(anchor = paging.anchor) {
     const innerWidth = el.previewpane.clientWidth - paddingLeft - paddingRight;
     const spreadGap = parseFloat(paneStyle.getPropertyValue("--spread-gap"));
     const pageWidth = (innerWidth - spreadGap) / 2;
-    // Keep the page pitch fixed. Narrowing text adds equal inner margins to
-    // each page, increasing the column gap without shrinking the spread.
-    const inset = pageWidth * (1 - S.measure / 100) / 2;
+    // Lay the spread out like an open book: each page's inner margin is half
+    // its outer one, so the gutter matches an outer margin (never below the
+    // default gap). Only blank space moves; the text width is the measure.
+    const blank = innerWidth - 2 * pageWidth * S.measure / 100;
+    let inset = (blank - paddingLeft) / 3;
+    let gutter = paddingLeft + inset;
+    if (gutter < spreadGap) { gutter = spreadGap; inset = (blank - gutter) / 2; }
     el.preview.style.setProperty("--page-height", `${height}px`);
     el.preview.style.setProperty("--page-inset", `${inset}px`);
-    el.preview.style.setProperty("--page-gap", `${spreadGap + inset * 2}px`);
+    el.preview.style.setProperty("--page-gap", `${gutter}px`);
+    // A wide gutter keeps a narrow spine: past ~96px the shading reads as fog.
+    el.previewpane.style.setProperty("--spine-width", `${Math.min(gutter, 96)}px`);
     const articleStyle = getComputedStyle(el.preview);
     const gap = parseFloat(articleStyle.columnGap);
     paging.columnWidth = (el.preview.getBoundingClientRect().width - gap) / 2;
     paging.stride = 2 * (paging.columnWidth + gap);
     paging.origin = paddingLeft + parseFloat(articleStyle.marginLeft);
+    el.previewpane.style.setProperty("--page-edge", `${paging.origin}px`);
     refitMermaid();
     paging.count = Math.max(1, Math.round((el.preview.scrollWidth + gap) / (paging.stride / 2)));
     showSpread(paging.page, false);
@@ -3338,6 +3356,16 @@ new ResizeObserver(schedulePreviewLayout).observe(el.previewpane);
 new MutationObserver(schedulePreviewLayout).observe(el.preview, {childList: true, subtree: true, characterData: true});
 document.fonts?.addEventListener("loadingdone", schedulePreviewLayout);
 $("page-prev").onclick = () => showSpread(paging.page - 1);
+/* A click in an outer margin turns the page, unless it is the click that
+   dismisses a text selection: that one only clears it. */
+el.previewpane.querySelectorAll(".page-edge").forEach(edge => {
+  let hadSelection = false;
+  edge.addEventListener("pointerdown", () => { hadSelection = !getSelection().isCollapsed; });
+  edge.addEventListener("click", () => {
+    if (!paging.active || hadSelection || !getSelection().isCollapsed || edge.classList.contains("is-off")) return;
+    showSpread(paging.page + Number(edge.dataset.dir));
+  });
+});
 $("page-next").onclick = () => showSpread(paging.page + 1);
 $("preview-layout").querySelectorAll("[data-layout]").forEach(button => {
   button.onclick = () => {
@@ -3801,12 +3829,15 @@ el.preview.addEventListener("click", (ev) => {
   }
   if (a.dataset.local) {
     ev.preventDefault();
-    /* A link to a Word or Excel document opens in the app that owns it;
-       everything Reader renders itself opens in place as before. */
-    if (EXT_APP.has(extOf(a.dataset.local))) openExternal(a.dataset.local);
-    else openFile(a.dataset.local);
+    followLocalLink(a.dataset.local);
   }
 });
+
+/* A link to a Word or Excel document opens in the app that owns it;
+   everything Reader renders itself opens in place. */
+function followLocalLink(path) {
+  return EXT_APP.has(extOf(path)) ? openExternal(path) : openFile(path);
+}
 
 el.editor.addEventListener("input", () => {
   const dirty = el.editor.value !== state.saved;
@@ -3968,9 +3999,9 @@ document.addEventListener("keydown", (ev) => {
      stopping propagation at the textarea prevents it in WKWebView. */
   if (meta && editingText() && isNativeTextCommand(ev)) return;
 
-  /* 4. Back and forward. Bare arrows while reading; they are left alone when
-     the caret owns them or a dialog is up. ⌘[ and ⌘] work everywhere, incl.
-     the editor -- unlike ⌘←/⌘→, which macOS uses for start and end of line. */
+  /* 4. Back and forward. Bare arrows and ⌘←/⌘→ while reading, as in Safari;
+     they are left alone when the caret owns them (⌘←/⌘→ are start and end of
+     line there) or a dialog is up. ⌘[ and ⌘] work everywhere, incl. the editor. */
   if (paging.active && !meta && !ev.altKey && !ev.shiftKey && !editingText() && !overlayOpen() &&
       ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(ev.key)) {
     if (nativePreviewInput(ev.target)) return;
@@ -3979,7 +4010,7 @@ document.addEventListener("keydown", (ev) => {
     return;
   }
   const arrow = ev.key === "ArrowLeft" ? -1 : ev.key === "ArrowRight" ? 1 : 0;
-  if (arrow && !meta && !ev.altKey && !ev.shiftKey && !editingText() && !overlayOpen()) {
+  if (arrow && !ev.altKey && !ev.shiftKey && !editingText() && !overlayOpen()) {
     ev.preventDefault(); trailGo(arrow); return;
   }
   if (meta && !ev.altKey && (ev.key === "[" || ev.key === "]") && !overlayOpen()) {
@@ -5440,6 +5471,17 @@ async function openFromOS(path) {
 /* small automation hook (same-origin pages only) — used by the test suite */
 window.reader = {
   goto: (p) => setRoot(p), open: (p) => openFile(p), openFromOS,
+  /* The native menu's Open Link, and a window opened for Open Link in New
+     Window (`fresh`, which also moves the tree to the document's folder). The
+     path is one a document link resolved to, so it gets exactly a click's
+     treatment: no new grant, and read-only outside the workspace. */
+  openLink: async (path, fresh = false) => {
+    await bootReady;
+    if (typeof path !== "string" || !path.startsWith("/")) return null;
+    if (fresh && !EXT_APP.has(extOf(path))) return openFromOS(path);
+    try { return await followLocalLink(path); }
+    catch (err) { toast(err.message, true); return null; }
+  },
   /* The File menu's ⌘N. AppKit takes that key the moment a menu item claims it,
      so the menu hands it straight back here rather than the page losing it. */
   newDocument: () => openNewDoc(),

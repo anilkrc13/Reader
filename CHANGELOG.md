@@ -2,6 +2,23 @@
 
 All notable changes to Reader. Versions follow [semantic versioning](https://semver.org).
 
+## Unreleased
+
+- The two-page layout no longer reserves a strip at each edge for its arrows.
+  The previous and next buttons sit beside the page count, and a click in
+  either outer margin turns the spread, with a chevron shown on hover.
+- The spread is laid out like an open book. Narrowing the reading width now
+  splits the freed space so the gutter matches an outer margin, instead of
+  pushing the pages apart. Light papers draw a soft spine into the fold; dark
+  papers draw a hairline. Stray divider lines at the window edges are gone.
+- Right-click **Open Link** and **Open Link in New Window** on a link to
+  another local document now open it. They used to show "not found". A new
+  window opened this way never gains write access the link's author chose.
+- `⌘←` / `⌘→` go back and forward while reading, as in Safari, and keep
+  their start and end of line meaning while typing. Settings lists them with
+  the two-page page-turn keys.
+- The Charcoal dark surface is lighter, so it reads clearly apart from Ink.
+
 ## 2.4.0
 
 - Markdown Preview now offers a two-page layout from the visible page icons beside the view modes.
