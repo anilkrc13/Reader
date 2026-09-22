@@ -265,6 +265,15 @@ runs to say what the tab is for: `{fresh, root}` for a new tab or window,
 folder, document and mode in `sessionStorage` and reports them with a
 `tabState` message; the app saves the windows, their tabs and the selected
 tab in its user defaults (`ReaderSession`) and rebuilds them at launch.
+A split tab shows its second document in Reader's own page embedded as
+`/?pane=side`, which is why the page's Content-Security-Policy allows
+`frame-ancestors 'self'` rather than `'none'`: Reader may frame itself, no
+other origin may. The embedded pane never talks to the app directly; the app
+answers the main frame only, so the host page relays for it. The context
+menu's **Open to the Side** runs WebKit's new-window command with the page
+told to open the link in the other pane, and **Open Link** on a link inside
+the second pane opens it there.
+
 The app also injects `window.__readerChrome`, which tells the page that the
 title bar carries the panel, back, forward, theme and settings buttons. The
 page hides its copies, reports what those buttons should show with a

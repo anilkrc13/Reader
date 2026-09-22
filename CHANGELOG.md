@@ -2,8 +2,34 @@
 
 All notable changes to Reader. Versions follow [semantic versioning](https://semver.org).
 
-## Unreleased
+## 2.5.0
 
+- The macOS app has tabs. `⌘T`, the tab bar's `+`, `⌘`-click on a link and
+  right-click **Open Link in New Tab** open one, and `⌘W` closes it. A new
+  tab starts in the folder you were browsing. New Window now opens a window of
+  the same app rather than a second copy, so tabs can move between windows.
+  Reopening Reader restores every window with its tabs, each at its own
+  document. Tab titles are set in the ordinary text colour with an icon for
+  the kind of document, so inactive tabs stay readable.
+- A tab can show two documents side by side. Split with the split button or
+  `⌥⌘\`; the current document stays left and the right starts empty. The
+  file panel opens into whichever pane was clicked last, a file can be dragged
+  onto either pane, and `⌥`-click or right-click **Open to the Side** opens a
+  link in the other pane. Each pane has its own Preview or Edit, its own
+  history and its own half of the toolbar; the inactive pane's header dims.
+  The divider drags, snaps to the middle, resets on double-click and draws the
+  same soft spine as two pages. The split is restored with the tab.
+- Preview, Split and Edit become two modes, **Preview** and **Edit**. Edit has
+  a toggle that shows or hides the preview beside the editor, which is what
+  Split was, and reopens the way it was left. `⌘E` switches the two.
+- In the macOS app, the title bar row holds the panel, back and forward
+  buttons beside the window buttons, and split, theme and settings at the
+  other end, so Reader's toolbar is only about the document. The page shows
+  its own copies again in full screen, where macOS hides the title bar. The
+  full screen button is gone from the app; the green window button and `⌃⌘F`
+  do it. The title and tab bars follow Reader's theme.
+- The single or two-page layout and Edit's preview now belong to a tab, so
+  changing them in one tab no longer changes every other tab.
 - The two-page layout no longer reserves a strip at each edge for its arrows.
   The previous and next buttons sit beside the page count, and a click in
   either outer margin turns the spread, with a chevron shown on hover.
@@ -12,27 +38,12 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
   pushing the pages apart. Light papers draw a soft spine into the fold; dark
   papers draw a hairline. Stray divider lines at the window edges are gone.
 - Right-click **Open Link** and **Open Link in New Window** on a link to
-  another local document now open it. They used to show "not found". A new
-  window opened this way never gains write access the link's author chose.
+  another local document now open it; they used to show "not found". A tab or
+  window opened from a link never gains write access to where it points.
 - `⌘←` / `⌘→` go back and forward while reading, as in Safari, and keep
-  their start and end of line meaning while typing. Settings lists them with
-  the two-page page-turn keys.
+  their start and end of line meaning while typing.
 - The Charcoal dark surface is lighter, so it reads clearly apart from Ink.
-- Preview, Split and Edit become two modes, **Preview** and **Edit**. Edit has
-  a toggle that shows or hides the preview beside the editor, which is what
-  Split was, and reopens the way it was left. `⌘E` switches the two.
-- The single or two-page layout and Edit's preview now belong to a tab, so
-  changing them in one tab no longer changes every other tab.
-- In the macOS app, the title bar row holds the panel, back and forward
-  buttons beside the window buttons, and theme and settings at the other end,
-  so Reader's toolbar is only about the document. The page shows its own
-  copies again in full screen, where macOS hides the title bar. The full
-  screen button is gone from the app; the green window button and `⌃⌘F` do it.
-- The macOS app has tabs. `⌘T`, the tab bar's `+`, `⌘`-click on a link and
-  right-click **Open Link in New Tab** open one, and `⌘W` closes it. New
-  Window now opens a window of the same app rather than a second copy, so
-  tabs can move between windows. Reopening Reader restores every window with
-  its tabs, each at its own document.
+- The document toolbar is 8px shorter; its buttons keep their size.
 
 ## 2.4.0
 

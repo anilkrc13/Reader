@@ -1,7 +1,7 @@
 # owned by skills/repository-context/scripts/context_freshness.py -- do not hand-edit
 {
-  "aggregate": "9ad0b4ac9b807cfe8f0d3e3dfa9f4d51ff97b0ac904eb15242d9ae767f28aa31",
-  "commit": "4fe89b273109c8458fc0eae270f124c5bc4e61d8",
+  "aggregate": "c841f7e6c2353feb705517ce3b450d1f5a01ecf8e3a06cf82a03962506acf7f3",
+  "commit": "8dcb64cecbb89fb43e9e2c37e3d6aefa4e35553f",
   "exclude": [],
   "files": {
     ".github/ISSUE_TEMPLATE/bug_report.md": {
@@ -37,8 +37,8 @@
     "CHANGELOG.md": {
       "executable": false,
       "kind": "file",
-      "length": 12351,
-      "sha256": "a59e32a857bdbec178879cff0a9b9ff79d92e669526a58d827eb47e11666d58f"
+      "length": 13194,
+      "sha256": "989cc9b7ce2b547e9f4963c3bdb5e7e66870d814a741142b36c0023c6a26b05b"
     },
     "CONTRIBUTING.md": {
       "executable": false,
@@ -55,8 +55,8 @@
     "README.md": {
       "executable": false,
       "kind": "file",
-      "length": 18280,
-      "sha256": "df84bfcb158d1dd9879a6f03b49fcbda09887e2f0dbe7760866cdff87a93a529"
+      "length": 19021,
+      "sha256": "5f95f06e1ed73c93d5e2d153f949d053e9bc744f28812b4a82901917c1024081"
     },
     "SECURITY.md": {
       "executable": false,
@@ -68,7 +68,7 @@
       "executable": false,
       "kind": "file",
       "length": 6,
-      "sha256": "2ad7b0c3f0ede58c3165b7a8a5479e890a758d39bfe8683eaef50ce6afad7232"
+      "sha256": "732f64d874f90788c0199b0c19bfd9b3b6436e140114e53e462832532d74c61c"
     },
     "install/Reader.command": {
       "executable": true,
@@ -187,8 +187,8 @@
     "macos/ReaderLauncher.swift": {
       "executable": false,
       "kind": "file",
-      "length": 93562,
-      "sha256": "7e90862f002fdc908b135578d033820553ff728f0802516c693b9a33f1cfee44"
+      "length": 96896,
+      "sha256": "23c5c009710aa086b496fcaa38e399f98176b0690900d109b1536593a23ef51f"
     },
     "macos/build-app.sh": {
       "executable": true,
@@ -247,8 +247,8 @@
     "reader.py": {
       "executable": true,
       "kind": "file",
-      "length": 32283,
-      "sha256": "6df2419c8dc9c62ef8832fd81027f64a54ec09cba881256027b3e15a7d380b8c"
+      "length": 32512,
+      "sha256": "0f11dd0f1ff37441633e5c44adc78ca1794faa4402eaf5a6d97e96ecd84af515"
     },
     "reader_backend.py": {
       "executable": false,
@@ -265,14 +265,14 @@
     "static/app.css": {
       "executable": false,
       "kind": "file",
-      "length": 80292,
-      "sha256": "61fc3bc1a47d08931f90d2c2f35c44b2805a6d60b948f15b8f4d8f300512255b"
+      "length": 83428,
+      "sha256": "f268493480920af14837534f2c0d3c6bd7a23c1aee10a4bc9c5ca4977fe9f95c"
     },
     "static/app.js": {
       "executable": false,
       "kind": "file",
-      "length": 227570,
-      "sha256": "1b40934e14df1404cd5967d12dce124d43569eeef081d5446b92e0b1a0d582ae"
+      "length": 241016,
+      "sha256": "087bf7ccc5cda051f8b65907a83c4e409ce7e32b19d0b0d1706630b3257dd4ea"
     },
     "static/fonts/ebgaramond-latin-variable-italic.ttf": {
       "executable": false,
@@ -487,8 +487,8 @@
     "static/index.html": {
       "executable": false,
       "kind": "file",
-      "length": 54154,
-      "sha256": "ab74b00fe415c9f1405ddd1fbb27c3aaa65b6614fdb052bf4f52e43d675e3c28"
+      "length": 55011,
+      "sha256": "2de75ba767e4f004ddd23d4dcf0cdcfae27d3d68b86b70c27b6e4316ded41cbc"
     },
     "static/marked.min.js": {
       "executable": false,
@@ -517,8 +517,8 @@
     "tests/browser/webmcp.spec.js": {
       "executable": false,
       "kind": "file",
-      "length": 48260,
-      "sha256": "fbb22b1975f94dbcbf1f5e93130716b80a8be2b548530c5c530f25dd53d6b393"
+      "length": 52746,
+      "sha256": "0990c084692fd543843e4a259643257dee4b6861a74584573da24b5031740ba6"
     },
     "tests/manual/update-feed-server.py": {
       "executable": false,

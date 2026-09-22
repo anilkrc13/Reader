@@ -70,6 +70,10 @@ MAX_PREFS_BYTES = 256 * 1024          # a preferences blob should never be big
 #     markup and losing that would change how existing documents render;
 #   img-src and media-src allow http/https, because a document may reference a
 #     picture on the web and that has always displayed.
+#
+# frame-ancestors is 'self', not 'none': a split tab shows its second document
+# in Reader's own page embedded as /?pane=side. Only Reader's own origin may
+# frame it, so another site still cannot embed Reader to steer clicks.
 APP_CSP = (
     "default-src 'none'; "
     "script-src 'self'; "
@@ -82,7 +86,7 @@ APP_CSP = (
     "object-src 'none'; "
     "base-uri 'none'; "
     "form-action 'none'; "
-    "frame-ancestors 'none'"
+    "frame-ancestors 'self'"
 )
 
 COOKIE = "reader_session"

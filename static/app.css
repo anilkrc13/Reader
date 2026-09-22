@@ -387,7 +387,7 @@ html[data-glass=on][data-sidebar=hidden] #sidebar{
 /* ---------------------------------------------------------------- toolbar */
 #main{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--paper)}
 #toolbar{
-  display:flex;align-items:center;gap:.4375rem;height:3.375rem;flex:none;
+  display:flex;align-items:center;gap:.4375rem;height:2.875rem;flex:none;
   padding:0 .8125rem 0 .6875rem;border-bottom:1px solid var(--border);background:var(--paper);
 }
 .doc-title{display:flex;align-items:center;gap:.4375rem;min-width:0;padding-left:.1875rem}
@@ -1304,6 +1304,43 @@ html[data-theme=dark] .mermaid-diagram{--diagram-bg:color-mix(in srgb,var(--pane
 :is(#preview-layout,#edit-preview) .layout-choice{background:transparent;border-color:transparent;box-shadow:none;width:1.875rem;height:1.75rem;color:var(--text-3)}
 :is(#preview-layout,#edit-preview) .layout-choice:hover{color:var(--text);background:var(--raised)}
 :is(#preview-layout,#edit-preview) .layout-choice[aria-pressed=true]{background:var(--raised);color:var(--accent-text);box-shadow:var(--shadow);border-color:var(--border)}
+/* Split: two documents in one tab. The side pane is this page embedded, so
+   each half of the toolbar row is the header of the document below it. */
+html[data-split=on]:not([data-pane=side]) #main{flex:var(--split,.5) 1 0px;min-width:320px}
+#side-pane{flex:calc(1 - var(--split,.5)) 1 0px;min-width:320px;display:flex;background:var(--paper)}
+#side-pane iframe{border:0;width:100%;height:100%;display:block}
+html[data-side=right] :is(#split-divider,#side-pane){order:1}
+#split-divider{flex:none;width:7px;margin:0 -3px;cursor:col-resize;position:relative;z-index:3}
+/* The two-page spine, reused: a crease, and on light papers a soft shade into
+   it from both panes. It starts below the headers so their row stays crisp. */
+#split-divider::before{content:"";position:absolute;left:3px;top:0;bottom:0;width:1px;
+  background:var(--spine-crease,var(--border))}
+#split-divider::after{content:"";position:absolute;top:2.875rem;bottom:0;left:50%;width:48px;
+  transform:translateX(-50%);pointer-events:none;
+  background:
+    linear-gradient(90deg,transparent,color-mix(in srgb,var(--spine-tone) var(--spine-near),transparent) 55%,color-mix(in srgb,var(--spine-tone) var(--spine-mid),transparent) 85%,var(--spine-tone)) left/50% 100% no-repeat,
+    linear-gradient(270deg,transparent,color-mix(in srgb,var(--spine-tone) var(--spine-near),transparent) 55%,color-mix(in srgb,var(--spine-tone) var(--spine-mid),transparent) 85%,var(--spine-tone)) right/50% 100% no-repeat}
+#split-divider:hover::before,#split-divider.active::before{left:2.5px;width:2px;background:var(--accent)}
+html.dragging-split,html.dragging-split *{cursor:col-resize!important;user-select:none}
+html.dragging-split #side-pane iframe{pointer-events:none}
+/* The inactive pane's header recedes, as a background window's does; the
+   active one stays at full strength. Hovering brings a header back. */
+html[data-split=on] #toolbar > :not(.tool-sep,.trail-nav,#btn-show){transition:opacity var(--speed)}
+html[data-split=on] #toolbar:not(.pane-active):not(:hover) > :not(.tool-sep,.trail-nav,#btn-show){opacity:.5}
+/* Each document is one column, previewed or edited, never both. */
+html[data-split=on] :is(#preview-layout,#edit-preview){display:none!important}
+html[data-split=on]:not([data-pane=side]) #btn-split{background:var(--raised);color:var(--accent-text);border-color:var(--border)}
+#btn-close-pane{display:none}
+html[data-pane=side] #btn-close-pane{display:inline-flex}
+/* The side pane has no file panel and no back and forward of its own: the
+   tab's buttons act on the active pane. */
+html[data-pane=side] :is(#sidebar,#dragbar,#btn-show,#btn-panel,.trail-nav,#btn-split){display:none!important}
+/* In a browser, or in full screen, the app controls sit at the far end of
+   the row, in the side pane's half. */
+html[data-split=on]:not([data-pane=side])[data-native-chrome=off] .toolbar-group[aria-label="App controls"],
+html[data-split=on]:not([data-pane=side])[data-native-chrome=off] .tool-sep:has(+ .toolbar-group[aria-label="App controls"]){display:none}
+html.drop-open #panes,html.drop-open #empty{outline:2px dashed var(--accent);outline-offset:-6px}
+
 /* The macOS app's title bar has these; the page's copies return in full
    screen, where macOS hides the title bar, and in a browser. */
 html[data-native-chrome=on] :is(#btn-panel,#btn-show,.trail-nav),
