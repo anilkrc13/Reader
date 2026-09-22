@@ -6,8 +6,10 @@ import Security
 import WebKit
 
 private let readerPort = Int(ProcessInfo.processInfo.environment["READER_LAUNCHER_PORT"] ?? "") ?? 8737
-/* Set only by Open Link in New Window, for the instance it starts. */
-private let linkOpenEnvironmentKey = "READER_OPEN_LINK"
+/* Every window and tab this launch had open, rebuilt on the next one. */
+private let sessionKey = "ReaderSession"
+/* Windows share it so AppKit lets their tabs merge and move between them. */
+private let tabbingIdentifier = "ReaderDocument"
 private let readerAppName = "Reader"
 private let readinessTimeout: TimeInterval = 12
 private let dockIconLightName = "ReaderDockIcon-Light"
@@ -76,10 +78,10 @@ private enum InstallProblem: Error {
     case replace(String)
 }
 
-private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandlerWithReply {
-    private var window: NSWindow!
-    private var webView: WKWebView!
-    private var statusLabel: NSTextField!
+private final class ReaderAppDelegate: NSObject, NSApplicationDelegate {
+    /* Every window and tab. Each is one Reader page on the one server this
+       app starts or reuses, so tabs can merge and move between windows. */
+    private var pages: [ReaderPage] = []
     private var serverProcess: Process?
     private var ownsServer = false
     private var isFinishing = false
@@ -89,12 +91,21 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
        before the server is up and before the page has loaded, so it is held
        here until there is somewhere to send it. */
     private var pendingOpenPath: String?
-    /* A document link this window was opened for. Unlike a Finder open it is
-       not handed to the server as a startup path: the document's author chose
-       the target, so it must not become a write grant. */
-    private var pendingLinkPath: String? = ProcessInfo.processInfo.environment[linkOpenEnvironmentKey]
-    private var isPageLoaded = false
-    private var isChoosingFolder = false
+    /* A Finder open that arrived while a session was being restored. It still
+       becomes the server's startup grant, but opens in a tab of its own rather
+       than over a restored tab's document. */
+    private var startupGrantPath: String?
+    /* The page's address once the server is ready. Pages made before then
+       show the startup status and load when it arrives. */
+    private var readerPageURL: URL?
+    private var statusMessage = "Starting Reader…"
+    private var serverError: String?
+    /* Set once quitting has begun and the session is saved, so windows closing
+       on the way out cannot overwrite it. */
+    private var isTerminating = false
+    /* The window an update's progress sheet is attached to, so it ends on the
+       same window it began on. */
+    private var updateSheetWindow: NSWindow?
     /* One update at a time. A second check while a download is running would
        race the first one onto the same bundle path. */
     private var isUpdating = false
@@ -122,10 +133,18 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
     func applicationWillFinishLaunching(_ notification: Notification) {
         configureMainMenu()
         configureDockIconAppearance()
-        makeWindow()
+        if !restoreSession() {
+            openPage(intent: nil)
+        }
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if !pages.isEmpty, pages.contains(where: { $0.intent != nil }), let path = pendingOpenPath {
+            // A restored session: the Finder document gets its own tab.
+            startupGrantPath = path
+            pendingOpenPath = nil
+            openTab(from: nil, openPath: path)
+        }
         probeAndOpen()
         discardPreviousBundle()
         scheduleUpdateCheck()
@@ -137,9 +156,10 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
     func application(_ application: NSApplication, open urls: [URL]) {
         guard let path = urls.first(where: { $0.isFileURL })?.standardizedFileURL.path else { return }
         NSApp.activate(ignoringOtherApps: true)
-        window?.makeKeyAndOrderFront(nil)
-        if isPageLoaded {
-            deliver(path: path)
+        let page = keyPage
+        page?.window.makeKeyAndOrderFront(nil)
+        if let page, page.isPageLoaded {
+            page.deliver(path: path)
         } else {
             pendingOpenPath = path
         }
@@ -147,39 +167,145 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag {
-            window?.makeKeyAndOrderFront(nil)
+            keyPage?.window.makeKeyAndOrderFront(nil)
         }
         return true
     }
 
-    /// Ask the already-loaded page to open a document. The path is passed as a
-    /// JSON-encoded literal so no filename can escape into the script itself.
-    /// A reused server has no trusted launcher-to-server grant channel, so its
-    /// backend reports an out-of-workspace file as read-only. When this launcher
-    /// starts the server itself, the startup path is an initial server grant.
-    private func deliver(path: String) {
-        callPage("openFromOS", [path])
+    // -- windows and tabs ----------------------------------------------------
+
+    /* The page the menus act on: the key window's, else the frontmost. */
+    private var keyPage: ReaderPage? {
+        pages.first { $0.window.isKeyWindow }
+            ?? pages.first { $0.window.isMainWindow }
+            ?? NSApp.orderedWindows.lazy.compactMap { window in
+                self.pages.first { $0.window === window }
+            }.first
+            ?? pages.last
     }
 
-    /// Call one of the page's `window.reader` hooks. `name` is always a
-    /// literal from this file; the arguments are JSON-encoded so no path can
-    /// escape into the script itself.
-    private func callPage(_ name: String, _ arguments: [Any]) {
-        guard let data = try? JSONSerialization.data(withJSONObject: arguments, options: []),
-              let array = String(data: data, encoding: .utf8) else { return }
-        let call = "window.reader.\(name).apply(null, \(array))"
-        let script = "window.reader && window.reader.\(name) ? (\(call), true) : false"
-        webView.evaluateJavaScript(script) { [weak self] result, _ in
-            // app.js publishes `window.reader` as the page finishes booting;
-            // one bounded retry covers the case where we win that race.
-            if (result as? Bool) != true {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                    guard let self, self.isPageLoaded else { return }
-                    self.webView.evaluateJavaScript(
-                        "window.reader && window.reader.\(name) && \(call)", completionHandler: nil)
-                }
+    /// Make one window or tab. `host` tabs it into that window; otherwise it
+    /// is a window of its own, cascaded from the front one.
+    @discardableResult
+    private func openPage(intent: [String: Any]?, tabbedWith host: NSWindow? = nil) -> ReaderPage {
+        let front = keyPage?.window
+        let page = ReaderPage(app: self, intent: intent)
+        pages.append(page)
+        if let host {
+            host.addTabbedWindow(page.window, ordered: .above)
+        } else {
+            if let front {
+                page.window.setFrame(front.frame, display: false)
+                page.window.setFrameTopLeftPoint(
+                    front.cascadeTopLeft(from: NSPoint(x: front.frame.minX, y: front.frame.maxY)))
+            } else {
+                page.window.center()
             }
+            // A window asked for as a window stays one, whatever the macOS
+            // "prefer tabs" setting says.
+            page.window.tabbingMode = .disallowed
         }
+        page.window.makeKeyAndOrderFront(nil)
+        page.window.tabbingMode = .automatic
+        if let serverError {
+            page.showError(serverError)
+        } else if let readerPageURL {
+            page.load(readerPageURL)
+        } else {
+            page.showStatus(statusMessage)
+        }
+        return page
+    }
+
+    /* A new tab starts in the folder of the tab it was opened from, with no
+       document, like a new Finder tab. A link or a Finder document opened
+       into it is delivered once its page has loaded. */
+    fileprivate func openTab(from source: ReaderPage?, linkPath: String? = nil, openPath: String? = nil) {
+        let source = source ?? keyPage
+        let page = openPage(intent: freshIntent(from: source), tabbedWith: source?.window)
+        page.pendingLinkPath = linkPath
+        page.pendingOpenPath = openPath
+    }
+
+    fileprivate func openWindow(from source: ReaderPage?, linkPath: String? = nil) {
+        let page = openPage(intent: freshIntent(from: source ?? keyPage))
+        page.pendingLinkPath = linkPath
+    }
+
+    private func freshIntent(from source: ReaderPage?) -> [String: Any] {
+        var intent: [String: Any] = ["fresh": true]
+        if let root = source?.tabState["rootDir"] as? String {
+            intent["root"] = root
+        }
+        return intent
+    }
+
+    fileprivate func pageDidLoad(_ page: ReaderPage) {
+        if let path = pendingOpenPath {
+            pendingOpenPath = nil
+            page.deliver(path: path)
+        }
+    }
+
+    /* Saved a turn later: closing a window closes its tabs one by one, and
+       saving between them would shrink a last window to one tab before Reader
+       quits. By then an emptied app keeps the session it last saved. */
+    fileprivate func pageWillClose(_ page: ReaderPage) {
+        pages.removeAll { $0 === page }
+        DispatchQueue.main.async { [weak self] in self?.saveSession() }
+    }
+
+    // -- the saved session ---------------------------------------------------
+
+    /* Windows front to back, each with its tabs in order, the selected tab and
+       each tab's place as its page last reported it. The last window to close
+       is kept: closing it quits Reader, and the next launch reopens it. */
+    fileprivate func saveSession() {
+        guard !isTerminating, !pages.isEmpty else { return }
+        var windows = NSApp.orderedWindows.filter { window in pages.contains { $0.window === window } }
+        for page in pages where !windows.contains(where: { $0 === page.window }) {
+            windows.append(page.window)          // minimised windows are not on screen
+        }
+        var groups: [[String: Any]] = []
+        var seen = Set<ObjectIdentifier>()
+        for window in windows {
+            let tabs = window.tabGroup?.windows ?? [window]
+            let key = ObjectIdentifier(window.tabGroup ?? window)
+            guard !seen.contains(key) else { continue }
+            seen.insert(key)
+            let tabPages = tabs.compactMap { tab in pages.first { $0.window === tab } }
+            guard !tabPages.isEmpty else { continue }
+            let selected = window.tabGroup?.selectedWindow ?? window
+            groups.append([
+                "frame": window.frameDescriptor,
+                "selected": tabPages.firstIndex { $0.window === selected } ?? 0,
+                "tabs": tabPages.map { $0.tabState }
+            ])
+        }
+        UserDefaults.standard.set(groups, forKey: sessionKey)
+    }
+
+    /* Built back to front, so the window that was in front ends up there. */
+    private func restoreSession() -> Bool {
+        guard let groups = UserDefaults.standard.array(forKey: sessionKey) as? [[String: Any]] else {
+            return false
+        }
+        var restored = false
+        for group in groups.reversed() {
+            guard let tabs = group["tabs"] as? [[String: Any]], !tabs.isEmpty else { continue }
+            var tabPages: [ReaderPage] = []
+            for tab in tabs {
+                let page = openPage(intent: ["restore": tab], tabbedWith: tabPages.last?.window)
+                if tabPages.isEmpty, let frame = group["frame"] as? String {
+                    page.window.setFrame(from: frame)
+                }
+                tabPages.append(page)
+            }
+            let selected = min(max(group["selected"] as? Int ?? 0, 0), tabPages.count - 1)
+            tabPages[selected].window.makeKeyAndOrderFront(nil)
+            restored = true
+        }
+        return restored
     }
 
     /* WKWebView's text system routes the standard editing commands through
@@ -225,6 +351,14 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         newDocItem.target = self
         fileMenu.addItem(newDocItem)
 
+        /* AppKit's own tab action, so the tab bar's + button and ⌘T are one
+           command. Untargeted: it reaches the key window's page. */
+        let newTabItem = NSMenuItem(title: "New Tab",
+                                    action: #selector(NSResponder.newWindowForTab(_:)),
+                                    keyEquivalent: "t")
+        newTabItem.keyEquivalentModifierMask = .command
+        fileMenu.addItem(newTabItem)
+
         /* ⇧⌘N, because ⌘N already makes a document. The same split VS Code
            draws: ⌘N a new file, ⇧⌘N a new window. */
         let newWindowItem = NSMenuItem(title: "New Window",
@@ -233,6 +367,11 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         newWindowItem.keyEquivalentModifierMask = [.command, .shift]
         newWindowItem.target = self
         fileMenu.addItem(newWindowItem)
+        fileMenu.addItem(.separator())
+        // Closes the tab, or the window when it has one tab.
+        fileMenu.addItem(NSMenuItem(title: "Close",
+                                    action: #selector(NSWindow.performClose(_:)),
+                                    keyEquivalent: "w"))
 
         let editItem = NSMenuItem()
         let editMenu = NSMenu(title: "Edit")
@@ -254,6 +393,24 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         addEditCommand("Copy", "copy:", "c")
         addEditCommand("Paste", "paste:", "v")
         addEditCommand("Select All", "selectAll:", "a")
+
+        /* Registered as the windows menu, AppKit adds the tab commands to it:
+           Show Previous and Next Tab, Move Tab to New Window, Merge All Windows. */
+        let windowItem = NSMenuItem()
+        let windowMenu = NSMenu(title: "Window")
+        windowItem.submenu = windowMenu
+        mainMenu.addItem(windowItem)
+        windowMenu.addItem(NSMenuItem(title: "Minimize",
+                                      action: #selector(NSWindow.performMiniaturize(_:)),
+                                      keyEquivalent: "m"))
+        windowMenu.addItem(NSMenuItem(title: "Zoom",
+                                      action: #selector(NSWindow.performZoom(_:)),
+                                      keyEquivalent: ""))
+        windowMenu.addItem(.separator())
+        windowMenu.addItem(NSMenuItem(title: "Bring All to Front",
+                                      action: #selector(NSApplication.arrangeInFront(_:)),
+                                      keyEquivalent: ""))
+        NSApp.windowsMenu = windowMenu
 
         NSApp.mainMenu = mainMenu
     }
@@ -284,6 +441,8 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        saveSession()
+        isTerminating = true
         guard ownsServer, serverProcess?.isRunning == true else {
             return .terminateNow
         }
@@ -327,63 +486,13 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         }
     }
 
-    private func makeWindow() {
-        let content = NSView(frame: .zero)
-        content.wantsLayer = true
-        content.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
-
-        /* The page asks for native things through this one channel. It is the
-           only route from the page into the app; everything else is one-way. */
-        let configuration = WKWebViewConfiguration()
-        configuration.userContentController.addScriptMessageHandler(
-            self, contentWorld: .page, name: "reader")
-
-        webView = WKWebView(frame: .zero, configuration: configuration)
-        webView.navigationDelegate = self
-        /* Without a UI delegate, WebKit answers a target="_blank" link by
-           silently dropping it -- which is why a link to a Google Doc did
-           nothing at all in the app while working in a browser. */
-        webView.uiDelegate = self
-        webView.translatesAutoresizingMaskIntoConstraints = false
-        webView.isHidden = true
-        content.addSubview(webView)
-
-        statusLabel = NSTextField(labelWithString: "Starting Reader…")
-        statusLabel.alignment = .center
-        statusLabel.textColor = .secondaryLabelColor
-        statusLabel.translatesAutoresizingMaskIntoConstraints = false
-        content.addSubview(statusLabel)
-
-        NSLayoutConstraint.activate([
-            webView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            webView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            webView.topAnchor.constraint(equalTo: content.topAnchor),
-            webView.bottomAnchor.constraint(equalTo: content.bottomAnchor),
-            statusLabel.centerXAnchor.constraint(equalTo: content.centerXAnchor),
-            statusLabel.centerYAnchor.constraint(equalTo: content.centerYAnchor),
-            statusLabel.leadingAnchor.constraint(greaterThanOrEqualTo: content.leadingAnchor, constant: 32),
-            statusLabel.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -32)
-        ])
-
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 780),
-                          styleMask: [.titled, .closable, .miniaturizable, .resizable],
-                          backing: .buffered,
-                          defer: false)
-        window.title = readerAppName
-        window.contentView = content
-        window.delegate = self
-        window.minSize = NSSize(width: 720, height: 480)
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-    }
-
     private func probeAndOpen() {
-        statusLabel.stringValue = "Checking for an existing Reader server…"
+        setStatus("Checking for an existing Reader server…")
         probeServer { [weak self] result in
             guard let self, !self.isFinishing else { return }
             switch result {
             case .compatible:
-                self.statusLabel.stringValue = "Connecting to Reader…"
+                self.setStatus("Connecting to Reader…")
                 self.loadReaderPage()
             case .stale(let version):
                 /* The port is held, so Reader cannot start its own server on it,
@@ -412,14 +521,17 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
             return
         }
 
-        statusLabel.stringValue = "Starting Reader’s local server…"
+        setStatus("Starting Reader’s local server…")
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         var arguments = ["python3", script.path, "--port", String(readerPort), "--no-browser"]
         // Handing the document to the server it is about to start makes that
         // file's folder part of the save workspace, so a document opened from
         // Finder outside the home folder stays editable.
-        if let path = pendingOpenPath {
+        if let path = startupGrantPath {
+            // Restored session: the grant, while its own tab delivers it.
+            arguments.append(path)
+        } else if let path = pendingOpenPath {
             arguments.append(path)
             // The server now reports it as the start document, so there is no
             // second delivery to make once the page loads.
@@ -428,7 +540,6 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         process.arguments = arguments
         process.currentDirectoryURL = resourceURL
         var environment = ProcessInfo.processInfo.environment
-        environment.removeValue(forKey: linkOpenEnvironmentKey)
         let support = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/Reader", isDirectory: true)
         environment["READER_DATA_DIR"] = support.path
@@ -552,7 +663,8 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
             showError("Reader is running, but its local access token could not be found.")
             return
         }
-        webView.load(URLRequest(url: url))
+        readerPageURL = url
+        for page in pages { page.load(url) }
     }
 
     private func readerToken() -> String? {
@@ -583,11 +695,15 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         ownsServer = false
     }
 
+    private func setStatus(_ message: String) {
+        statusMessage = message
+        for page in pages { page.showStatus(message) }
+    }
+
+    /* A server problem belongs to every page waiting on it. */
     private func showError(_ message: String) {
-        statusLabel.stringValue = message
-        statusLabel.textColor = .systemRed
-        statusLabel.maximumNumberOfLines = 4
-        statusLabel.lineBreakMode = .byWordWrapping
+        serverError = message
+        for page in pages { page.showError(message) }
     }
 
     // -- staying up to date --------------------------------------------------
@@ -836,7 +952,7 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
             guard let self else { return }
             switch response {
             case .alertFirstButtonReturn:
-                self.handOff(manifest.releasePage)
+                handOff(manifest.releasePage)
             case .alertThirdButtonReturn:
                 self.rememberSkipped(version: manifest.version)
             default:
@@ -1216,7 +1332,7 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
     // -- update dialogs and progress -----------------------------------------
 
     private func runAlert(_ alert: NSAlert, handler: @escaping (NSApplication.ModalResponse) -> Void) {
-        if let window, window.isVisible {
+        if let window = keyPage?.window, window.isVisible {
             alert.beginSheetModal(for: window, completionHandler: handler)
         } else {
             handler(alert.runModal())
@@ -1235,7 +1351,7 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
        downloaded the page has loaded and the label is hidden behind it, and a
        sheet is also the thing that says "this window is busy". */
     private func showUpdateProgress(_ message: String, determinate: Bool) {
-        guard let window else { return }
+        guard let window = updateSheetWindow ?? keyPage?.window else { return }
         if updateProgressSheet == nil {
             let sheet = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 96),
                                  styleMask: [.titled],
@@ -1263,6 +1379,7 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
             updateProgressSheet = sheet
             updateProgressLabel = label
             updateProgressBar = bar
+            updateSheetWindow = window
             window.beginSheet(sheet, completionHandler: nil)
         }
         updateProgressLabel?.stringValue = message
@@ -1280,7 +1397,8 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         updateProgressObservation = nil
         guard let sheet = updateProgressSheet else { return }
         updateProgressBar?.stopAnimation(nil)
-        window?.endSheet(sheet)
+        updateSheetWindow?.endSheet(sheet)
+        updateSheetWindow = nil
         updateProgressSheet = nil
         updateProgressBar = nil
         updateProgressLabel = nil
@@ -1292,68 +1410,424 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
        the menu bar takes the key from the web view, so handing it back is what
        keeps the shortcut working at all. */
     @objc private func newDocumentFromMenu(_ sender: Any?) {
-        webView.evaluateJavaScript(
-            "window.reader && window.reader.newDocument && window.reader.newDocument()",
-            completionHandler: nil)
+        keyPage?.callPage("newDocument", [])
     }
 
-    /* A second Reader, on a port of its own.
-
-       Its own port rather than sharing this one, so the two are independent:
-       a window that reuses another's server dies with it, and quitting the
-       first window would leave the second showing a page whose server had gone.
-       Each instance starts and stops exactly what it owns. */
+    /* A window in this app, on the same server as the others, so its tabs
+       can be merged with theirs. */
     @objc private func newWindowFromMenu(_ sender: Any?) {
-        openNewWindow(linkPath: nil)
+        openWindow(from: keyPage)
     }
 
-    private func openNewWindow(linkPath: String?) {
-        guard let port = freePortForNewWindow() else {
-            showError("Reader could not find a free port for another window.")
-            return
+    // -- requests from the page ----------------------------------------------
+
+    /* About's button runs exactly the check the menu item runs. The request
+       carries nothing: no URL, no version, no permission to skip a step, so the
+       page cannot aim the updater at something of its own choosing. What comes
+       back is the outcome in words, for the status line.
+
+       The daily check is the thing `updates.check` switches off. This one is a
+       button somebody pressed, so it is answered the same way the menu item
+       answers it. */
+    fileprivate func checkForUpdatesForPage(reply: @escaping (Any?, String?) -> Void) {
+        // WebKit tolerates no second reply, and an update can end in more than
+        // one place, so only the first outcome is handed back.
+        var answered = false
+        checkForUpdates(userInitiated: true) { outcome in
+            guard !answered else { return }
+            answered = true
+            reply(outcome, nil)
         }
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.createsNewApplicationInstance = true
-        configuration.environment = ["READER_LAUNCHER_PORT": String(port)]
-        if let linkPath {
-            configuration.environment[linkOpenEnvironmentKey] = linkPath
+    }
+
+}
+
+// -- links out of the document ----------------------------------------------
+
+/* Reader's windows only ever show Reader's own local server. A document can
+   link anywhere, and those links go to the browser the reader already uses:
+   it is where they are signed in, and it keeps arbitrary web pages out of
+   the process that holds Reader's Desktop/Documents/Downloads consent. */
+private func isReaderItself(_ url: URL) -> Bool {
+    guard let scheme = url.scheme?.lowercased() else { return false }
+    guard scheme == "http" || scheme == "https" else { return false }
+    guard let host = url.host?.lowercased() else { return false }
+    let loopback = host == "127.0.0.1" || host == "localhost" || host == "::1"
+    return loopback && (url.port ?? -1) == readerPort
+}
+
+private func isReaderOrigin(_ origin: WKSecurityOrigin) -> Bool {
+    let host = origin.host.lowercased()
+    let loopback = host == "127.0.0.1" || host == "localhost" || host == "::1"
+    // port 0 is what WebKit reports for a scheme's default port, which
+    // Reader never uses; accepted so a future default-port run still works.
+    return (origin.protocol == "http" || origin.protocol == "https")
+        && loopback && (origin.port == readerPort || origin.port == 0)
+}
+
+/* app.js gives a link to another local document the href
+   /open?path=<absolute path>. The server has no such page; only the native
+   context menu ever navigates there, and that is caught here. */
+private func documentLinkPath(_ url: URL) -> String? {
+    guard isReaderItself(url), url.path == "/open",
+          let path = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+              .queryItems?.first(where: { $0.name == "path" })?.value,
+          path.hasPrefix("/") else { return nil }
+    return path
+}
+
+/* A deliberately short list. A markdown document is untrusted content, and
+   NSWorkspace opens whatever it is handed -- a file:// URL to an .app, or a
+   custom scheme wired to another program, would be a way for a document to
+   start something merely by being clicked. The same reasoning keeps
+   /api/open-external on a whitelist. */
+private let handOffSchemes: Set<String> = ["http", "https", "mailto", "tel"]
+
+@discardableResult
+private func handOff(_ url: URL) -> Bool {
+    guard let scheme = url.scheme?.lowercased(), handOffSchemes.contains(scheme) else { return false }
+    return NSWorkspace.shared.open(url)
+}
+
+/* A title bar button that says when the pointer rests on it: the panel
+   button floats the hidden panel out on hover, as the page's own one does. */
+private final class HoverButton: NSButton {
+    var onHover: ((Bool) -> Void)?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds,
+                                       options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
+                                       owner: self, userInfo: nil))
+    }
+
+    override func mouseEntered(with event: NSEvent) { onHover?(true) }
+    override func mouseExited(with event: NSEvent) { onHover?(false) }
+}
+
+/* WebKit's link menu has Open Link in New Window but no tab. The added item
+   runs WebKit's own new-window command with the page told to make a tab of
+   it, so the link WebKit resolved is the one that opens. */
+private final class ReaderWebView: WKWebView {
+    weak var page: ReaderPage?
+
+    override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
+        super.willOpenMenu(menu, with: event)
+        guard let index = menu.items.firstIndex(where: {
+            $0.identifier?.rawValue == "WKMenuItemIdentifierOpenLinkInNewWindow"
+                || $0.title == "Open Link in New Window"
+        }) else { return }
+        let item = NSMenuItem(title: "Open Link in New Tab",
+                              action: #selector(openLinkInNewTab(_:)),
+                              keyEquivalent: "")
+        item.target = self
+        item.representedObject = menu.items[index]
+        menu.insertItem(item, at: index)
+    }
+
+    @objc private func openLinkInNewTab(_ sender: NSMenuItem) {
+        guard let original = sender.representedObject as? NSMenuItem,
+              let action = original.action else { return }
+        page?.expectTabFromNextNewWindow()
+        NSApp.sendAction(action, to: original.target, from: original)
+    }
+}
+
+/* One window or tab: its own page on the shared server, its own status while
+   the server starts, and its own route from the page into the app. */
+private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandlerWithReply {
+    let window: NSWindow
+    private let webView: ReaderWebView
+    private let statusLabel: NSTextField
+    private weak var app: ReaderAppDelegate?
+    /* What the app made this page for; injected into the page before it runs. */
+    let intent: [String: Any]?
+    private(set) var isPageLoaded = false
+    private var loadedURL: URL?
+    /* A Finder document, opened with openFromOS once the page has loaded. */
+    var pendingOpenPath: String?
+    /* A document link this tab was opened for. Unlike a Finder open it is never
+       a server startup path: the document's author chose the target, so it
+       must not become a write grant. */
+    var pendingLinkPath: String?
+    /* This tab's place as the page last reported it, for the saved session.
+       Plist types only: strings and booleans. */
+    private(set) var tabState: [String: Any] = [:]
+    private var isChoosingFolder = false
+    private var titleObservation: NSKeyValueObservation?
+    private var expectsTab = false
+    /* The title bar's own buttons: the panel, back and forward after the window
+       buttons, theme and settings at the far end. The page hides its copies. */
+    private var panelButton: NSButton!
+    private var backButton: NSButton!
+    private var forwardButton: NSButton!
+    private var themeButton: NSButton!
+
+    init(app: ReaderAppDelegate, intent: [String: Any]?) {
+        self.app = app
+        self.intent = intent
+        if let restore = intent?["restore"] as? [String: Any] {
+            tabState = ReaderPage.cleanTabState(restore)
+        } else if let root = intent?["root"] as? String {
+            tabState = ["rootDir": root]
         }
-        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL,
-                                           configuration: configuration) { [weak self] _, error in
-            guard let error else { return }
-            DispatchQueue.main.async {
-                self?.showError("Another window could not be opened.\n\n\(error.localizedDescription)")
+
+        let content = NSView(frame: .zero)
+        content.wantsLayer = true
+        content.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+
+        /* The page asks for native things through this one channel. It is the
+           only route from the page into the app; everything else is one-way.
+           A configuration per page, so a request arrives at the page that
+           made it. */
+        let configuration = WKWebViewConfiguration()
+        configuration.userContentController.addUserScript(WKUserScript(
+            source: "window.__readerChrome = true;",
+            injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        if let intent,
+           let data = try? JSONSerialization.data(withJSONObject: intent, options: []),
+           let json = String(data: data, encoding: .utf8) {
+            configuration.userContentController.addUserScript(WKUserScript(
+                source: "window.__readerTab = \(json);",
+                injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        }
+        webView = ReaderWebView(frame: .zero, configuration: configuration)
+
+        statusLabel = NSTextField(labelWithString: "Starting Reader…")
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 780),
+                          styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                          backing: .buffered,
+                          defer: false)
+        super.init()
+
+        configuration.userContentController.addScriptMessageHandler(
+            self, contentWorld: .page, name: "reader")
+        webView.page = self
+        webView.navigationDelegate = self
+        /* Without a UI delegate, WebKit answers a target="_blank" link by
+           silently dropping it -- which is why a link to a Google Doc did
+           nothing at all in the app while working in a browser. */
+        webView.uiDelegate = self
+        webView.translatesAutoresizingMaskIntoConstraints = false
+        webView.isHidden = true
+        content.addSubview(webView)
+
+        statusLabel.alignment = .center
+        statusLabel.textColor = .secondaryLabelColor
+        statusLabel.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(statusLabel)
+
+        NSLayoutConstraint.activate([
+            webView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            webView.topAnchor.constraint(equalTo: content.topAnchor),
+            webView.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+            statusLabel.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            statusLabel.centerYAnchor.constraint(equalTo: content.centerYAnchor),
+            statusLabel.leadingAnchor.constraint(greaterThanOrEqualTo: content.leadingAnchor, constant: 32),
+            statusLabel.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -32)
+        ])
+
+        window.title = readerAppName
+        /* The toolbar already names the document, and the tab names it again
+           when there are tabs; a third copy in the title bar is noise. */
+        window.titleVisibility = .hidden
+        window.tabbingIdentifier = tabbingIdentifier
+        window.isReleasedWhenClosed = false
+        window.contentView = content
+        window.delegate = self
+        window.minSize = NSSize(width: 720, height: 480)
+        addTitlebarButtons()
+
+        /* The page titles itself after its document, with "• " in front while
+           there are unsaved edits; the tab and the Window menu show that. */
+        titleObservation = webView.observe(\.title, options: [.new]) { [weak self] view, _ in
+            guard let self else { return }
+            let title = view.title ?? ""
+            self.window.title = title.isEmpty ? readerAppName : title
+            self.window.tab.title = self.window.title
+        }
+    }
+
+    private func titlebarButton(_ symbol: String, _ label: String, _ action: Selector) -> NSButton {
+        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)?
+            .withSymbolConfiguration(.init(pointSize: 14, weight: .regular))
+        let button = HoverButton(image: image ?? NSImage(), target: self, action: action)
+        button.isBordered = false
+        button.contentTintColor = .secondaryLabelColor
+        button.toolTip = label
+        button.setAccessibilityLabel(label)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: 28),
+            button.heightAnchor.constraint(equalToConstant: 24)
+        ])
+        return button
+    }
+
+    private func titlebarAccessory(_ buttons: [NSButton], _ side: NSLayoutConstraint.Attribute) {
+        let stack = NSStackView(views: buttons)
+        stack.orientation = .horizontal
+        stack.spacing = 2
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: side == .left ? 8 : 0, bottom: 0, right: side == .right ? 8 : 0)
+        let height: CGFloat = 28
+        stack.frame = NSRect(x: 0, y: 0, width: stack.fittingSize.width, height: height)
+        let accessory = NSTitlebarAccessoryViewController()
+        accessory.view = stack
+        accessory.layoutAttribute = side
+        window.addTitlebarAccessoryViewController(accessory)
+    }
+
+    private func addTitlebarButtons() {
+        panelButton = titlebarButton("sidebar.left", "Hide panel (⌘\\)", #selector(chromePanel(_:)))
+        (panelButton as? HoverButton)?.onHover = { [weak self] inside in
+            self?.callPage("peek", [inside])
+        }
+        backButton = titlebarButton("chevron.left", "Back (⌘←)", #selector(chromeBack(_:)))
+        forwardButton = titlebarButton("chevron.right", "Forward (⌘→)", #selector(chromeForward(_:)))
+        backButton.isEnabled = false
+        forwardButton.isEnabled = false
+        themeButton = titlebarButton("circle.lefthalf.filled", "Appearance: match system", #selector(chromeTheme(_:)))
+        let settings = titlebarButton("gearshape", "Settings (⌘,)", #selector(chromeSettings(_:)))
+        titlebarAccessory([panelButton, backButton, forwardButton], .left)
+        titlebarAccessory([themeButton, settings], .right)
+    }
+
+    @objc private func chromePanel(_ sender: Any?) { callPage("chrome", ["panel"]) }
+    @objc private func chromeBack(_ sender: Any?) { callPage("chrome", ["back"]) }
+    @objc private func chromeForward(_ sender: Any?) { callPage("chrome", ["forward"]) }
+    @objc private func chromeTheme(_ sender: Any?) { callPage("chrome", ["theme"]) }
+    @objc private func chromeSettings(_ sender: Any?) { callPage("chrome", ["settings"]) }
+
+    /* What the page says its buttons should show. */
+    private func applyChrome(_ body: [String: Any]) {
+        backButton.isEnabled = body["canBack"] as? Bool ?? false
+        forwardButton.isEnabled = body["canForward"] as? Bool ?? false
+        let shown = body["panelShown"] as? Bool ?? true
+        let side = body["side"] as? String == "right" ? "right" : "left"
+        panelButton.image = NSImage(systemSymbolName: "sidebar.\(side)",
+                                    accessibilityDescription: shown ? "Hide panel" : "Show panel")?
+            .withSymbolConfiguration(.init(pointSize: 14, weight: .regular))
+        panelButton.toolTip = shown ? "Hide panel (⌘\\)" : "Show panel (⌘\\)"
+        panelButton.contentTintColor = shown ? .labelColor : .secondaryLabelColor
+        let theme = body["theme"] as? String
+        let symbol: String
+        switch theme {
+        case "dark":
+            window.appearance = NSAppearance(named: .darkAqua)
+            symbol = "moon"
+        case "light":
+            window.appearance = NSAppearance(named: .aqua)
+            symbol = "sun.max"
+        default:
+            window.appearance = nil
+            symbol = "circle.lefthalf.filled"
+        }
+        let label = "Appearance: " + (theme == "dark" || theme == "light" ? theme! : "match system")
+        themeButton.image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)?
+            .withSymbolConfiguration(.init(pointSize: 14, weight: .regular))
+        themeButton.toolTip = label
+    }
+
+    /* Only the keys and value types the session can hold. */
+    private static func cleanTabState(_ raw: [String: Any]) -> [String: Any] {
+        var out: [String: Any] = [:]
+        for key in ["mode", "rootDir", "lastFile", "previewLayout"] {
+            if let value = raw[key] as? String, !value.isEmpty { out[key] = value }
+        }
+        for key in ["hidden", "editPreview"] {
+            if let value = raw[key] as? Bool { out[key] = value }
+        }
+        return out
+    }
+
+    func load(_ url: URL) {
+        guard loadedURL == nil else { return }
+        loadedURL = url
+        webView.load(URLRequest(url: url))
+    }
+
+    func showStatus(_ message: String) {
+        guard !isPageLoaded else { return }
+        statusLabel.stringValue = message
+    }
+
+    func showError(_ message: String) {
+        statusLabel.isHidden = false
+        webView.isHidden = true
+        statusLabel.stringValue = message
+        statusLabel.textColor = .systemRed
+        statusLabel.maximumNumberOfLines = 4
+        statusLabel.lineBreakMode = .byWordWrapping
+    }
+
+    /// Ask the loaded page to open a document the OS handed over. A reused
+    /// server has no trusted launcher-to-server grant channel, so its backend
+    /// reports an out-of-workspace file as read-only. When this launcher starts
+    /// the server itself, the startup path is an initial server grant.
+    func deliver(path: String) {
+        callPage("openFromOS", [path])
+    }
+
+    /// Call one of the page's `window.reader` hooks. `name` is always a
+    /// literal from this file; the arguments are JSON-encoded so no path can
+    /// escape into the script itself.
+    func callPage(_ name: String, _ arguments: [Any]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: arguments, options: []),
+              let array = String(data: data, encoding: .utf8) else { return }
+        let call = "window.reader.\(name).apply(null, \(array))"
+        let script = "window.reader && window.reader.\(name) ? (\(call), true) : false"
+        webView.evaluateJavaScript(script) { [weak self] result, _ in
+            // app.js publishes `window.reader` as the page finishes booting;
+            // one bounded retry covers the case where we win that race.
+            if (result as? Bool) != true {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    guard let self, self.isPageLoaded else { return }
+                    self.webView.evaluateJavaScript(
+                        "window.reader && window.reader.\(name) && \(call)", completionHandler: nil)
+                }
             }
         }
     }
 
-    /* Asked of the system rather than guessed: bind port 0, read back what was
-       given, and let it go. A guessed number can be taken between the guess and
-       the launch, and the new window would open onto someone else's port. */
-    private func freePortForNewWindow() -> Int? {
-        for _ in 0..<8 {
-            let handle = socket(AF_INET, SOCK_STREAM, 0)
-            guard handle >= 0 else { return nil }
-            defer { close(handle) }
-            var address = sockaddr_in()
-            address.sin_family = sa_family_t(AF_INET)
-            address.sin_port = 0
-            address.sin_addr.s_addr = inet_addr("127.0.0.1")
-            let size = socklen_t(MemoryLayout<sockaddr_in>.size)
-            let bound = withUnsafePointer(to: &address) {
-                $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.bind(handle, $0, size) }
-            }
-            guard bound == 0 else { continue }
-            var assigned = sockaddr_in()
-            var length = socklen_t(MemoryLayout<sockaddr_in>.size)
-            let read = withUnsafeMutablePointer(to: &assigned) {
-                $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(handle, $0, &length) }
-            }
-            guard read == 0 else { continue }
-            let port = Int(UInt16(bigEndian: assigned.sin_port))
-            if port > 1024 && port != readerPort { return port }
+    /* WebKit asks for the new window a moment after the menu item runs, in a
+       separate round trip, so the request is remembered briefly rather than
+       for the next window.open. */
+    func expectTabFromNextNewWindow() {
+        expectsTab = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            self?.expectsTab = false
         }
-        return nil
+    }
+
+    // -- the window ----------------------------------------------------------
+
+    /* AppKit's tab action: ⌘T, and the tab bar's + button. */
+    @objc func newWindowForTab(_ sender: Any?) {
+        app?.openTab(from: self)
+    }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        app?.saveSession()
+    }
+
+    /* macOS hides the title bar in full screen, and with it these buttons, so
+       the page shows its own until the window comes back out. */
+    func windowDidEnterFullScreen(_ notification: Notification) {
+        callPage("setNativeChrome", [false])
+    }
+
+    func windowDidExitFullScreen(_ notification: Notification) {
+        callPage("setNativeChrome", [true])
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        titleObservation = nil
+        // The controller holds this page as its handler; release it.
+        webView.configuration.userContentController.removeScriptMessageHandler(
+            forName: "reader", contentWorld: .page)
+        app?.pageWillClose(self)
     }
 
     // -- requests from the page ----------------------------------------------
@@ -1387,37 +1861,33 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         case "chooseFolder":
             chooseFolder(startingAt: body["current"] as? String, reply: replyHandler)
         case "checkForUpdates":
-            checkForUpdatesForPage(reply: replyHandler)
+            if let app {
+                app.checkForUpdatesForPage(reply: replyHandler)
+            } else {
+                replyHandler(nil, "Reader is closing")
+            }
+        case "chrome":
+            // The title bar buttons' state, and Reader's theme (not the
+            // system's) for this window's title and tab bar.
+            applyChrome(body)
+            replyHandler(true, nil)
+        case "tabState":
+            if let state = body["state"] as? [String: Any] {
+                tabState = ReaderPage.cleanTabState(state)
+                app?.saveSession()
+            }
+            replyHandler(true, nil)
+        case "openInNewTab":
+            // A document link's resolved path, as for the context menu: opened
+            // as a click would, never a grant.
+            if let path = body["path"] as? String, path.hasPrefix("/") {
+                app?.openTab(from: self, linkPath: path)
+                replyHandler(true, nil)
+            } else {
+                replyHandler(nil, "malformed path")
+            }
         default:
             replyHandler(nil, "unknown action")
-        }
-    }
-
-    private func isReaderOrigin(_ origin: WKSecurityOrigin) -> Bool {
-        let host = origin.host.lowercased()
-        let loopback = host == "127.0.0.1" || host == "localhost" || host == "::1"
-        // port 0 is what WebKit reports for a scheme's default port, which
-        // Reader never uses; accepted so a future default-port run still works.
-        return (origin.protocol == "http" || origin.protocol == "https")
-            && loopback && (origin.port == readerPort || origin.port == 0)
-    }
-
-    /* About's button runs exactly the check the menu item runs. The request
-       carries nothing: no URL, no version, no permission to skip a step, so the
-       page cannot aim the updater at something of its own choosing. What comes
-       back is the outcome in words, for the status line.
-
-       The daily check is the thing `updates.check` switches off. This one is a
-       button somebody pressed, so it is answered the same way the menu item
-       answers it. */
-    private func checkForUpdatesForPage(reply: @escaping (Any?, String?) -> Void) {
-        // WebKit tolerates no second reply, and an update can end in more than
-        // one place, so only the first outcome is handed back.
-        var answered = false
-        checkForUpdates(userInitiated: true) { outcome in
-            guard !answered else { return }
-            answered = true
-            reply(outcome, nil)
         }
     }
 
@@ -1426,10 +1896,6 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
        Cancelling replies with null, which the page reads as "keep what you had". */
     private func chooseFolder(startingAt current: String?,
                               reply: @escaping (Any?, String?) -> Void) {
-        guard let window else {
-            reply(nil, "Reader has no window to attach the chooser to")
-            return
-        }
         /* A person cannot click Change twice, but a script can post twice, and
            two sheets would queue behind one another on the same window. */
         guard !isChoosingFolder else {
@@ -1467,53 +1933,23 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         }
     }
 
-    // -- links out of the document ------------------------------------------
+    // -- navigation ----------------------------------------------------------
 
-    /* Reader's window only ever shows Reader's own local server. A document can
-       link anywhere, and those links go to the browser the reader already uses:
-       it is where they are signed in, and it keeps arbitrary web pages out of
-       the process that holds Reader's Desktop/Documents/Downloads consent. */
-    private func isReaderItself(_ url: URL) -> Bool {
-        guard let scheme = url.scheme?.lowercased() else { return false }
-        guard scheme == "http" || scheme == "https" else { return false }
-        guard let host = url.host?.lowercased() else { return false }
-        let loopback = host == "127.0.0.1" || host == "localhost" || host == "::1"
-        return loopback && (url.port ?? -1) == readerPort
-    }
-
-    /* app.js gives a link to another local document the href
-       /open?path=<absolute path>. The server has no such page; only the native
-       context menu ever navigates there, and that is caught here. */
-    private func documentLinkPath(_ url: URL) -> String? {
-        guard isReaderItself(url), url.path == "/open",
-              let path = URLComponents(url: url, resolvingAgainstBaseURL: false)?
-                  .queryItems?.first(where: { $0.name == "path" })?.value,
-              path.hasPrefix("/") else { return nil }
-        return path
-    }
-
-    /* A deliberately short list. A markdown document is untrusted content, and
-       NSWorkspace opens whatever it is handed -- a file:// URL to an .app, or a
-       custom scheme wired to another program, would be a way for a document to
-       start something merely by being clicked. The same reasoning keeps
-       /api/open-external on a whitelist. */
-    private static let handOffSchemes: Set<String> = ["http", "https", "mailto", "tel"]
-
-    @discardableResult
-    private func handOff(_ url: URL) -> Bool {
-        guard let scheme = url.scheme?.lowercased(),
-              ReaderAppDelegate.handOffSchemes.contains(scheme) else { return false }
-        return NSWorkspace.shared.open(url)
-    }
-
-    /* target="_blank", and window.open. Returning nil means no view is created;
-       the destination has already gone to the browser. */
+    /* target="_blank", window.open, and the link menu's new-window and new-tab
+       items. Returning nil means no view is created: a document link opens in
+       a Reader tab or window of its own, anything else goes to the browser. */
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction,
                  windowFeatures: WKWindowFeatures) -> WKWebView? {
+        let asTab = expectsTab
+        expectsTab = false
         if let url = navigationAction.request.url {
             if let path = documentLinkPath(url) {
-                openNewWindow(linkPath: path)
+                if asTab {
+                    app?.openTab(from: self, linkPath: path)
+                } else {
+                    app?.openWindow(from: self, linkPath: path)
+                }
             } else if !isReaderItself(url) {
                 handOff(url)
             }
@@ -1550,6 +1986,7 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         statusLabel.isHidden = true
         webView.isHidden = false
         isPageLoaded = true
+        app?.pageDidLoad(self)
         if let path = pendingOpenPath {
             pendingOpenPath = nil
             deliver(path: path)

@@ -112,18 +112,91 @@ const DEFAULTS = {
 const SESSION_DEFAULTS = {
   mode: "preview", previewLayout: "single", hidden: false, width: 288,
   rootDir: null, lastFile: null,
+  editPreview: true,               // whether Edit shows the preview beside it
   recents: [], recentsOpen: true,
   pinned: null, pinnedOpen: true,   // null = not seeded yet
 };
 
-/* Which of those belong to a window rather than to the reader. Two windows show
+/* Which of those belong to a tab rather than to the reader. Two tabs show
    different documents, in different folders, in different modes, and writing
    those to the one shared preferences file meant whichever moved last decided
-   what every window opened with next time. They stay in localStorage, which is
-   per-origin and so per window: each window runs its own server on its own port.
+   what every tab opened with next time. The macOS app runs every window and
+   tab against one server, so they share one origin and one localStorage: each
+   tab keeps its own copy in sessionStorage, which is per web view, and
+   localStorage holds the last-used copy for a launch with nothing to restore.
    Everything else -- appearance, typography, pins, recents -- is still shared,
    which is the whole reason that file exists. */
-const WINDOW_KEYS = new Set(["mode", "hidden", "rootDir", "lastFile"]);
+const WINDOW_KEYS = new Set(["mode", "hidden", "rootDir", "lastFile", "previewLayout", "editPreview"]);
+const TAB_STORE = "reader.tab";
+
+/* What the macOS app says this tab is for, injected before the page runs:
+   {fresh, root} for a new tab or window, {restore: {...}} for a tab rebuilt
+   from the last session. Absent in a browser and for the app's first window
+   when there is no session to restore. */
+const TAB_INTENT = (window.__readerTab && typeof window.__readerTab === "object") ? window.__readerTab : null;
+/* How this tab's own state was set: "reload", "restore", "fresh" or null. */
+let tabOrigin = null;
+
+function windowState() {
+  const out = {};
+  for (const key of WINDOW_KEYS) out[key] = S[key];
+  return out;
+}
+
+function applyWindowState(saved) {
+  if (!saved || typeof saved !== "object") return false;
+  if (["preview", "split", "edit"].includes(saved.mode)) S.mode = saved.mode;
+  if (typeof saved.hidden === "boolean") S.hidden = saved.hidden;
+  if (["single", "spread"].includes(saved.previewLayout)) S.previewLayout = saved.previewLayout;
+  if (typeof saved.editPreview === "boolean") S.editPreview = saved.editPreview;
+  if (typeof saved.rootDir === "string" && saved.rootDir.startsWith("/")) S.rootDir = saved.rootDir;
+  S.lastFile = typeof saved.lastFile === "string" && saved.lastFile.startsWith("/") ? saved.lastFile : null;
+  return true;
+}
+
+/* The app keeps each tab's place so it can rebuild windows and tabs after a
+   restart. Only changes are sent. */
+let reportedWindowState = "";
+function reportWindowState() {
+  const bridge = nativeBridge();
+  if (!bridge) return;
+  const state = windowState();
+  const json = JSON.stringify(state);
+  if (json === reportedWindowState) return;
+  reportedWindowState = json;
+  bridge.postMessage({action: "tabState", state}).catch(() => {});
+}
+
+/* In the macOS app the title bar carries the panel, back, forward, theme and
+   settings buttons, so the page hides its own copies -- except in full screen,
+   where macOS hides the title bar and the app hands them back. The app is told
+   what those buttons should show. It also draws the title and tab bar in
+   Reader's theme rather than the system's; "auto" follows the system. */
+const NATIVE_CHROME = window.__readerChrome === true;
+let reportedChrome = "";
+function reportChrome() {
+  const bridge = nativeBridge();
+  if (!bridge || !NATIVE_CHROME) return;
+  const chrome = {
+    theme: S.theme, side: S.side === "right" ? "right" : "left", panelShown: !S.hidden,
+    canBack: state.trailAt > 0,
+    canForward: state.trailAt >= 0 && state.trailAt < state.trail.length - 1,
+  };
+  const json = JSON.stringify(chrome);
+  if (json === reportedChrome) return;
+  reportedChrome = json;
+  bridge.postMessage({action: "chrome", ...chrome}).catch(() => {});
+}
+
+function setNativeChrome(on) {
+  root.dataset.nativeChrome = on && NATIVE_CHROME ? "on" : "off";
+}
+
+function cacheLocally() {
+  try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (_) {}
+  try { sessionStorage.setItem(TAB_STORE, JSON.stringify(windowState())); } catch (_) {}
+  reportWindowState();
+}
 
 const NUMERIC = new Set(["fontSize", "bodyWeight", "lineHeight", "measure", "paraGap", "listGap",
                          "titleSize", "titleWeight", "titleLineHeight", "titleSpacing", "titleCapScale",
@@ -310,6 +383,7 @@ function historyGo(delta) {
 function syncTrailButtons() {
   el.back.disabled = state.trailAt <= 0;
   el.fwd.disabled = state.trailAt < 0 || state.trailAt >= state.trail.length - 1;
+  reportChrome();
 }
 
 async function trailGo(delta) {
@@ -352,13 +426,29 @@ function loadPrefs() {
   if (!Array.isArray(S.recents)) S.recents = [];
   migrateMeasure();
 }
+
+/* This tab's own place, over the shared last-used copy: its own earlier state
+   when the page reloads, the session's when the app rebuilt it, or the folder
+   it was opened from, and no document, when it is new. */
+function loadTabState() {
+  let own = null;
+  try { own = JSON.parse(sessionStorage.getItem(TAB_STORE) || "null"); } catch (_) {}
+  if (applyWindowState(own)) { tabOrigin = "reload"; return; }
+  if (!TAB_INTENT) return;
+  if (applyWindowState(TAB_INTENT.restore)) { tabOrigin = "restore"; return; }
+  if (TAB_INTENT.fresh) {
+    tabOrigin = "fresh";
+    S.lastFile = null;
+    if (typeof TAB_INTENT.root === "string" && TAB_INTENT.root.startsWith("/")) S.rootDir = TAB_INTENT.root;
+  }
+}
 /* Preferences live on disk beside the app so they survive restarts even when
    the server lands on a different port (which would otherwise give the page a
    new origin and an empty localStorage). localStorage is kept as a cache, so
    the theme can be applied before the first paint. */
 let prefsTimer = null;
 function savePrefs() {
-  try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (_) {}
+  cacheLocally();
   clearTimeout(prefsTimer);
   prefsTimer = setTimeout(() => {
     const changed = changedPrefs();
@@ -420,7 +510,7 @@ async function loadServerPrefs() {
   rememberShared(sharedPrefs());               // the baseline every write diffs against
   if (!Array.isArray(S.recents)) S.recents = [];
   migrateMeasure();
-  try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (_) {}
+  cacheLocally();
 }
 
 const fontStack = (list, key) => (list.find((f) => f[0] === key) || list[0])[2];
@@ -494,12 +584,14 @@ function applySettings() {
 
   root.dataset.themepref = S.theme;
   root.dataset.theme = dark ? "dark" : "light";
+  reportChrome();
   root.dataset.paper = S.paper;
   root.dataset.paperDark = S.paperDark;
   root.dataset.code = S.codeTheme;
   root.dataset.side = S.side;
   root.dataset.uiscale = S.uiScale;
   root.dataset.mode = S.mode;
+  syncEditPreview();
   root.dataset.sidebar = S.hidden ? "hidden" : "shown";
   syncPanelButtons();
   root.dataset.wordcount = S.wordCount ? "on" : "off";
@@ -1913,7 +2005,7 @@ async function syncSharedPrefs() {
   }
   if (!touched) return;
 
-  try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (_) {}
+  cacheLocally();
   applySettings();
   syncDialog();
   drawRecents();
@@ -2497,8 +2589,10 @@ function showNewDocForm() {
    sidebar, favourites, ⌘⇧G, New Folder -- and it is what the app uses. A page in
    a browser cannot open it, so the picker drawn in the dialog stays for that,
    and stays the only implementation a test can drive. */
-const nativeBridge = () => (window.webkit && window.webkit.messageHandlers &&
-                            window.webkit.messageHandlers.reader) || null;
+function nativeBridge() {
+  return (window.webkit && window.webkit.messageHandlers &&
+          window.webkit.messageHandlers.reader) || null;
+}
 
 function chooseFolderNatively(startDir) {
   return nativeBridge()
@@ -3376,16 +3470,31 @@ $("preview-layout").querySelectorAll("[data-layout]").forEach(button => {
   };
 });
 
+/* Two modes to choose from, Preview and Edit. Edit is "split" while the preview
+   is shown beside the editor and "edit" while it is hidden, and it reopens the
+   way it was last left. */
+const editMode = () => (S.editPreview ? "split" : "edit");
+
 function setMode(mode) {
   const anchor = paging.anchor || captureReadingAnchor();
   if (state.file && state.file.kind === "pdf" && mode !== "preview") return;
+  if (mode === "split" || mode === "edit") S.editPreview = mode === "split";
   S.mode = mode;
   root.dataset.mode = mode;
+  syncEditPreview();
   invalidateSyncMaps();
   syncPreviewLayout(anchor);
   savePrefs();
   hideFmtBar();
   if (mode !== "preview") setTimeout(() => el.editor.focus({preventScroll: true}), 0);
+}
+function syncEditPreview() {
+  const shown = root.dataset.mode === "split";
+  const label = shown ? "Hide the preview" : "Show preview beside the editor";
+  const button = $("btn-edit-preview");
+  button.setAttribute("aria-pressed", String(shown));
+  button.title = label;
+  button.setAttribute("aria-label", label);
 }
 /* The corner button reads differently by state: the toolbar one only ever
    reveals; the panel's own one hides when pinned, pins when only peeking. */
@@ -3413,6 +3522,7 @@ function syncTrailHome() {
 
 function syncPanelButtons() {
   syncTrailHome();
+  reportChrome();
   const set = (id, label) => {
     $(id).title = label;
     $(id).setAttribute("aria-label", label);
@@ -3829,6 +3939,11 @@ el.preview.addEventListener("click", (ev) => {
   }
   if (a.dataset.local) {
     ev.preventDefault();
+    /* ⌘-click opens a new tab, as in a browser. Only the macOS app has tabs. */
+    if (ev.metaKey && nativeBridge()) {
+      nativeBridge().postMessage({action: "openInNewTab", path: a.dataset.local}).catch(() => {});
+      return;
+    }
     followLocalLink(a.dataset.local);
   }
 });
@@ -3867,7 +3982,10 @@ el.editor.addEventListener("keydown", (ev) => {
 el.locName.onclick = () => (el.menu.hidden ? openLocMenu() : closeMenu());
 el.btnUp.onclick = () => { if (el.btnUp.dataset.parent) setRoot(el.btnUp.dataset.parent); };
 
-document.querySelectorAll("#toolbar .seg").forEach((b) => { b.onclick = () => setMode(b.dataset.mode); });
+document.querySelectorAll("#toolbar .seg").forEach((b) => {
+  b.onclick = () => setMode(b.dataset.mode === "edit" ? (root.dataset.mode === "preview" ? editMode() : root.dataset.mode) : "preview");
+});
+$("btn-edit-preview").onclick = () => setMode(root.dataset.mode === "split" ? "edit" : "split");
 $("btn-save").onclick = saveFile;
 
 /* Copy the whole document, keeping its formatting. The clipboard carries two
@@ -4059,7 +4177,7 @@ document.addEventListener("keydown", (ev) => {
   if (k === "s") { ev.preventDefault(); saveFile(); }
   else if (k === "r" && !ev.shiftKey) { ev.preventDefault(); refresh(); }
   /* view */
-  else if (k === "e") { ev.preventDefault(); setMode(root.dataset.mode === "edit" ? "preview" : "edit"); }
+  else if (k === "e") { ev.preventDefault(); setMode(root.dataset.mode === "preview" ? editMode() : "preview"); }
   else if (k === "\\") { ev.preventDefault(); toggleSidebar(); }
   else if (k === "f" && ev.ctrlKey && ev.metaKey) { ev.preventDefault(); toggleFullscreen(); }
   /* text size: ⌘= is the physical ⌘+ key, and both ⌘⇧= and the keypad send
@@ -5031,6 +5149,7 @@ el.editor.addEventListener("scroll", () => {
 }, {passive: true});
 window.addEventListener("resize", hideFmtBar);
 
+let peekPanel = () => {};
 /* Resting on the reveal button floats the hidden panel out for a look, and the
    pointer leaving puts it away again. Only that button peeks -- resting on the
    window edge does nothing, so the panel cannot appear unasked. A peek is a
@@ -5055,6 +5174,8 @@ window.addEventListener("resize", hideFmtBar);
   };
   $("btn-show").addEventListener("mouseenter", show);
   $("btn-show").addEventListener("mouseleave", scheduleHide);
+  // The app's title bar panel button stands in for btn-show there.
+  peekPanel = (on) => (on ? show() : scheduleHide());
   el.sidebarEl.addEventListener("mouseenter", show);
   el.sidebarEl.addEventListener("mouseleave", scheduleHide);
 })();
@@ -5192,7 +5313,7 @@ function replaceDocumentText(text) {
 async function persistPreferencesNow() {
   clearTimeout(prefsTimer);
   prefsTimer = null;
-  try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (_) {}
+  cacheLocally();
   const changed = changedPrefs();
   if (Object.keys(changed).length) {
     rememberShared(changed);
@@ -5408,7 +5529,9 @@ const bootReady = new Promise((resolve) => { bootDone = resolve; });
 
 async function boot() {
   applyKbdLabels();
+  setNativeChrome(true);
   loadPrefs();
+  loadTabState();
   applySettings();
   syncDialog();
   drawRecents();
@@ -5440,11 +5563,14 @@ async function boot() {
   if (!Array.isArray(S.pinned)) { S.pinned = defaultPins.slice(0, 3); savePrefs(); }
   drawPinned();
 
-  await setRoot(cfg.startFile ? cfg.start : (S.rootDir || cfg.start), {redraw: false});
+  /* The server's start document is the first window's. A tab the app opened
+     or rebuilt, or one reloading, keeps its own. */
+  const useStart = cfg.startFile && !tabOrigin;
+  await setRoot(useStart ? cfg.start : (S.rootDir || cfg.start), {redraw: false});
   if (!state.root) await setRoot(cfg.home, {redraw: false});
   await drawTree();
 
-  const first = cfg.startFile || S.lastFile;
+  const first = useStart ? cfg.startFile : S.lastFile;
   if (first) { try { await openFile(first); } catch (_) {} }
 }
 
@@ -5471,6 +5597,16 @@ async function openFromOS(path) {
 /* small automation hook (same-origin pages only) — used by the test suite */
 window.reader = {
   goto: (p) => setRoot(p), open: (p) => openFile(p), openFromOS,
+  /* The app's title bar buttons, and its full screen hand-back. */
+  chrome: (command) => {
+    if (command === "panel") toggleSidebar();
+    else if (command === "back") trailGo(-1);
+    else if (command === "forward") trailGo(1);
+    else if (command === "theme") cycleTheme();
+    else if (command === "settings") openSettings();
+  },
+  setNativeChrome,
+  peek: (on) => peekPanel(on === true),
   /* The native menu's Open Link, and a window opened for Open Link in New
      Window (`fresh`, which also moves the tree to the document's folder). The
      path is one a document link resolved to, so it gets exactly a click's

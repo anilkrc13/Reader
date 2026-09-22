@@ -50,12 +50,13 @@ turning Reader into a browser app.
 | **Row menu** | Hover any row and press **⋯** (or right-click it). Files offer **Open**, **Rename…** and **Move to Trash…**; folders offer **Browse from here**, **Pin this folder** and **Rename…** — deliberately no delete, since too much can disappear in one click. Deleting a file always asks first and moves it to the macOS Trash, so you can put it back from Finder. Renaming without typing an extension keeps the current one, and the open document follows its own rename. |
 | **Panel side** | The panel icon at the top of the file panel flips it between the left and right edge; the reveal button follows it. The `‹` icon hides the panel and `⌘\` brings it back — or just rest the pointer on that edge and the panel floats out until you leave it, like a modern desktop app. |
 | **Hidden files** | Names beginning with a dot are left out of the tree. `⇧⌘.` shows them and hides them again, the same as in Finder, and *Files & watching* has the same switch. |
-| **Modes** | **Preview**, **Split** and **Edit**. `⌘E` toggles preview and edit. In split view the two sides scroll together. The page icons beside the mode selector offer Single column (the default) or Two-page layout for Markdown Preview. |
+| **Modes** | **Preview** and **Edit**; `⌘E` switches between them. In Edit, the icon beside the switch shows or hides the preview next to the editor, and the two sides scroll together; Edit reopens the way you left it. In Preview, the page icons offer Single column (the default) or Two-page layout for Markdown. Each tab keeps its own mode, layout and preview choice. |
 | **Save** | `⌘S`, or the save button. The orange dot next to the filename means unsaved changes. |
 | **Copy** | The copy icon puts the whole document on the clipboard in two flavours at once: formatted, for rich editors (Word, Docs, mail), and the raw markdown for plain-text targets. Code files copy as plain text. |
 | **Auto-refresh** | While you read, the open document and its embedded local images are watched. If something else rewrites them, the app refreshes the relevant preview content and keeps your place. If you have unsaved edits it never overwrites them — it shows a bar offering **Reload from disk** or **Keep mine**. |
 | **Refresh** | `⌘R`, or the circular arrow, to reload by hand. |
-| **Full screen** | The corners icon, or `⌃⌘F`. `Esc` leaves it. |
+| **Windows and tabs** | `⌘T` opens a tab in the folder you are browsing, with no document yet; `⇧⌘N` opens a window. `⌘`-click a link, or right-click it and choose **Open Link in New Tab**, to open it beside the current tab. `⌘W` closes a tab. Tabs can be dragged between windows, and **Window** has the rest: Show Next Tab, Move Tab to New Window, Merge All Windows. Quitting and reopening Reader brings back every window with its tabs, each at its own document. In a browser, the browser's own tabs do this. |
+| **Full screen** | The corners icon, or `⌃⌘F`. `Esc` leaves it. In the app, the green window button does it, and the panel, back, forward, theme and settings buttons sit in the title bar instead of Reader's toolbar. |
 | **New document** | `⌘N` asks for a name and creates an empty markdown file next to the document you are reading — or, with nothing open, in the folder you are browsing. Either way the dialog shows the folder and offers **Change** to pick another one. In the app that opens Finder's own folder chooser, with your sidebar, favourites, `⌘⇧G` and **New Folder**; in a browser, which cannot open a Mac panel, a small folder list appears in the dialog instead. A folder Reader may not write to is refused the moment you choose it, saying why, rather than failing later. Nothing is written until you press **Create**. Leave the extension off and it is a `.md`. Only markdown can be created, an existing file is never overwritten, and the new document opens ready to edit. |
 | **Back and forward** | The `‹` and `›` arrows, `⌘←` / `⌘→` or `⌘[` / `⌘]`, or bare `←` / `→` while reading in a single column. `⌘←` / `⌘→` keep their start and end of line meaning while you are typing; `⌘[` / `⌘]` work everywhere. Each document in the trail remembers where you were in it, so going back returns you to the paragraph you left rather than to the top — and going forward again returns you to where you were reading there. In Edit mode the editor's scroll and caret come back with it. |
 | **Find** | `⌘F` opens a find bar above the document. It highlights every match, counts them, and `⌘G` / `⇧⌘G` — or `↵` / `⇧↵` — step between them; `Esc` closes it. A match is found even where it spans styling, so searching `one two` finds **one** two. There is no toolbar button: the shortcut is the whole interface. |
@@ -75,7 +76,7 @@ Seven sections, in a dialog laid out like a modern desktop app:
   paragraph spacing. A live specimen shows the effect as you drag.
 - **Code** — highlight palette (brand, muted, vivid), monospace face, code size,
   and whether long lines wrap.
-- **Editor** — editor typeface and size, tab width, spell check, split-view
+- **Editor** — editor typeface and size, tab width, spell check, editor and preview
   scroll syncing, word count.
 - **Files & watching** — length of the recent list, clearing it, restoring the
   default pins, showing unsupported files, showing hidden files and folders,
@@ -153,7 +154,7 @@ diagrams keep their own scrolling; focus a block to scroll it with the keyboard.
 History buttons, `⌘←` / `⌘→` and `⌘[` / `⌘]` still navigate between documents.
 
 Links live in the rendered document, so they are clickable in Preview and on the
-preview side of Split. The editor shows the source, where a link is just text.
+preview beside the editor. The editor shows the source, where a link is just text.
 
 ## Notes on how it works
 

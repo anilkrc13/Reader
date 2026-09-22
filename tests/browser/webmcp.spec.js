@@ -496,6 +496,132 @@ test("searches, opens a deep result, and navigates back and forward", async ({pa
   expect(await activePath()).toBe(beta);
 });
 
+test("offers two modes, Preview and Edit, with the preview beside the editor as a toggle Edit remembers", async ({page}) => {
+  await open(page, path.join(workspace, "alpha.md"));
+  const mode = () => page.locator("html").getAttribute("data-mode");
+  await expect(page.locator("#toolbar .seg")).toHaveText(["Preview", "Edit"]);
+  await expect(page.locator("#btn-edit-preview")).toBeHidden();
+  // Edit opens with the preview beside it by default.
+  await page.locator(".seg[data-mode=edit]").click();
+  expect(await mode()).toBe("split");
+  await expect(page.locator(".seg[data-mode=edit]")).toHaveCSS("box-shadow", /rgba/);
+  await expect(page.locator("#btn-edit-preview")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#previewpane")).toBeVisible();
+  // Hidden, the editor has the tab to itself.
+  await page.locator("#btn-edit-preview").click();
+  expect(await mode()).toBe("edit");
+  await expect(page.locator("#btn-edit-preview")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("#previewpane")).toBeHidden();
+  // ⌘E goes back to Preview and returns to Edit the way it was left.
+  await page.keyboard.press("ControlOrMeta+e");
+  await expect.poll(mode).toBe("preview");
+  await page.keyboard.press("ControlOrMeta+e");
+  await expect.poll(mode).toBe("edit");
+  await page.locator("#btn-edit-preview").click();
+  await page.locator(".seg[data-mode=preview]").click();
+  await page.locator(".seg[data-mode=edit]").click();
+  expect(await mode()).toBe("split");
+});
+
+test("tabs keep their own place: a new tab opens its folder empty, a restored tab reopens its document, a reload keeps both", async ({context, page}) => {
+  const alpha = path.join(workspace, "alpha.md");
+  const beta = path.join(workspace, "deep", "known phrase beta.md");
+  // The last-used document, as every earlier window would have left it.
+  await open(page, alpha);
+  const activePath = async (tab) => (await invoke(tab, "reader_get_state", {})).activeDocument?.path ?? null;
+  /* What the macOS app does for a tab: an intent before the page runs, and a
+     message channel that records what the page reports. */
+  async function nativeTab(intent) {
+    const tab = await context.newPage();
+    await tab.addInitScript((intent) => {
+      window.__readerTab = intent;
+      window.__readerChrome = true;
+      window.__posted = [];
+      window.webkit = {messageHandlers: {reader: {postMessage: (message) => {
+        window.__posted.push(message);
+        return Promise.resolve(true);
+      }}}};
+    }, intent);
+    await tab.goto(baseURL);
+    await ready(tab);
+    return tab;
+  }
+  const ready = (tab) => expect.poll(() => tab.evaluate(() => Object.keys(window.__readerWebMCPTools || {}).length)).toBe(11);
+  const deep = path.join(workspace, "deep");
+  const fresh = await nativeTab({fresh: true, root: deep});
+  await expect.poll(() => fresh.evaluate(() => document.documentElement.dataset.empty)).toBe("yes");
+  expect(await activePath(fresh)).toBeNull();
+  await expect(fresh.locator("#tree")).toContainText("known phrase beta");
+
+  const restored = await nativeTab({restore: {rootDir: deep, lastFile: beta, mode: "edit"}});
+  await expect.poll(() => activePath(restored)).toBe(beta);
+  await expect(restored.locator("html")).toHaveAttribute("data-mode", "edit");
+  // Each tab reports its own place, which is what the app saves for a restart.
+  await expect.poll(() => restored.evaluate(() => window.__posted.filter((m) => m.action === "tabState").pop()?.state))
+    .toMatchObject({rootDir: deep, lastFile: beta, mode: "edit"});
+
+  // The page layout and Edit's preview belong to the tab: changing them in one
+  // leaves the other alone, even after the shared settings sync (every 2s).
+  await restored.locator(".seg[data-mode=preview]").click();
+  await restored.getByRole("button", {name: "Two-page layout", exact: true}).click();
+  await expect(restored.locator("#preview-layout [data-layout=spread]")).toHaveAttribute("aria-pressed", "true");
+  await fresh.waitForTimeout(2600);
+  await expect(fresh.locator("#preview-layout [data-layout=single]")).toHaveAttribute("aria-pressed", "true");
+  await restored.getByRole("button", {name: "Single column", exact: true}).click();
+  await restored.locator(".seg[data-mode=edit]").click();
+
+  // The app colours this tab's title and tab bar from Reader's theme.
+  const chrome = () => restored.evaluate(() => window.__posted.filter((m) => m.action === "chrome").pop());
+  await invoke(restored, "reader_set_preferences", {changes: {theme: "dark"}});
+  await expect.poll(chrome).toMatchObject({theme: "dark"});
+  await invoke(restored, "reader_set_preferences", {changes: {theme: "auto"}});
+
+  /* The title bar carries panel, back, forward, theme and settings: the page
+     hides its copies, and shows them again when the app says so (full screen). */
+  for (const id of ["#btn-panel", "#btn-back", "#btn-theme", "#btn-settings", "#btn-full"]) {
+    await expect(restored.locator(id)).toBeHidden();
+  }
+  await restored.evaluate(() => window.reader.setNativeChrome(false));
+  for (const id of ["#btn-panel", "#btn-theme", "#btn-settings"]) await expect(restored.locator(id)).toBeVisible();
+  await restored.evaluate(() => window.reader.setNativeChrome(true));
+  await expect(restored.locator("#btn-settings")).toBeHidden();
+  // Its buttons act on the page and follow its state.
+  await restored.evaluate(() => window.reader.chrome("panel"));
+  await expect.poll(chrome).toMatchObject({panelShown: false});
+  // Resting on the title bar's panel button floats the hidden panel out.
+  await restored.evaluate(() => window.reader.peek(true));
+  await expect(restored.locator("html")).toHaveClass(/peek/);
+  await restored.evaluate(() => window.reader.peek(false));
+  await expect(restored.locator("html")).not.toHaveClass(/peek/);
+  await restored.evaluate(() => window.reader.chrome("panel"));
+  await expect.poll(chrome).toMatchObject({panelShown: true});
+  await restored.evaluate(() => window.reader.chrome("settings"));
+  await expect(restored.locator("#scrim")).toBeVisible();
+  await restored.keyboard.press("Escape");
+
+  // A reload keeps the tab's own document, not the intent's or the shared one's.
+  await open(fresh, beta);
+  await fresh.reload();
+  await ready(fresh);
+  await expect.poll(() => activePath(fresh)).toBe(beta);
+  await restored.locator(".seg[data-mode=preview]").click();
+  await restored.reload();
+  await ready(restored);
+  await expect.poll(() => activePath(restored)).toBe(beta);
+  await expect(restored.locator("html")).toHaveAttribute("data-mode", "preview");
+
+  // ⌘-click on a local link asks the app for a new tab instead of opening in place.
+  const linker = path.join(deep, "linker.md");
+  await fs.writeFile(linker, "[Beta](known%20phrase%20beta.md)\n");
+  await open(restored, linker);
+  await restored.getByRole("link", {name: "Beta"}).click({modifiers: ["Meta"]});
+  await expect.poll(() => restored.evaluate(() => window.__posted.filter((m) => m.action === "openInNewTab")))
+    .toEqual([{action: "openInNewTab", path: beta}]);
+  expect(await activePath(restored)).toBe(linker);
+  await fresh.close();
+  await restored.close();
+});
+
 test("gives local links a Reader address the native menu can open, and opens them as a click does", async ({page}) => {
   const beta = path.join(workspace, "deep", "known phrase beta.md");
   const linker = path.join(workspace, "linker.md");
@@ -657,8 +783,10 @@ test.describe("two-page Preview", () => {
     await page.screenshot({path: '.playwright-cli/two-page/ui-refinement-light.png', animations: 'disabled'});
     await invoke(page, 'reader_set_preferences', {changes: {theme: 'dark'}});
     await page.screenshot({path: '.playwright-cli/two-page/ui-refinement-dark.png', animations: 'disabled'});
+    await page.locator('.seg[data-mode=edit]').click();
     for (const mode of ['split', 'edit']) {
-      await page.locator(`.seg[data-mode=${mode}]`).click();
+      if (await page.locator('html').getAttribute('data-mode') !== mode) await page.locator('#btn-edit-preview').click();
+      await expect(page.locator('html')).toHaveAttribute('data-mode', mode);
       await expect(page.locator('#preview-layout')).toBeHidden();
       await expect(page.locator('#page-next')).toBeHidden();
     }
@@ -720,7 +848,8 @@ test.describe("two-page Preview", () => {
     for (let i = 0; i < 12; i++) await page.locator('#previewpane').dispatchEvent('wheel', {deltaY: 60 - i});
     await expect(page.locator('#page-label')).toContainText('Pages 5–6');
     const passage = (await visibleText(page)).match(/Passage \d+/)[0];
-    await page.locator('.seg[data-mode=split]').click();
+    await page.locator('.seg[data-mode=edit]').click();
+    await expect(page.locator('html')).toHaveAttribute('data-mode', 'split');
     await expect(page.locator('html')).toHaveAttribute('data-paged', 'no');
     await page.locator('.seg[data-mode=preview]').click();
     await expect(page.locator('#page-label')).toContainText('Pages 5–6');

@@ -253,9 +253,23 @@ away from its local server, so a link cannot replace the app with a web page.
 A link to another local document carries the href `/open?path=<absolute path>`.
 A click is handled by the page. The native context menu's **Open Link** is
 caught by the app, which asks the page to open that path as a click would.
-**Open Link in New Window** starts a second Reader window for it. The server
-has no `/open` page. A `file://` href would not work here: WebKit blocks it
-before the app is asked.
+**Open Link in New Tab** and **Open Link in New Window** open it in a tab or
+window of its own. The server has no `/open` page. A `file://` href would not
+work here: WebKit blocks it before the app is asked.
+
+Every window and tab is one Reader page on the one server the app starts or
+reuses, so tabs can be merged and moved between windows. Each page gets its
+own message channel, and the app injects `window.__readerTab` before the page
+runs to say what the tab is for: `{fresh, root}` for a new tab or window,
+`{restore}` for one rebuilt from the last session. The page keeps its own
+folder, document and mode in `sessionStorage` and reports them with a
+`tabState` message; the app saves the windows, their tabs and the selected
+tab in its user defaults (`ReaderSession`) and rebuilds them at launch.
+The app also injects `window.__readerChrome`, which tells the page that the
+title bar carries the panel, back, forward, theme and settings buttons. The
+page hides its copies, reports what those buttons should show with a
+`chrome` message, and shows its copies again when the app calls
+`setNativeChrome(false)` on entering full screen.
 
 The launcher-to-server contract is small and is what a launcher for another
 platform would need to reproduce:
