@@ -129,9 +129,11 @@ html[data-theme=dark]{
   --prose-strong:#ffffff;
   color-scheme:dark;
 }
+/* Charcoal sits clearly above Ink (about 24 levels, not 12): next to a bright
+   diagram or white text a smaller step reads as the same near-black. */
 html[data-theme=dark][data-paper-dark=charcoal]{
-  --paper:#1f1e1c; --surface:#26251f; --panel:#252420; --panel-hi:#312f2a;
-  --raised:#3a3833; --border:#38362f; --border-soft:#2c2b26;
+  --paper:#2b2a27; --surface:#32312b; --panel:#31302c; --panel-hi:#3d3b36;
+  --raised:#46443e; --border:#45433b; --border-soft:#383631;
 }
 html[data-theme=dark][data-paper-dark=black]{
   --paper:#000000; --surface:#0b0b0a; --panel:#0d0d0c; --panel-hi:#1c1c1a;
@@ -1304,22 +1306,62 @@ html[data-theme=dark] .mermaid-diagram{--diagram-bg:color-mix(in srgb,var(--pane
 #preview-layout .layout-choice[aria-pressed=true]{background:var(--raised);color:var(--accent-text);box-shadow:var(--shadow);border-color:var(--border)}
 html:not([data-mode=preview]) #preview-layout,
 html:not([data-doc=md]) #preview-layout{display:none}
-/* Separate rails reserve space outside the scrollable reading pane. Their
-   buttons cannot overlap prose, oversized blocks, or a content scrollbar. */
-#panes{--page-rail-width:40px;--spread-gap:56px}
-.page-rail{display:none;flex:0 0 var(--page-rail-width);align-items:center;justify-content:center}
-html[data-paged=yes] .page-rail{display:flex}
-.page-rail .icon-btn{height:2.75rem;background:transparent;border-color:transparent;box-shadow:none;color:var(--text-3)}
-.page-rail .icon-btn:hover:not(:disabled){background:var(--panel);border-color:var(--border);color:var(--text)}
-.page-rail .icon-btn:disabled{opacity:.3;cursor:default}
-#page-nav{flex:none;display:flex;align-items:center;justify-content:center;gap:1.25rem;height:2.5rem;
+/* Page turning takes no layout width. The footer holds the visible buttons;
+   the outer margins are click zones, like a book's page edge, that show a
+   chevron only on hover. Each zone ends where the text begins, so it cannot
+   cover prose, an oversized block, or its scrollbar. */
+#panes{--spread-gap:56px}
+.page-edge{display:none;position:absolute;top:0;bottom:0;width:var(--page-edge,36px);
+  align-items:center;justify-content:center;cursor:pointer;color:var(--text-3)}
+.page-edge[data-dir="-1"]{left:0}
+.page-edge[data-dir="1"]{right:0}
+html[data-paged=yes] .page-edge{display:flex}
+.page-edge svg{width:1.25rem;height:1.25rem;fill:none;stroke:currentColor;stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round;opacity:0;transition:opacity var(--speed)}
+.page-edge:hover svg{opacity:.8}
+.page-edge.is-off{cursor:default}
+.page-edge.is-off svg{display:none}
+#page-nav .icon-btn{width:1.75rem;height:1.75rem;background:transparent;border-color:transparent;box-shadow:none;color:var(--text-3)}
+#page-nav .icon-btn:hover:not(:disabled){background:var(--panel);border-color:var(--border);color:var(--text)}
+#page-nav .icon-btn:disabled{opacity:.3}
+#page-nav{flex:none;display:flex;align-items:center;justify-content:center;gap:.75rem;height:2.5rem;
   border-top:1px solid var(--border-soft);font-size:.75rem;color:var(--text-3)}
 #page-nav[hidden]{display:none}
 html[data-paged=yes] #previewpane{overflow:hidden;padding:28px 36px 24px;position:relative;overflow-anchor:none}
+/* The spine of the visible spread, drawn once at the pane's centre. A column
+   rule would also draw between the neighbouring spreads' pages, and those
+   rules show at the outer edges. ::before is the fold's tone and ::after its
+   crease. Light papers shade into the fold, mixed from the theme's own text
+   colour, so every paper, and any new one, gets a tint that matches it. The tone spans at most the gutter, so it never tints
+   text, and both fade out at the top and bottom. */
+html[data-theme=light]{
+  --spine-tone:color-mix(in srgb,var(--text) 5.5%,transparent);
+  --spine-near:30%;--spine-mid:70%;
+  --spine-crease:var(--border)}
+/* On dark papers any fold tone reads as haze (and a shadow cannot darken
+   black), so the spine there is only the crease: a hairline that fades out. */
+html[data-theme=dark]{
+  --spine-tone:transparent;
+  --spine-near:30%;--spine-mid:70%;
+  --spine-crease:var(--border)}
+html[data-paged=yes] #previewpane::before,
+html[data-paged=yes] #previewpane::after{content:"";position:absolute;left:50%;pointer-events:none}
+html[data-paged=yes] #previewpane::before{top:0;bottom:0;width:var(--spine-width,56px);transform:translateX(-50%);
+  background:
+    linear-gradient(90deg,transparent,color-mix(in srgb,var(--spine-tone) var(--spine-near),transparent) 55%,color-mix(in srgb,var(--spine-tone) var(--spine-mid),transparent) 85%,var(--spine-tone)) left/50% 100% no-repeat,
+    linear-gradient(270deg,transparent,color-mix(in srgb,var(--spine-tone) var(--spine-near),transparent) 55%,color-mix(in srgb,var(--spine-tone) var(--spine-mid),transparent) 85%,var(--spine-tone)) right/50% 100% no-repeat;
+  -webkit-mask:linear-gradient(transparent,#000 12%,#000 88%,transparent);mask:linear-gradient(transparent,#000 12%,#000 88%,transparent)}
+html[data-paged=yes] #previewpane::after{top:28px;bottom:24px;width:1px;transform:translateX(-50%);
+  background:linear-gradient(transparent,var(--spine-crease) 15%,var(--spine-crease) 85%,transparent)}
+html[data-paged=yes] #previewpane.lone-page::before,
+html[data-paged=yes] #previewpane.lone-page::after{content:none}
 html[data-paged=yes] #preview{
   max-width:none;width:calc(100% - 2 * var(--page-inset,0px));height:var(--page-height);margin:0 var(--page-inset,0px);padding:0;
-  column-count:2;column-gap:var(--page-gap,var(--spread-gap));column-fill:auto;column-rule:1px solid var(--border-soft);
+  column-count:2;column-gap:var(--page-gap,var(--spread-gap));column-fill:auto;
   transform:translateX(var(--page-offset,0px));overflow:visible;
+  /* The neighbouring spreads sit only one gutter away, inside the outer
+     margins, so clip to the visible spread (in untranslated coordinates). */
+  clip-path:inset(-24px calc(var(--page-offset,0px) - 8px) -24px calc(-1 * var(--page-offset,0px) - 8px));
 }
 html[data-paged=yes] #preview :is(h1,h2,h3,h4,h5,h6){break-after:avoid}
 html[data-paged=yes] #preview :is(pre,table,.mermaid-diagram){
@@ -1329,9 +1371,10 @@ html[data-paged=yes] #preview table.frontmatter{display:block;min-width:0}
 html[data-paged=yes] #preview .mermaid-diagram{width:100%!important;margin-left:0!important;margin-right:0!important}
 html[data-paged=yes] #preview img{max-height:var(--page-height);object-fit:contain;break-inside:avoid}
 @media print{
-  #page-nav,.page-rail{display:none!important}
+  #page-nav,.page-edge{display:none!important}
   html[data-paged=yes] #previewpane{padding:0;overflow:visible}
-  html[data-paged=yes] #preview{height:auto;width:100%;margin:0;columns:auto;transform:none}
+  html[data-paged=yes] #previewpane::before,html[data-paged=yes] #previewpane::after{content:none}
+  html[data-paged=yes] #preview{height:auto;width:100%;margin:0;columns:auto;transform:none;clip-path:none}
   html[data-paged=yes] #preview :is(pre,table,.mermaid-diagram,img){max-height:none}
 }
 

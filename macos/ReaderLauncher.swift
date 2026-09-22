@@ -6,6 +6,8 @@ import Security
 import WebKit
 
 private let readerPort = Int(ProcessInfo.processInfo.environment["READER_LAUNCHER_PORT"] ?? "") ?? 8737
+/* Set only by Open Link in New Window, for the instance it starts. */
+private let linkOpenEnvironmentKey = "READER_OPEN_LINK"
 private let readerAppName = "Reader"
 private let readinessTimeout: TimeInterval = 12
 private let dockIconLightName = "ReaderDockIcon-Light"
@@ -87,6 +89,10 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
        before the server is up and before the page has loaded, so it is held
        here until there is somewhere to send it. */
     private var pendingOpenPath: String?
+    /* A document link this window was opened for. Unlike a Finder open it is
+       not handed to the server as a startup path: the document's author chose
+       the target, so it must not become a write grant. */
+    private var pendingLinkPath: String? = ProcessInfo.processInfo.environment[linkOpenEnvironmentKey]
     private var isPageLoaded = false
     private var isChoosingFolder = false
     /* One update at a time. A second check while a download is running would
@@ -152,10 +158,17 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
     /// backend reports an out-of-workspace file as read-only. When this launcher
     /// starts the server itself, the startup path is an initial server grant.
     private func deliver(path: String) {
-        guard let data = try? JSONSerialization.data(withJSONObject: [path], options: []),
+        callPage("openFromOS", [path])
+    }
+
+    /// Call one of the page's `window.reader` hooks. `name` is always a
+    /// literal from this file; the arguments are JSON-encoded so no path can
+    /// escape into the script itself.
+    private func callPage(_ name: String, _ arguments: [Any]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: arguments, options: []),
               let array = String(data: data, encoding: .utf8) else { return }
-        let script = "window.reader && window.reader.openFromOS ? "
-            + "(window.reader.openFromOS(\(array)[0]), true) : false"
+        let call = "window.reader.\(name).apply(null, \(array))"
+        let script = "window.reader && window.reader.\(name) ? (\(call), true) : false"
         webView.evaluateJavaScript(script) { [weak self] result, _ in
             // app.js publishes `window.reader` as the page finishes booting;
             // one bounded retry covers the case where we win that race.
@@ -163,8 +176,7 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                     guard let self, self.isPageLoaded else { return }
                     self.webView.evaluateJavaScript(
-                        "window.reader && window.reader.openFromOS && "
-                        + "window.reader.openFromOS(\(array)[0])", completionHandler: nil)
+                        "window.reader && window.reader.\(name) && \(call)", completionHandler: nil)
                 }
             }
         }
@@ -416,6 +428,7 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         process.arguments = arguments
         process.currentDirectoryURL = resourceURL
         var environment = ProcessInfo.processInfo.environment
+        environment.removeValue(forKey: linkOpenEnvironmentKey)
         let support = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/Reader", isDirectory: true)
         environment["READER_DATA_DIR"] = support.path
@@ -1291,6 +1304,10 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
        first window would leave the second showing a page whose server had gone.
        Each instance starts and stops exactly what it owns. */
     @objc private func newWindowFromMenu(_ sender: Any?) {
+        openNewWindow(linkPath: nil)
+    }
+
+    private func openNewWindow(linkPath: String?) {
         guard let port = freePortForNewWindow() else {
             showError("Reader could not find a free port for another window.")
             return
@@ -1298,6 +1315,9 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.createsNewApplicationInstance = true
         configuration.environment = ["READER_LAUNCHER_PORT": String(port)]
+        if let linkPath {
+            configuration.environment[linkOpenEnvironmentKey] = linkPath
+        }
         NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL,
                                            configuration: configuration) { [weak self] _, error in
             guard let error else { return }
@@ -1461,6 +1481,17 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         return loopback && (url.port ?? -1) == readerPort
     }
 
+    /* app.js gives a link to another local document the href
+       /open?path=<absolute path>. The server has no such page; only the native
+       context menu ever navigates there, and that is caught here. */
+    private func documentLinkPath(_ url: URL) -> String? {
+        guard isReaderItself(url), url.path == "/open",
+              let path = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                  .queryItems?.first(where: { $0.name == "path" })?.value,
+              path.hasPrefix("/") else { return nil }
+        return path
+    }
+
     /* A deliberately short list. A markdown document is untrusted content, and
        NSWorkspace opens whatever it is handed -- a file:// URL to an .app, or a
        custom scheme wired to another program, would be a way for a document to
@@ -1480,8 +1511,12 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction,
                  windowFeatures: WKWindowFeatures) -> WKWebView? {
-        if let url = navigationAction.request.url, !isReaderItself(url) {
-            handOff(url)
+        if let url = navigationAction.request.url {
+            if let path = documentLinkPath(url) {
+                openNewWindow(linkPath: path)
+            } else if !isReaderItself(url) {
+                handOff(url)
+            }
         }
         return nil
     }
@@ -1492,6 +1527,15 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         guard let url = navigationAction.request.url else {
             decisionHandler(.allow)
+            return
+        }
+        /* The native menu's Open Link on a document link. The page opens it
+           exactly as a click would, and the window keeps showing Reader. */
+        if let path = documentLinkPath(url) {
+            decisionHandler(.cancel)
+            if navigationAction.targetFrame?.isMainFrame == true, isPageLoaded {
+                callPage("openLink", [path])
+            }
             return
         }
         if isReaderItself(url) {
@@ -1509,6 +1553,10 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate, NSWindow
         if let path = pendingOpenPath {
             pendingOpenPath = nil
             deliver(path: path)
+        }
+        if let path = pendingLinkPath {
+            pendingLinkPath = nil
+            callPage("openLink", [path, true])
         }
     }
 

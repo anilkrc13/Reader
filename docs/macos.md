@@ -250,6 +250,12 @@ requests: open the folder chooser, and run the update check. It answers the
 main frame of Reader's own page and nothing else. Links in a document to the web (`http`, `https`, `mailto`,
 `tel`) are handed to your default browser; Reader's own window never navigates
 away from its local server, so a link cannot replace the app with a web page.
+A link to another local document carries the href `/open?path=<absolute path>`.
+A click is handled by the page. The native context menu's **Open Link** is
+caught by the app, which asks the page to open that path as a click would.
+**Open Link in New Window** starts a second Reader window for it. The server
+has no `/open` page. A `file://` href would not work here: WebKit blocks it
+before the app is asked.
 
 The launcher-to-server contract is small and is what a launcher for another
 platform would need to reproduce:
