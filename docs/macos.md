@@ -274,6 +274,14 @@ menu's **Open to the Side** runs WebKit's new-window command with the page
 told to open the link in the other pane, and **Open Link** on a link inside
 the second pane opens it there.
 
+A file dragged in from Finder never reaches the page with its path: WebKit
+hands web content a file's contents and name, not where it lives. So the
+app's web view accepts file drags whose source is outside Reader, reads the
+paths, and calls the page's `fileDropHover(x, y)` while the drag moves and
+`dropFile(path, x, y)` on release; the page picks the pane under the pointer.
+Further files open in tabs of their own. A drag from Reader's own file panel
+has the web view as its source and is left to the page.
+
 The app also injects `window.__readerChrome`, which tells the page that the
 title bar carries the panel, back, forward, theme and settings buttons. The
 page hides its copies, reports what those buttons should show with a

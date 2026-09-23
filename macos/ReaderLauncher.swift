@@ -1512,6 +1512,77 @@ private final class HoverButton: NSButton {
 private final class ReaderWebView: WKWebView {
     weak var page: ReaderPage?
 
+    override init(frame: CGRect, configuration: WKWebViewConfiguration) {
+        super.init(frame: frame, configuration: configuration)
+        registerForDraggedTypes([.fileURL])
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        registerForDraggedTypes([.fileURL])
+    }
+
+    /* Files dragged in from Finder or another app. A drag from inside Reader's
+       own page -- the file panel -- has this view as its source and is left
+       to the page, which already knows those paths. Folders are skipped. */
+    private func externalFiles(_ info: NSDraggingInfo) -> [String]? {
+        guard info.draggingSource == nil,
+              let urls = info.draggingPasteboard.readObjects(
+                  forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] else {
+            return nil
+        }
+        let files = urls.map { $0.standardizedFileURL }.filter {
+            (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) != true
+        }.map(\.path)
+        return files.isEmpty ? nil : files
+    }
+
+    /* The pointer in the page's own coordinates, top-left origin. */
+    private func pagePoint(_ info: NSDraggingInfo) -> [Double] {
+        let point = convert(info.draggingLocation, from: nil)
+        return [Double(point.x), Double(isFlipped ? point.y : bounds.height - point.y)]
+    }
+
+    override func draggingEntered(_ info: NSDraggingInfo) -> NSDragOperation {
+        guard externalFiles(info) != nil else { return super.draggingEntered(info) }
+        page?.callPage("fileDropHover", pagePoint(info))
+        return .copy
+    }
+
+    override func draggingUpdated(_ info: NSDraggingInfo) -> NSDragOperation {
+        guard externalFiles(info) != nil else { return super.draggingUpdated(info) }
+        page?.callPage("fileDropHover", pagePoint(info))
+        return .copy
+    }
+
+    override func draggingExited(_ info: NSDraggingInfo?) {
+        if let info, externalFiles(info) != nil {
+            page?.callPage("fileDropHover", [NSNull(), NSNull()])
+            return
+        }
+        super.draggingExited(info)
+    }
+
+    override func prepareForDragOperation(_ info: NSDraggingInfo) -> Bool {
+        externalFiles(info) != nil ? true : super.prepareForDragOperation(info)
+    }
+
+    /* The first file opens in the pane under the pointer; any others in tabs
+       of their own. Each opens as a Finder open does, never as a grant. */
+    override func performDragOperation(_ info: NSDraggingInfo) -> Bool {
+        guard let files = externalFiles(info) else { return super.performDragOperation(info) }
+        page?.callPage("dropFile", [files[0]] + pagePoint(info))
+        for path in files.dropFirst() {
+            page?.openInNewTab(path: path)
+        }
+        return true
+    }
+
+    override func concludeDragOperation(_ info: NSDraggingInfo?) {
+        if let info, externalFiles(info) != nil { return }
+        super.concludeDragOperation(info)
+    }
+
     override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
         super.willOpenMenu(menu, with: event)
         guard let index = menu.items.firstIndex(where: {
@@ -1845,6 +1916,12 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
                 }
             }
         }
+    }
+
+    /* A dropped Finder document beyond the first: a tab of its own, opened as
+       a Finder open would be. */
+    func openInNewTab(path: String) {
+        app?.openTab(from: self, openPath: path)
     }
 
     /* WebKit asks for the new window a moment after the menu item runs, in a

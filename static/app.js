@@ -5439,6 +5439,35 @@ function acceptFileDrops(target, which) {
 }
 acceptFileDrops(SIDE ? document.documentElement : $("main"), SIDE ? "side" : "main");
 
+/* A file dragged in from Finder. The page never learns where such a file
+   lives -- WebKit gives it contents, not a path -- so the macOS app catches
+   the drop, reads the path, and asks here which pane is under the pointer.
+   It opens as a Finder open does: in place, read-only outside the folders
+   Reader may edit, never a new grant. */
+function paneAt(x, y) {
+  const at = document.elementFromPoint(x, y);
+  if (!at) return splitActive();
+  if (at.closest("#side-pane")) return "side";
+  if (at.closest("#main")) return "main";
+  return splitActive();                 // the file panel, or the divider
+}
+
+function fileDropHover(x, y) {
+  const which = x == null ? null : paneAt(x, y);
+  root.classList.toggle("drop-open", which === "main");
+  sideReader()?.setDropHover(which === "side");
+}
+
+async function dropFile(path, x, y) {
+  fileDropHover(null);
+  if (typeof path !== "string" || !path.startsWith("/")) return;
+  const which = paneAt(x, y);
+  if (which === "side") return openInPane("side", path);
+  if (split.frame && panePath("side") === path) { setActivePane("side"); return; }
+  setActivePane("main");
+  return openFromOS(path);
+}
+
 if (SIDE) {
   root.dataset.pane = "side";
   root.dataset.split = "on";
@@ -5918,6 +5947,9 @@ window.reader = {
   openBeside: (path, from) => openBeside(path, from),
   // Split: the host's side of the conversation with its side pane.
   openSplit, closeSplit, toggleSplit, openInPane, openInNewTab, setActivePane, sideChanged,
+  // Finder drops, relayed by the macOS app.
+  dropFile, fileDropHover,
+  setDropHover: (on) => root.classList.toggle("drop-open", !!on),
   hasTabs: () => !!nativeBridge(),
   // The side pane's side of it.
   currentPath: () => state.file?.path || null,

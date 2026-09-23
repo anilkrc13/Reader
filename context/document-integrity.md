@@ -41,6 +41,10 @@ one server and so one set of grants. A split tab's second pane is the same
 page on the same server; it opens documents exactly as a click would and
 holds its own document session, so its saves follow the same rules.
 
+A file dropped from Finder onto a running Reader is an external Finder open:
+the app passes its path to the page, which opens it read-only unless it is
+already inside a grant. A drop never adds a root.
+
 ## Regression evidence
 
 [`tests/test_save_security.py`](../tests/test_save_security.py) pins simultaneous compare-and-replace behavior.
