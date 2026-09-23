@@ -83,6 +83,7 @@
   --accent-fill:#a85c43;   /* accent darkened until white text reaches 4.5:1 */
   --accent-text:#a85c44;   /* accent adjusted until it reads at 4.5:1 on paper */
   --accent-on:#ffffff;
+  --link:#1f5fbf;          /* links stay blue whatever the accent, so they read as links */
 }
 
 /* Three steps, an even ratio apart: one notch down for a dense interface, one
@@ -658,8 +659,8 @@ html[data-head=ebgaramond] .prose h6{--hw:560;--hsp:.002em}
 html[data-head=ebgaramond] .prose h1.doc-heading{font-size:calc(var(--title-size,48px) * 1.08)}
 .prose p{margin:0 0 var(--para-gap)}
 .prose .md-blank-lines{display:block;height:calc(var(--blank-lines,0) * var(--lh-body) * 1em)}
-.prose a{color:var(--accent-text);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--accent-text) 35%,transparent)}
-.prose a:hover{border-bottom-color:var(--accent-text)}
+.prose a{color:var(--link);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--link) 40%,transparent)}
+.prose a:hover{border-bottom-color:var(--link)}
 /* Markdown strong uses a consistent 600 baseline across body font choices.
    In dark mode its dedicated variable keeps emphasis brighter than body copy;
    light mode inherits the normal text color unchanged. */
@@ -757,8 +758,8 @@ html[data-head=ebgaramond] .prose h1.doc-heading{font-size:calc(var(--title-size
    accent over the paper is lighter and matches the text it carries. Dark
    themes keep the plain chip -- accent text is softer there and reads well. */
 html[data-theme=light] .prose a code{
-  background:color-mix(in srgb,var(--accent) 7%,var(--paper));
-  border-color:color-mix(in srgb,var(--accent) 20%,transparent);
+  background:color-mix(in srgb,var(--link) 7%,var(--paper));
+  border-color:color-mix(in srgb,var(--link) 20%,transparent);
 }
 /* A code block is a quiet slab: one hairline, a soft panel and roomy padding,
    so a listing sits on the page as a single object rather than a boxed-in

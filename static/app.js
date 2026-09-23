@@ -245,6 +245,9 @@ const ACCENTS = {
   green: {label: "Green", light: "#6d8152", dark: "#9db47c"},
   ink:   {label: "Ink",   light: "#141413", dark: "#e8e6dc"},
 };
+/* Links keep the familiar hyperlink blue under every accent. With the Ink
+   accent an accent-coloured link was just underlined body text. */
+const LINK = {light: "#1f5fbf", dark: "#8ab4f8"};
 
 const SANS_SYSTEM = '-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif';
 const MONO_SYSTEM = 'ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace';
@@ -640,8 +643,9 @@ function applySettings() {
   /* the paper follows theme and paper choice in the stylesheet, so read it
      back (the data- attributes above are already set) rather than duplicate it */
   const paper = getComputedStyle(root).getPropertyValue("--paper").trim();
-  st.setProperty("--accent-text",
-                 textFor(accent, /^#[0-9a-f]{6}$/i.test(paper) ? paper : "#faf9f5"));
+  const readPaper = /^#[0-9a-f]{6}$/i.test(paper) ? paper : "#faf9f5";
+  st.setProperty("--accent-text", textFor(accent, readPaper));
+  st.setProperty("--link", textFor(LINK[dark ? "dark" : "light"], readPaper));
 
   const body = fontStack(BODY_FONTS, S.bodyFont);
   root.dataset.body = S.bodyFont;
