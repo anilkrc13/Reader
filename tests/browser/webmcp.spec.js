@@ -596,6 +596,28 @@ test("splits a tab into two documents: the panel opens into the active pane, nev
   await expect(page.locator("html")).toHaveAttribute("data-split", "on");
   await expect.poll(sidePath).toBe(gamma);
 
+  /* A Finder drop, as the macOS app relays it: the path and the pointer. The
+     pane under the pointer is highlighted, then opens the file. */
+  const at = async (selector) => {
+    const r = await page.locator(selector).boundingBox();
+    return [r.x + r.width / 2, r.y + r.height / 2];
+  };
+  const [sx, sy] = await at("#side-pane");
+  await page.evaluate(([x, y]) => window.reader.fileDropHover(x, y), [sx, sy]);
+  await expect(side.locator("html")).toHaveClass(/drop-open/);
+  await page.evaluate(([x, y]) => window.reader.fileDropHover(null, null), [sx, sy]);
+  await expect(side.locator("html")).not.toHaveClass(/drop-open/);
+  await page.evaluate(([p, x, y]) => window.reader.dropFile(p, x, y), [alpha, sx, sy]);
+  await expect.poll(sidePath).toBe(alpha);
+  const [mx, my] = await at("#panes");
+  await page.evaluate(([p, x, y]) => window.reader.dropFile(p, x, y), [gamma, mx, my]);
+  await expect.poll(mainPath).toBe(gamma);
+  // Dropped on the file panel, it goes to the active pane; never one document twice.
+  const [px, py] = await at("#sidebar");
+  await page.evaluate(([p, x, y]) => window.reader.dropFile(p, x, y), [alpha, px, py]);
+  await expect(side.locator("#toolbar")).toHaveClass(/pane-active/);
+  expect(await mainPath()).toBe(gamma);
+
   // The side pane's ✕ returns the tab to one document.
   await side.locator("#btn-close-pane").click();
   await expect(page.locator("html")).toHaveAttribute("data-split", "off");

@@ -2,6 +2,12 @@
 
 All notable changes to Reader. Versions follow [semantic versioning](https://semver.org).
 
+## Unreleased
+
+- In the macOS app, a file dragged in from Finder opens in the pane under the
+  pointer, and any further files in new tabs. It opens as a Finder open does,
+  read-only outside the folders Reader may edit.
+
 ## 2.5.0
 
 - The macOS app has tabs. `⌘T`, the tab bar's `+`, `⌘`-click on a link and
