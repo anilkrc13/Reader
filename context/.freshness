@@ -1,7 +1,7 @@
 # owned by skills/repository-context/scripts/context_freshness.py -- do not hand-edit
 {
-  "aggregate": "4eea5af411bf9bad47e4b9fc3e80b7eeb9eb3af9caa1be6ad007019f073476a6",
-  "commit": "5bfecf04a19f5c3a8a8d89d7c891cf1eb4932975",
+  "aggregate": "4441eecfd679fc99d69cfb3e39e4c6e07275743a489604792ac231bdbac77fbd",
+  "commit": "d3b22bd4abae62e981d05a21f515308fb88baa26",
   "exclude": [],
   "files": {
     ".github/ISSUE_TEMPLATE/bug_report.md": {
@@ -37,8 +37,8 @@
     "CHANGELOG.md": {
       "executable": false,
       "kind": "file",
-      "length": 13757,
-      "sha256": "de8f2ac6ff8a225b4be4376580078ab40e1f0c95d8a0f66b1548dc7bdaec8a7a"
+      "length": 13938,
+      "sha256": "88e00a81a0ad2b02e3a4f69544502afc1babe4b284dbdfc403eaf22d237363c2"
     },
     "CONTRIBUTING.md": {
       "executable": false,
@@ -187,8 +187,8 @@
     "macos/ReaderLauncher.swift": {
       "executable": false,
       "kind": "file",
-      "length": 100060,
-      "sha256": "a295e0fc62551bad77e2493ef3aeed6341958b6735e090f9f2c3da631ba33ade"
+      "length": 101009,
+      "sha256": "88a192aacabd83922c27c1a6b7274e40a7aaf312e53399ea7ad9fd54adb7b5c2"
     },
     "macos/build-app.sh": {
       "executable": true,
@@ -271,8 +271,8 @@
     "static/app.js": {
       "executable": false,
       "kind": "file",
-      "length": 244055,
-      "sha256": "f8807bba7f02400306c84dcaa210b11ab862e2862062d06ef2dbe13dabf0780c"
+      "length": 244204,
+      "sha256": "fe60e6b02fe4f7822f82589d2890220c91aa8c04778804ccac7708e200097c28"
     },
     "static/fonts/ebgaramond-latin-variable-italic.ttf": {
       "executable": false,
