@@ -1996,12 +1996,43 @@ async function refresh() {
   if (!state.file) { await refreshTree(); return; }
   if (state.dirty && !confirm("Reload from disk and discard unsaved changes?")) return;
   setDirty(false);
-  await openFile(state.file.path, {keepScroll: true, silent: true, record: false});
-  await refreshTree();
+  // The file panel is re-read even when the document itself cannot be.
+  try { await openFile(state.file.path, {keepScroll: true, silent: true, record: false}); }
+  finally { await refreshTree(); }
   toast("Reloaded");
 }
 
+/* Coming back to Reader re-reads the folders the panel shows, as Finder does,
+   so files made elsewhere appear without Reload. Only a real change redraws,
+   from listings already in hand, so nothing flickers or scrolls. */
+let quietTreeAt = 0;
+async function refreshTreeQuietly() {
+  if (SIDE || !state.root || Date.now() - quietTreeAt < 1500) return;
+  quietTreeAt = Date.now();
+  const shown = [state.root, ...[...state.expanded].filter((p) => p.startsWith(state.root + "/"))];
+  let changed = false;
+  for (const path of shown) {
+    try {
+      const data = await api("/api/list", {query: listQuery(path)});
+      if (!sameValue(data.entries, state.children.get(path))) changed = true;
+      state.children.set(path, data.entries);
+    } catch (_) {}
+  }
+  if (!changed) return;
+  const scroller = el.tree.closest(".tree-wrap");
+  const top = scroller ? scroller.scrollTop : 0;
+  await drawTree();
+  if (scroller) scroller.scrollTop = top;
+}
+window.addEventListener("focus", refreshTreeQuietly);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") refreshTreeQuietly();
+});
+
+/* The file panel on screen is the host page's. A split's second pane has a
+   panel of its own that is never shown, so its Reload re-reads the host's. */
 async function refreshTree() {
+  if (SIDE && host()) return host().refreshTree();
   state.children.clear();
   await drawTree();
 }
@@ -5947,6 +5978,7 @@ window.reader = {
   openBeside: (path, from) => openBeside(path, from),
   // Split: the host's side of the conversation with its side pane.
   openSplit, closeSplit, toggleSplit, openInPane, openInNewTab, setActivePane, sideChanged,
+  refreshTree: () => refreshTree(),
   // Finder drops, relayed by the macOS app.
   dropFile, fileDropHover,
   setDropHover: (on) => root.classList.toggle("drop-open", !!on),

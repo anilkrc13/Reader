@@ -618,6 +618,19 @@ test("splits a tab into two documents: the panel opens into the active pane, nev
   await expect(side.locator("#toolbar")).toHaveClass(/pane-active/);
   expect(await mainPath()).toBe(gamma);
 
+  // Reload in the second pane re-reads the file panel on screen, the host's.
+  await fs.mkdir(path.join(workspace, "made-later"));
+  await fs.writeFile(path.join(workspace, "made-later", "note.md"), "# Note\n");
+  await side.locator("#btn-refresh").click();
+  await expect(row(path.join(workspace, "made-later"))).toBeVisible();
+
+  // Coming back to Reader picks up a folder made elsewhere, without Reload.
+  await fs.mkdir(path.join(workspace, "made-while-away"));
+  await fs.writeFile(path.join(workspace, "made-while-away", "note.md"), "# Note\n");
+  await page.waitForTimeout(1600);
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(row(path.join(workspace, "made-while-away"))).toBeVisible();
+
   // The side pane's ✕ returns the tab to one document.
   await side.locator("#btn-close-pane").click();
   await expect(page.locator("html")).toHaveAttribute("data-split", "off");

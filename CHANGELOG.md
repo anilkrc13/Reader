@@ -4,6 +4,11 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- Reload in a split's right-hand pane now re-reads the file panel, so new
+  files and folders appear. It used to refresh only that pane's document.
+- Coming back to Reader re-reads the folders the file panel shows, so files
+  made elsewhere appear without Reload. The panel redraws only if something
+  changed, and keeps its scroll position.
 - In the macOS app, a file dragged in from Finder opens in the pane under the
   pointer, and any further files in new tabs. It opens as a Finder open does,
   read-only outside the folders Reader may edit.
