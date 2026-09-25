@@ -4,6 +4,12 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- JSON files read like an editor's view of them: formatted, coloured, with
+  numbered lines that wrap at their indent and objects and arrays that fold
+  to a summary. Expand all and Collapse all sit in the toolbar, clicking a
+  key copies its path, Find opens folds to reach a match, and folds survive
+  the file changing on disk. Edit still shows the file as it is on disk.
+
 - The keyboard scrolls what you are reading. Opening a document from the
   file panel, or switching to Preview, gives it keyboard focus, so ↑ ↓,
   Space and Page Up/Down scroll it; they used to do nothing, because focus

@@ -521,6 +521,58 @@ test("scrolls the document with the keyboard after opening it from the panel, an
   await expect.poll(top).toBeGreaterThan(0);
 });
 
+test("reads JSON as numbered, wrapping, foldable lines, and leaves the file as it is", async ({page}) => {
+  await page.setViewportSize({width: 1300, height: 800});
+  const nested = path.join(workspace, "nested.json");
+  const data = {name: "reconciliation", segments: Array.from({length: 4}, (_, i) => ({id: i, words: ["a", "b"]})),
+                settings: {"weird key": 1, empty: {}}};
+  const raw = JSON.stringify(data);
+  await fs.writeFile(nested, raw);
+  await fs.writeFile(path.join(workspace, "broken.json"), '{"a": 1,, }');
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => Object.keys(window.__readerWebMCPTools || {}).length)).toBe(11);
+  await open(page, nested);
+  await expect(page.locator("html")).toHaveAttribute("data-json", "on");
+  const numbers = () => page.locator(".jl:visible .jno").allTextContents();
+  // Formatted: one numbered line per line of JSON.stringify(data, null, 2).
+  const formatted = JSON.stringify(data, null, 2).split("\n");
+  expect((await numbers()).length).toBe(formatted.length);
+  await expect(page.locator(".jk").first()).toHaveText('"name"');
+  // Folding hides a range and leaves the gap in the numbers.
+  const segments = page.locator(".jnode", {has: page.locator(':scope > .jhead .jk', {hasText: '"segments"'})});
+  await segments.locator(":scope > .jhead .jtoggle").click();
+  await expect(segments.locator(":scope > .jhead .jcount")).toHaveText(" 4 items");
+  const shown = (await numbers()).map(Number);
+  expect(shown[3] - shown[2]).toBeGreaterThan(1);
+  // The file rewritten on disk redraws, and keeps that fold.
+  await fs.writeFile(nested, JSON.stringify({...data, name: "renamed"}));
+  await expect(page.locator(".js", {hasText: '"renamed"'})).toBeVisible();
+  await expect(segments.locator(":scope > .jhead .jcount")).toBeVisible();
+  await fs.writeFile(nested, raw);
+  await expect(page.locator(".js", {hasText: '"reconciliation"'})).toBeVisible();
+
+  // Collapse all keeps the outermost level; Expand all opens everything.
+  await page.locator("#json-collapse").click();
+  expect((await numbers()).length).toBeLessThan(formatted.length);
+  await page.locator("#json-expand").click();
+  expect((await numbers()).length).toBe(formatted.length);
+  // Find opens folds to reach what it finds.
+  await page.locator("#json-collapse").click();
+  await page.keyboard.press("ControlOrMeta+f");
+  await page.locator("#find-q").fill("weird key");
+  await expect(page.locator("mark.find-hit")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  // Edit shows the file exactly as it is on disk.
+  await page.locator(".seg[data-mode=edit]").click();
+  await expect(page.locator("#editor")).toHaveValue(raw);
+  await page.locator(".seg[data-mode=preview]").click();
+  // Invalid JSON is shown as text, saying why.
+  await open(page, path.join(workspace, "broken.json"));
+  await expect(page.locator("html")).toHaveAttribute("data-json", "off");
+  await expect(page.locator(".json-note")).toContainText("not valid JSON");
+  await expect(page.locator("#json-tools")).toBeHidden();
+});
+
 test("offers two modes, Preview and Edit, with the preview beside the editor as a toggle Edit remembers", async ({page}) => {
   await open(page, path.join(workspace, "alpha.md"));
   const mode = () => page.locator("html").getAttribute("data-mode");
