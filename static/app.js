@@ -1226,7 +1226,11 @@ function render(text) {
      with it, so the search is laid back over the new one. */
   queueMicrotask(findRefresh);
   const kind = state.file ? state.file.kind : "md";
-  if (kind === "code") return renderCode(text);
+  root.dataset.json = "off";
+  if (kind === "code") {
+    if (extOf(state.file.path) === "json" && renderJSON(text)) return;
+    return renderCode(text);
+  }
   if (kind === "csv") return renderCSV(text);
   el.preview.className = "prose";
   const fm = splitFrontMatter(text || "");
@@ -1606,7 +1610,219 @@ function renderCode(text) {
   block.textContent = text;
   try { hljs.highlightElement(block); } catch (_) {}
   el.footnote.textContent = `${lines.toLocaleString()} lines`;
+  if (extOf(state.file.path) === "json") {
+    const note = document.createElement("p");
+    note.className = "json-note";
+    note.textContent = jsonState.error
+      ? "Shown as text, because this is not valid JSON: " + jsonState.error
+      : "Shown as text: this file is too large to format.";
+    el.preview.prepend(note);
+  }
 }
+
+/* ==========================================================================
+   JSON reader
+   ======================================================================== */
+
+/* A .json file in Preview reads like an editor's view of it: formatted, in
+   the code colours, one numbered line per line of the formatted text, with
+   objects and arrays that fold. A folded one shows its size and leaves a gap
+   in the numbers. Long values wrap at their own indent. Edit still shows the
+   file exactly as it is on disk; nothing here rewrites it. Deeper levels are
+   built only when first opened, so a large file opens quickly. */
+const JSON_MAX_CHARS = 8 * 1024 * 1024;    // beyond this, the plain code view
+const JSON_OPEN_ALL_LINES = 2000;          // a document this short opens fully
+const JSON_OPEN_DEPTH = 2;                 // otherwise, the first two levels
+const JSON_EXPAND_ALL_LINES = 60000;       // Expand all builds everything
+const jsonState = {lines: null, total: 0, body: null, file: null, folds: new Map()};
+
+function jsonCount(value) {
+  if (value === null || typeof value !== "object") return 1;
+  const known = jsonState.lines.get(value);
+  if (known) return known;
+  const kids = Array.isArray(value) ? value : Object.values(value);
+  let n = kids.length ? 2 : 1;
+  for (const kid of kids) n += jsonCount(kid);
+  jsonState.lines.set(value, n);
+  return n;
+}
+
+const jsonTok = (cls, text) => {
+  const span = document.createElement("span");
+  span.className = cls;
+  span.textContent = text;
+  return span;
+};
+
+function jsonLine(n, depth, parts, cls = "") {
+  const row = document.createElement("div");
+  row.className = "jl" + (cls ? " " + cls : "");
+  const num = jsonTok("jno", String(n));
+  const text = document.createElement("span");
+  text.className = "jt";
+  text.style.setProperty("--d", depth);
+  text.append(...parts);
+  row.append(num, text);
+  return row;
+}
+
+function jsonChildPath(path, key, isIndex) {
+  if (isIndex) return `${path}[${key}]`;
+  if (/^[A-Za-z_$][\w$]*$/.test(key)) return path ? `${path}.${key}` : key;
+  return `${path}[${JSON.stringify(key)}]`;
+}
+
+function jsonKey(key, path) {
+  const tok = jsonTok("jk", JSON.stringify(key));
+  tok.dataset.path = path;
+  tok.title = path + " — click to copy";
+  return [tok, jsonTok("jp", ": ")];
+}
+
+function jsonValueTok(value) {
+  if (typeof value === "string") return jsonTok("js", JSON.stringify(value));
+  if (typeof value === "number") return jsonTok("jnum", String(value));
+  return jsonTok("jlit", String(value));      // true, false, null
+}
+
+function jsonNode({key, isIndex, value, depth, line, path, last, openDepth}) {
+  const lead = key === null || isIndex ? [] : jsonKey(key, path);
+  const comma = last ? [] : [jsonTok("jp", ",")];
+  if (value === null || typeof value !== "object") {
+    return jsonLine(line, depth, [...lead, jsonValueTok(value), ...comma]);
+  }
+  const arr = Array.isArray(value);
+  const entries = arr ? value.map((v, i) => [i, v]) : Object.entries(value);
+  const [open, close] = arr ? ["[", "]"] : ["{", "}"];
+  if (!entries.length) return jsonLine(line, depth, [...lead, jsonTok("jp", open + close), ...comma]);
+
+  const node = document.createElement("div");
+  node.className = "jnode";
+  node.dataset.path = path;
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "jtoggle";
+  toggle.innerHTML = ICONS.caret;
+  const size = entries.length;
+  const noun = arr ? (size === 1 ? "item" : "items") : (size === 1 ? "key" : "keys");
+  const head = jsonLine(line, depth, [
+    toggle, ...lead, jsonTok("jp j-open", open),
+    jsonTok("jsum j-shut", open + "…" + close), jsonTok("jcount j-shut", ` ${size.toLocaleString()} ${noun}`),
+    ...(last ? [] : [jsonTok("jp j-shut", ",")]),
+  ], "jhead");
+  const kids = document.createElement("div");
+  kids.className = "jkids";
+  const tail = jsonLine(line + jsonCount(value) - 1, depth, [jsonTok("jp", close), ...comma], "jtail");
+  node.append(head, kids, tail);
+  node._build = () => {
+    node._build = null;
+    let at = line + 1;
+    entries.forEach(([k, v], i) => {
+      kids.append(jsonNode({key: k, isIndex: arr, value: v, depth: depth + 1, line: at,
+                            path: jsonChildPath(path, k, arr), last: i === entries.length - 1, openDepth}));
+      at += jsonCount(v);
+    });
+  };
+  // A redraw of the same file keeps what the reader opened and folded.
+  const kept = jsonState.folds.get(path);
+  jsonSetOpen(node, kept === undefined ? depth < openDepth : kept);
+  return node;
+}
+
+function jsonSetOpen(node, open) {
+  if (open && node._build) node._build();
+  node.classList.toggle("shut", !open);
+  const toggle = node.querySelector(":scope > .jhead .jtoggle");
+  if (toggle) {
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.setAttribute("aria-label", open ? "Collapse" : "Expand");
+  }
+}
+
+function jsonSetAll(scope, open) {
+  if (open && jsonState.total > JSON_EXPAND_ALL_LINES) {
+    toast("This file is too large to expand everything at once", true);
+    return false;
+  }
+  const visit = (node) => {
+    jsonSetOpen(node, open);
+    node.querySelectorAll(":scope > .jkids > .jnode").forEach(visit);
+  };
+  scope.querySelectorAll(":scope > .jnode, :scope > .jkids > .jnode").forEach((node) => {
+    if (node === scope) return;
+    visit(node);
+  });
+  return true;
+}
+
+function renderJSON(text) {
+  if (text.length > JSON_MAX_CHARS) return false;
+  let value;
+  try { value = JSON.parse(text); }
+  catch (err) { jsonState.error = err.message; return false; }
+  jsonState.error = null;
+  // The file rewritten on disk redraws; remember its folds, keyed by path.
+  const same = jsonState.body && jsonState.file === state.file.path && el.preview.contains(jsonState.body);
+  jsonState.folds = new Map();
+  if (same) {
+    jsonState.body.querySelectorAll(".jnode").forEach((n) => jsonState.folds.set(n.dataset.path, !n.classList.contains("shut")));
+  }
+  jsonState.file = state.file.path;
+  jsonState.lines = new WeakMap();
+  jsonState.total = jsonCount(value);
+  const openDepth = jsonState.total <= JSON_OPEN_ALL_LINES ? Infinity : JSON_OPEN_DEPTH;
+  el.preview.className = "prose codeview jsonview";
+  el.preview.innerHTML = "";
+  const body = document.createElement("div");
+  body.className = "jsonbody";
+  body.style.setProperty("--jno-w", String(jsonState.total).length + "ch");
+  body.append(jsonNode({key: null, isIndex: false, value, depth: 0, line: 1, path: "", last: true, openDepth}));
+  el.preview.append(body);
+  jsonState.body = body;
+  root.dataset.json = "on";
+  el.footnote.textContent = `${jsonState.total.toLocaleString()} lines`;
+  return true;
+}
+
+function jsonExpandAll() {
+  if (!jsonState.body) return false;
+  const top = jsonState.body.querySelector(":scope > .jnode");
+  if (!top) return true;
+  jsonSetOpen(top, true);
+  return jsonSetAll(top, true);
+}
+
+function jsonCollapseAll() {
+  const top = jsonState.body?.querySelector(":scope > .jnode");
+  if (!top) return;
+  jsonSetOpen(top, true);           // the outermost level stays open
+  jsonSetAll(top, false);
+}
+
+el.preview.addEventListener("click", (ev) => {
+  if (root.dataset.json !== "on") return;
+  const key = ev.target.closest(".jk");
+  if (key && key.dataset.path) {
+    navigator.clipboard.writeText(key.dataset.path)
+      .then(() => toast("Copied " + key.dataset.path))
+      .catch(() => toast("The path could not be copied", true));
+    return;
+  }
+  const hit = ev.target.closest(".jtoggle, .jsum, .jcount");
+  if (!hit) return;
+  const node = hit.closest(".jnode");
+  const open = node.classList.contains("shut");
+  // ⌥-click opens or folds everything inside, as with headings.
+  if (ev.altKey) {
+    jsonSetOpen(node, true);
+    if (!jsonSetAll(node, open) && !open) return;
+    if (!open) jsonSetOpen(node, false);
+  } else {
+    jsonSetOpen(node, open);
+  }
+});
+$("json-expand").onclick = () => jsonExpandAll();
+$("json-collapse").onclick = () => jsonCollapseAll();
 
 /* small, correct CSV reader: quoted fields, embedded commas and newlines */
 function parseDSV(text, delim) {
@@ -4674,6 +4890,8 @@ function findRun({keepPlace = false} = {}) {
   const was = keepPlace ? find.at : -1;
   findClear();
   const needle = el.findQ.value.trim().toLowerCase();
+  // Folded parts of a JSON view are not built yet; open them to be searched.
+  if (needle && root.dataset.json === "on") jsonExpandAll();
   if (needle) find.hits = findWrap(needle);
   find.at = find.hits.length ? Math.min(Math.max(was, 0), find.hits.length - 1) : -1;
   findPaint();

@@ -553,6 +553,33 @@ html[data-doc=pdf] #previewpane{overflow:hidden}
   font-family:var(--font-mono);font-size:var(--fs-editor);line-height:1.7;
 }
 .codegrid code{white-space:pre;background:none;border:0;padding:0;font-size:inherit;display:block}
+/* JSON: an editor's numbered lines, but each line wraps at its own indent
+   and objects and arrays fold. The number column is drawn per line, so a
+   fold leaves a gap in the numbers as an editor's does. */
+.jsonbody{background:var(--panel);font-family:var(--font-mono);font-size:var(--fs-editor);
+  line-height:1.7;padding:22px 0 22px;min-height:100%}
+.jl{display:flex;align-items:flex-start}
+.jno{flex:none;box-sizing:content-box;width:var(--jno-w,3ch);padding:0 13px 0 18px;text-align:right;
+  color:var(--text-3);user-select:none;align-self:stretch;border-right:1px solid var(--border-soft)}
+.jt{flex:1;min-width:0;white-space:pre-wrap;overflow-wrap:anywhere;
+  padding:0 26px 0 calc(var(--d) * 2ch + 2.2ch);position:relative}
+.jtoggle{position:absolute;margin-left:-1.8ch;width:1.6ch;height:1.7em;padding:0;border:0;background:none;
+  color:var(--text-3);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.jtoggle svg{width:.8em;height:.8em;fill:none;stroke:currentColor;stroke-width:1.8;transform:rotate(90deg);
+  transition:transform var(--speed)}
+.jnode.shut > .jhead .jtoggle svg{transform:none}
+.jtoggle:hover{color:var(--text)}
+.jnode.shut > .jkids,.jnode.shut > .jtail{display:none}
+.jnode:not(.shut) > .jhead .j-shut,.jnode.shut > .jhead .j-open{display:none}
+.jk{color:var(--c-key);cursor:copy}
+.jk:hover{text-decoration:underline;text-underline-offset:2px}
+.js{color:var(--c-str)} .jnum{color:var(--c-num)} .jlit{color:var(--c-fn)}
+.jp{color:var(--text-3)}
+.jsum{color:var(--text-2);cursor:pointer;border-radius:4px;padding:0 2px;background:var(--panel-hi)}
+.jcount{color:var(--text-3);font-style:italic;cursor:pointer}
+.prose .json-note{font-family:var(--ui);font-size:12px;color:var(--text-3);margin:14px 20px 10px}
+#json-tools{display:none}
+html[data-json=on]:not([data-mode=edit]) #json-tools{display:flex}
 .prose.tableview{max-width:min(1200px,100%)}
 .prose .csv-note{font-family:var(--ui);font-size:12px;color:var(--text-3);margin-top:10px}
 
@@ -1308,9 +1335,9 @@ html[data-theme=dark] .mermaid-diagram{--diagram-bg:color-mix(in srgb,var(--pane
 .toolbar-group{display:flex;align-items:center;gap:.25rem;flex:none}
 .segmented{flex:none}
 .view-controls{display:flex;align-items:center;gap:.4375rem;flex:none}
-:is(#preview-layout,#edit-preview) .layout-choice{background:transparent;border-color:transparent;box-shadow:none;width:1.875rem;height:1.75rem;color:var(--text-3)}
-:is(#preview-layout,#edit-preview) .layout-choice:hover{color:var(--text);background:var(--raised)}
-:is(#preview-layout,#edit-preview) .layout-choice[aria-pressed=true]{background:var(--raised);color:var(--accent-text);box-shadow:var(--shadow);border-color:var(--border)}
+:is(#preview-layout,#edit-preview,#json-tools) .layout-choice{background:transparent;border-color:transparent;box-shadow:none;width:1.875rem;height:1.75rem;color:var(--text-3)}
+:is(#preview-layout,#edit-preview,#json-tools) .layout-choice:hover{color:var(--text);background:var(--raised)}
+:is(#preview-layout,#edit-preview,#json-tools) .layout-choice[aria-pressed=true]{background:var(--raised);color:var(--accent-text);box-shadow:var(--shadow);border-color:var(--border)}
 /* Split: two documents in one tab. The side pane is this page embedded, so
    each half of the toolbar row is the header of the document below it. */
 html[data-split=on]:not([data-pane=side]) #main{flex:var(--split,.5) 1 0px;min-width:320px}

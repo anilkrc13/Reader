@@ -1,7 +1,7 @@
 # owned by skills/repository-context/scripts/context_freshness.py -- do not hand-edit
 {
-  "aggregate": "2db6853592e691c047938b30139110e862c3dbaeca2aa00ba29290d2fbc94ef3",
-  "commit": "24f5dc348b32f84f7449d8e054c4953e31306b2a",
+  "aggregate": "e7771c83db14b39b491185b5db53fa8fea98ab22ec72cf179ac2e1e17351c1dc",
+  "commit": "9472c1ba0c074b43b73d6d8250536d5f2d2f8a55",
   "exclude": [],
   "files": {
     ".github/ISSUE_TEMPLATE/bug_report.md": {
@@ -37,8 +37,8 @@
     "CHANGELOG.md": {
       "executable": false,
       "kind": "file",
-      "length": 14740,
-      "sha256": "9e167498c58338b66f567e48f40bf33b26af92aa7f3856db0b7600eea35de634"
+      "length": 15116,
+      "sha256": "a9ba47f1d7afb432948b6827afa908bdd9d20cd11ba7c94ab58d572fbaf3cd84"
     },
     "CONTRIBUTING.md": {
       "executable": false,
@@ -55,8 +55,8 @@
     "README.md": {
       "executable": false,
       "kind": "file",
-      "length": 19688,
-      "sha256": "c2279a3d3c27b0159d0842fe67952dc6d59ade6fba7d554b7503104de77a07d9"
+      "length": 20385,
+      "sha256": "430f1e527d8d80104a402b22b55509340f8149dac0ede16db0b22adff3198a27"
     },
     "SECURITY.md": {
       "executable": false,
@@ -265,14 +265,14 @@
     "static/app.css": {
       "executable": false,
       "kind": "file",
-      "length": 83833,
-      "sha256": "5b4a75a744855a2861ff677b4f3e46538e78d4f01a4cc10dfde9092ad6805fd5"
+      "length": 85725,
+      "sha256": "d317198b2949bcbbfa330f1c4c8482c4b13a9db4771220730c9a8852569463e4"
     },
     "static/app.js": {
       "executable": false,
       "kind": "file",
-      "length": 248491,
-      "sha256": "08df4408688b5631a4e2e073bd28d48926049bb232e762c2ef4a56a16be394ad"
+      "length": 257001,
+      "sha256": "c79ffde6e31498a82e1733b412ddb68b2256836e6a783a0dc0cdc0f9b895105b"
     },
     "static/fonts/ebgaramond-latin-variable-italic.ttf": {
       "executable": false,
@@ -487,8 +487,8 @@
     "static/index.html": {
       "executable": false,
       "kind": "file",
-      "length": 55371,
-      "sha256": "245b7a679aad0a9a09e7986a2fcfc1169d400228a6a793a4631e1872ec82bbee"
+      "length": 56003,
+      "sha256": "07b91b436c745e2c97b043fdfaed18e8b58a3a04ee9b13059c7d4bdb8550853b"
     },
     "static/marked.min.js": {
       "executable": false,
@@ -517,8 +517,8 @@
     "tests/browser/webmcp.spec.js": {
       "executable": false,
       "kind": "file",
-      "length": 58330,
-      "sha256": "8e5831f54f1d53b730199ff4812e8fdfe12d66f673c8c4716e2360921ebbb103"
+      "length": 61388,
+      "sha256": "9c7f1551d091d3f41f2af716d1264fbc7d5d9ece0b708ecf550d31569f0c7562"
     },
     "tests/manual/update-feed-server.py": {
       "executable": false,
