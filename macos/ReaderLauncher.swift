@@ -1720,6 +1720,9 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
         /* The toolbar already names the document, and the tab names it again
            when there are tabs; a third copy in the title bar is noise. */
         window.titleVisibility = .hidden
+        /* The title bar shows the window's own colour, which follows Reader's
+           paper; otherwise light mode stacks system white over Reader's cream. */
+        window.titlebarAppearsTransparent = true
         window.tabbingIdentifier = tabbingIdentifier
         window.isReleasedWhenClosed = false
         window.contentView = content
@@ -1802,6 +1805,10 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
             .withSymbolConfiguration(.init(pointSize: 14, weight: .regular))
         panelButton.toolTip = shown ? "Hide panel (⌘\\)" : "Show panel (⌘\\)"
         panelButton.contentTintColor = shown ? .labelColor : .secondaryLabelColor
+        if let paper = ReaderPage.color(hex: body["paper"] as? String) {
+            window.backgroundColor = paper
+            window.contentView?.layer?.backgroundColor = paper.cgColor
+        }
         let split = body["split"] as? Bool ?? false
         splitButton.contentTintColor = split ? .controlAccentColor : .secondaryLabelColor
         splitButton.toolTip = split ? "Close the second document (⌥⌘\\)" : "Show two documents side by side (⌥⌘\\)"
@@ -1831,7 +1838,8 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
     private func styleTab() {
         let title = window.title
         window.tab.attributedTitle = NSAttributedString(string: title, attributes: [
-            .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize, weight: .medium),
+            // 12pt, as browsers set tab titles; the small system size read tiny.
+            .font: NSFont.systemFont(ofSize: 12, weight: .medium),
             .foregroundColor: NSColor.labelColor
         ])
         let name = title.hasPrefix("• ") ? String(title.dropFirst(2)) : title
@@ -1849,6 +1857,15 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
         icon.contentTintColor = .secondaryLabelColor
         icon.frame = NSRect(x: 0, y: 0, width: 16, height: 14)
         window.tab.accessoryView = icon
+    }
+
+    /* "#rrggbb" from the page's --paper; anything else is ignored. */
+    fileprivate static func color(hex: String?) -> NSColor? {
+        guard let hex, hex.count == 7, hex.hasPrefix("#"),
+              let value = UInt32(hex.dropFirst(), radix: 16) else { return nil }
+        return NSColor(srgbRed: CGFloat((value >> 16) & 0xff) / 255,
+                       green: CGFloat((value >> 8) & 0xff) / 255,
+                       blue: CGFloat(value & 0xff) / 255, alpha: 1)
     }
 
     /* Only the keys and value types the session can hold. */

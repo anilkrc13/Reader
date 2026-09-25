@@ -4,6 +4,9 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- In light mode the macOS title bar takes Reader's paper colour instead of
+  system white, following every paper choice. Tab titles are 12pt, the size
+  browsers use, up from 11pt.
 - Reload in a split's right-hand pane now re-reads the file panel, so new
   files and folders appear. It used to refresh only that pane's document.
 - Coming back to Reader re-reads the folders the file panel shows, so files

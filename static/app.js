@@ -205,6 +205,8 @@ function reportChrome() {
   const trail = splitActive() === "side" && sideReader() ? sideReader().trail() : trailState();
   const chrome = {
     theme: S.theme, side: S.side === "right" ? "right" : "left", panelShown: !S.hidden,
+    // The paper, so the title bar can wear it rather than the system's white.
+    paper: getComputedStyle(root).getPropertyValue("--paper").trim(),
     split: !!split.frame, ...trail,
   };
   const json = JSON.stringify(chrome);
