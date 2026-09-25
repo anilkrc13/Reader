@@ -2,37 +2,39 @@
 
 All notable changes to Reader. Versions follow [semantic versioning](https://semver.org).
 
-## Unreleased
+## 2.6.0
 
 - JSON files read like an editor's view of them: formatted, coloured, with
   numbered lines that wrap at their indent and objects and arrays that fold
-  to a summary. Expand all and Collapse all sit in the toolbar, clicking a
-  key copies its path, Find opens folds to reach a match, and folds survive
-  the file changing on disk. Edit still shows the file as it is on disk.
-
-- The keyboard scrolls what you are reading. Opening a document from the
-  file panel, or switching to Preview, gives it keyboard focus, so ↑ ↓,
-  Space and Page Up/Down scroll it; they used to do nothing, because focus
-  stayed on the panel. ⌘↑ and ⌘↓ go to the top and the bottom, or the
-  first and last spread.
+  to a summary such as "[…] 340 items". Expand all and Collapse all sit in
+  the toolbar, clicking a key copies its path, Find opens folds to reach a
+  match, and folds survive the file changing on disk. Edit still shows the
+  file exactly as it is on disk; invalid JSON is shown as text with the
+  reason.
+- In the macOS app, a file dragged in from Finder opens in the pane under the
+  pointer, and any further files in new tabs. It opens as a Finder open does,
+  read-only outside the folders Reader may edit.
 - The file panel's row menu offers the same ways to open a file as a link's
   menu, in the same order: Open, Open to the Side, and in the app Open in New
-  Tab and Open in New Window. It adds Copy Path, a file's Copy Link.
+  Tab and Open in New Window. It adds Copy Path.
+- Coming back to Reader re-reads the folders the file panel shows, so files
+  made elsewhere appear without Reload. The panel redraws only if something
+  changed, and keeps its scroll position.
+- The keyboard scrolls what you are reading. Opening a document from the
+  file panel, or switching to Preview, gives it keyboard focus, so ↑ ↓,
+  Space and Page Up/Down scroll it; they used to do nothing. ⌘↑ and ⌘↓ go
+  to the top and the bottom, or the first and last spread.
 - Menus highlight as a Mac's do: one accent bar that the pointer and the
   arrow keys both move, nothing highlighted on opening, and ↑ ↓ Home End
-  to move. The first item used to keep a focus ring while the pointer
-  showed a separate grey hover.
+  to move.
+- Links in a document are a hyperlink blue under every accent, kept at 4.5:1
+  contrast on the paper. With the Ink accent they used to be near-black and
+  looked like ordinary underlined text.
 - In light mode the macOS title bar takes Reader's paper colour instead of
   system white, following every paper choice. Tab titles are 12pt, the size
   browsers use, up from 11pt.
 - Reload in a split's right-hand pane now re-reads the file panel, so new
   files and folders appear. It used to refresh only that pane's document.
-- Coming back to Reader re-reads the folders the file panel shows, so files
-  made elsewhere appear without Reload. The panel redraws only if something
-  changed, and keeps its scroll position.
-- In the macOS app, a file dragged in from Finder opens in the pane under the
-  pointer, and any further files in new tabs. It opens as a Finder open does,
-  read-only outside the folders Reader may edit.
 
 ## 2.5.0
 
