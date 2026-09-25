@@ -1877,7 +1877,17 @@ async function openFile(path, {keepScroll = false, silent = false, record = true
     toast("Opened read-only; restart Reader with this file to edit it.", true);
   }
   if (record) trailPush(data.path);
+  if (!silent) focusReading();
   return data.path;
+}
+
+/* The browser scrolls with ↑ ↓, Space, Page Up/Down and Home/End only what
+   has keyboard focus. After a click in the file panel that is the panel's
+   row, so a freshly opened document is given focus -- unless the reader is
+   typing somewhere, or a dialog is open. */
+function focusReading() {
+  if (root.dataset.mode === "edit" || editingText() || overlayOpen()) return;
+  el.previewpane.focus({preventScroll: true});
 }
 
 /* Automatic saving waits for a pause rather than saving per keystroke, so a
@@ -2416,6 +2426,10 @@ const ICONS = {
   trash: '<svg viewBox="0 0 16 16"><path d="M2.8 4.3h10.4M6.4 4.3V3.2a.7.7 0 0 1 .7-.7h1.8a.7.7 0 0 1 .7.7v1.1"/><path d="M4.1 4.3l.6 8.2a1 1 0 0 0 1 .9h4.6a1 1 0 0 0 1-.9l.6-8.2"/></svg>',
   kebab: '<svg viewBox="0 0 16 16"><circle cx="8" cy="3.4" r="1.15" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r="1.15" fill="currentColor" stroke="none"/><circle cx="8" cy="12.6" r="1.15" fill="currentColor" stroke="none"/></svg>',
   pencil: '<svg viewBox="0 0 16 16"><path d="M10.7 2.7 13.3 5.3 5.8 12.8H3.2v-2.6z"/><path d="M9.3 4.1 11.9 6.7"/></svg>',
+  side: '<svg viewBox="0 0 16 16"><rect x="2.2" y="3" width="11.6" height="10" rx="1.4"/><path d="M8 3v10"/></svg>',
+  tab: '<svg viewBox="0 0 16 16"><path d="M2.2 13V5.4c0-.7.5-1.2 1.2-1.2h3.4l1 1.4h4.8c.7 0 1.2.5 1.2 1.2V13z"/></svg>',
+  window: '<svg viewBox="0 0 16 16"><rect x="2.2" y="3" width="11.6" height="10" rx="1.4"/><path d="M2.2 5.9h11.6"/></svg>',
+  copy: '<svg viewBox="0 0 16 16"><rect x="5.4" y="5.4" width="7.8" height="7.8" rx="1.2"/><path d="M10.6 5.4V3.9c0-.6-.5-1.1-1.1-1.1H3.9c-.6 0-1.1.5-1.1 1.1v5.6c0 .6.5 1.1 1.1 1.1h1.5"/></svg>',
 };
 
 const listQuery = (path) => {
@@ -2548,9 +2562,18 @@ function openRowMenu(anchor, path, kind) {
        the menu should promise only what a click on the row would do. */
     if (EXT_APP.has(extOf(path))) add(ICONS.file, "Open in its own app", () => openExternal(path));
     else {
+      /* The same ways to open as a link's menu, in the same order and words,
+         so the two read as one menu. Tabs and windows are the app's. */
       add(ICONS.file, "Open", () => openFromPanel(path));
-      add(ICONS.file, "Open to the Side", () => openBeside(path));
+      add(ICONS.side, "Open to the Side", () => openBeside(path));
+      if (nativeBridge()) {
+        add(ICONS.tab, "Open in New Tab", () => openInNewTab(path));
+        add(ICONS.window, "Open in New Window", () => openInNewWindow(path));
+      }
     }
+    sep();
+    // A link's menu copies the link; a file's, where it lives.
+    add(ICONS.copy, "Copy Path", () => copyPath(path));
     sep();
     add(ICONS.pencil, "Rename…", () => openRenamer(path, kind));
     sep();
@@ -2567,9 +2590,41 @@ function openRowMenu(anchor, path, kind) {
   }
   el.menu.style.left = x + "px";
   el.menu.style.top = y + "px";
-  const first = el.menu.querySelector(".menu-item");
-  if (first) first.focus();
+  el.menu.focus({preventScroll: true});
 }
+
+/* Menus behave as a Mac's do: one highlight, which the pointer and the arrow
+   keys both move, and nothing highlighted until one of them does. The menu
+   keeps keyboard focus and marks its current item itself: WebKit does not
+   move focus to a button under the pointer, so a focus-based highlight
+   stayed where the keys left it. ↵ chooses the current item. */
+el.menu.tabIndex = -1;
+function setMenuItem(item) {
+  el.menu.querySelectorAll(".menu-item.is-current").forEach((n) => n.classList.remove("is-current"));
+  if (item) item.classList.add("is-current");
+}
+el.menu.addEventListener("mouseover", (ev) => setMenuItem(ev.target.closest(".menu-item")));
+el.menu.addEventListener("mouseleave", () => setMenuItem(null));
+el.menu.addEventListener("keydown", (ev) => {
+  const items = [...el.menu.querySelectorAll(".menu-item")];
+  if (!items.length) return;
+  const current = el.menu.querySelector(".menu-item.is-current");
+  if ((ev.key === "Enter" || ev.key === " ") && current) {
+    ev.preventDefault();
+    current.click();
+    return;
+  }
+  const at = items.indexOf(current);
+  let next = null;
+  if (ev.key === "ArrowDown") next = items[(at + 1) % items.length];
+  else if (ev.key === "ArrowUp") next = items[at <= 0 ? items.length - 1 : at - 1];
+  else if (ev.key === "Home") next = items[0];
+  else if (ev.key === "End") next = items[items.length - 1];
+  if (!next) return;
+  ev.preventDefault();
+  setMenuItem(next);
+  next.scrollIntoView({block: "nearest"});
+});
 
 window.addEventListener("mousedown", (ev) => {
   if (!el.menu.hidden && !el.menu.contains(ev.target)) closeMenu();
@@ -3133,8 +3188,7 @@ function openLocMenu() {
   if (y + el.menu.offsetHeight > window.innerHeight - 8) y = rect.top - el.menu.offsetHeight - 5;
   el.menu.style.left = x + "px";
   el.menu.style.top = y + "px";
-  const first = el.menu.querySelector(".menu-item");
-  if (first) first.focus();
+  el.menu.focus({preventScroll: true});
 }
 
 /* ==========================================================================
@@ -3565,6 +3619,7 @@ function setMode(mode) {
   savePrefs();
   hideFmtBar();
   if (mode !== "preview") setTimeout(() => el.editor.focus({preventScroll: true}), 0);
+  else focusReading();
 }
 function syncEditPreview() {
   const shown = root.dataset.mode === "split";
@@ -4199,6 +4254,27 @@ document.addEventListener("keydown", (ev) => {
      particular, paste's native default action must survive the event path;
      stopping propagation at the textarea prevents it in WKWebView. */
   if (meta && editingText() && isNativeTextCommand(ev)) return;
+
+  /* 3b. Reading keys. ⌘↑ and ⌘↓ go to the top and the bottom, or the first and
+     last spread. ↑ and ↓ scroll the document even when focus is elsewhere,
+     say on a toolbar button; with the document focused the browser does it. */
+  if (!ev.altKey && !ev.shiftKey && (ev.key === "ArrowUp" || ev.key === "ArrowDown") &&
+      root.dataset.mode !== "edit" && !editingText() && !overlayOpen() &&
+      // A scrolling table or code block, or a control, in the document keeps its arrows.
+      !(el.previewpane.contains(ev.target) && nativePreviewInput(ev.target))) {
+    const down = ev.key === "ArrowDown";
+    if (meta) {
+      ev.preventDefault();
+      if (paging.active) showSpread(down ? Number.MAX_SAFE_INTEGER : 0);
+      else el.previewpane.scrollTo({top: down ? el.previewpane.scrollHeight : 0});
+      return;
+    }
+    if (!paging.active && !el.previewpane.contains(document.activeElement)) {
+      ev.preventDefault();
+      el.previewpane.scrollBy({top: down ? 40 : -40});
+      return;
+    }
+  }
 
   /* 4. Back and forward. Bare arrows and ⌘←/⌘→ while reading, as in Safari;
      they are left alone when the caret owns them (⌘←/⌘→ are start and end of
@@ -5384,6 +5460,17 @@ function openInNewTab(path) {
   const bridge = nativeBridge();
   if (bridge) bridge.postMessage({action: "openInNewTab", path}).catch(() => {});
   else followLocalLink(path);
+}
+
+function openInNewWindow(path) {
+  const bridge = nativeBridge();
+  if (bridge) bridge.postMessage({action: "openInNewWindow", path}).catch(() => {});
+  else followLocalLink(path);
+}
+
+async function copyPath(path) {
+  try { await navigator.clipboard.writeText(path); toast("Path copied"); }
+  catch (_) { toast("The path could not be copied", true); }
 }
 
 function paneTrailGo(delta) {

@@ -1023,9 +1023,15 @@ html[data-tableborders=on] .prose td + td{border-left:1px solid var(--rule)}
   padding:.46875rem .625rem;border-radius:.5rem;font-size:.8125rem;font-weight:500;color:var(--text);
   transition:background var(--speed),color var(--speed);
 }
-.menu-item:hover{background:var(--panel-hi)}
+/* The one highlight: the item the pointer or the arrow keys are on. */
+.menu-item:focus{outline:none}
+.menu-item.is-current{background:var(--accent-fill);color:var(--accent-on)}
 .menu-item.danger{color:var(--danger)}
-.menu-item.danger:hover{background:var(--danger);color:#fff}
+.menu-item.danger.is-current{background:var(--danger);color:#fff}
+#ctxmenu:focus{outline:none}
+.menu-item.is-current .mi-here{color:inherit;opacity:.8}
+/* Focused so the reading keys scroll it; the page itself is the indication. */
+#previewpane:focus{outline:none}
 .menu-item svg{width:.9375rem;height:.9375rem;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;
   stroke-linecap:round;stroke-linejoin:round}
 .menu-sep{height:1px;background:var(--border-soft);margin:.3125rem .4375rem}

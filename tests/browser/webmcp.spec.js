@@ -496,6 +496,31 @@ test("searches, opens a deep result, and navigates back and forward", async ({pa
   expect(await activePath()).toBe(beta);
 });
 
+test("scrolls the document with the keyboard after opening it from the panel, and ⌘↑ ⌘↓ go to the ends", async ({page}) => {
+  await page.setViewportSize({width: 1200, height: 700});
+  const long = path.join(workspace, "long-read.md");
+  await fs.writeFile(long, "# Long\n\n" + Array.from({length: 80}, (_, i) => `Paragraph ${i} with enough words to wrap.`).join("\n\n"));
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => Object.keys(window.__readerWebMCPTools || {}).length)).toBe(11);
+  await page.locator(`#tree .row[data-path="${long}"]`).click();
+  await expect(page.locator("#docname")).toHaveText("long-read.md");
+  const top = () => page.locator("#previewpane").evaluate((n) => n.scrollTop);
+  // Opening from the panel hands the document the keyboard.
+  await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe("previewpane");
+  await page.keyboard.press("ArrowDown");
+  await expect.poll(top).toBeGreaterThan(0);
+  // The browser animates an arrow-key scroll; let it finish first.
+  await page.waitForTimeout(500);
+  await page.keyboard.press("Meta+ArrowDown");
+  await expect.poll(top).toBeGreaterThan(1000);
+  await page.keyboard.press("Meta+ArrowUp");
+  await expect.poll(top).toBe(0);
+  // With focus on a toolbar button, ↓ still scrolls the document.
+  await page.locator("#btn-refresh").focus();
+  await page.keyboard.press("ArrowDown");
+  await expect.poll(top).toBeGreaterThan(0);
+});
+
 test("offers two modes, Preview and Edit, with the preview beside the editor as a toggle Edit remembers", async ({page}) => {
   await open(page, path.join(workspace, "alpha.md"));
   const mode = () => page.locator("html").getAttribute("data-mode");
@@ -631,6 +656,32 @@ test("splits a tab into two documents: the panel opens into the active pane, nev
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(row(path.join(workspace, "made-while-away"))).toBeVisible();
 
+  /* The file panel's menu offers a link menu's ways to open, in its order;
+     tabs and windows only in the app. Copy Path is a file's Copy Link. */
+  await row(gamma).click({button: "right"});
+  const items = page.locator("#ctxmenu .menu-item");
+  await expect(items).toHaveText(["Open", "Open to the Side", "Copy Path", "Rename…", "Move to Trash…"]);
+  // One highlight, moved by the pointer and the arrow keys; none on opening.
+  const current = () => page.evaluate(() => document.querySelector("#ctxmenu .menu-item.is-current")?.textContent ?? null);
+  expect(await current()).toBeNull();
+  await items.nth(2).hover();
+  expect(await current()).toBe("Copy Path");
+  await page.keyboard.press("ArrowDown");
+  expect(await current()).toBe("Rename…");
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("ArrowUp");
+  expect(await current()).toBe("Open to the Side");
+  // The pointer takes the highlight back from the keys, and only one item has it.
+  await items.nth(3).hover();
+  expect(await current()).toBe("Rename…");
+  await expect(page.locator("#ctxmenu .menu-item.is-current")).toHaveCount(1);
+  // And it is visible: the current item is filled, the others are not.
+  const fills = () => items.evaluateAll((n) => n.map((x) => getComputedStyle(x).backgroundColor));
+  // The fill fades in, so wait for it to settle.
+  await expect.poll(async () => (await fills()).map((c) => c !== "rgba(0, 0, 0, 0)"))
+    .toEqual([false, false, false, true, false]);
+  await page.keyboard.press("Escape");
+
   // The side pane's ✕ returns the tab to one document.
   await side.locator("#btn-close-pane").click();
   await expect(page.locator("html")).toHaveAttribute("data-split", "off");
@@ -728,6 +779,14 @@ test("tabs keep their own place: a new tab opens its folder empty, a restored ta
   await ready(restored);
   await expect.poll(() => activePath(restored)).toBe(beta);
   await expect(restored.locator("html")).toHaveAttribute("data-mode", "preview");
+
+  // In the app the file panel's menu adds New Tab and New Window.
+  await restored.locator(`#tree .row[data-path="${beta}"]`).click({button: "right"});
+  await expect(restored.locator("#ctxmenu .menu-item")).toHaveText(
+    ["Open", "Open to the Side", "Open in New Tab", "Open in New Window", "Copy Path", "Rename…", "Move to Trash…"]);
+  await restored.locator("#ctxmenu .menu-item", {hasText: "Open in New Window"}).click();
+  await expect.poll(() => restored.evaluate(() => window.__posted.filter((m) => m.action === "openInNewWindow")))
+    .toEqual([{action: "openInNewWindow", path: beta}]);
 
   // ⌘-click on a local link asks the app for a new tab instead of opening in place.
   const linker = path.join(deep, "linker.md");

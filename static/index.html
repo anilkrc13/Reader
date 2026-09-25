@@ -219,7 +219,7 @@
                   placeholder="Nothing open yet — pick a file from the panel." aria-label="Document source"></textarea>
       </section>
       <div id="gutter"></div>
-      <section id="previewpane">
+      <section id="previewpane" tabindex="-1">
         <article id="preview" class="prose"></article>
         <div class="page-edge" data-dir="-1" aria-hidden="true">
           <svg viewBox="0 0 20 20"><path d="M12 4 6 10l6 6"/></svg>
@@ -800,6 +800,8 @@
               <tbody>
                 <tr><td>Back / forward through documents</td><td><kbd class="k" data-kbd>⌘←</kbd> <kbd class="k" data-kbd>⌘→</kbd> or <kbd class="k" data-kbd>⌘[</kbd> <kbd class="k" data-kbd>⌘]</kbd>; <kbd class="k">←</kbd> <kbd class="k">→</kbd> in a single column</td></tr>
                 <tr><td>Previous / next pages in the two-page layout</td><td><kbd class="k">←</kbd> <kbd class="k">→</kbd> or <kbd class="k">↑</kbd> <kbd class="k">↓</kbd>, or click the outer margin</td></tr>
+                <tr><td>Scroll the document</td><td><kbd class="k">↑</kbd> <kbd class="k">↓</kbd>, <kbd class="k">Space</kbd>, <kbd class="k">Page Up</kbd> <kbd class="k">Page Down</kbd></td></tr>
+                <tr><td>Top / bottom of the document</td><td><kbd class="k" data-kbd>⌘↑</kbd> <kbd class="k" data-kbd>⌘↓</kbd></td></tr>
                 <tr><td>Larger / smaller text</td><td><kbd class="k" data-kbd>⌘+</kbd> <kbd class="k" data-kbd>⌘−</kbd></td></tr>
                 <tr><td>Default text size</td><td><kbd class="k" data-kbd>⌘0</kbd></td></tr>
                 <tr><td>New document, beside the open one</td><td><kbd class="k" data-kbd>⌘N</kbd></td></tr>
