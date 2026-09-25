@@ -4,6 +4,18 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- The keyboard scrolls what you are reading. Opening a document from the
+  file panel, or switching to Preview, gives it keyboard focus, so ↑ ↓,
+  Space and Page Up/Down scroll it; they used to do nothing, because focus
+  stayed on the panel. ⌘↑ and ⌘↓ go to the top and the bottom, or the
+  first and last spread.
+- The file panel's row menu offers the same ways to open a file as a link's
+  menu, in the same order: Open, Open to the Side, and in the app Open in New
+  Tab and Open in New Window. It adds Copy Path, a file's Copy Link.
+- Menus highlight as a Mac's do: one accent bar that the pointer and the
+  arrow keys both move, nothing highlighted on opening, and ↑ ↓ Home End
+  to move. The first item used to keep a focus ring while the pointer
+  showed a separate grey hover.
 - In light mode the macOS title bar takes Reader's paper colour instead of
   system white, following every paper choice. Tab titles are 12pt, the size
   browsers use, up from 11pt.

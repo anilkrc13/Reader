@@ -2027,6 +2027,14 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
                 app?.saveSession()
             }
             replyHandler(true, nil)
+        case "openInNewWindow":
+            // As Open Link in New Window does: a click's treatment, no grant.
+            if let path = body["path"] as? String, path.hasPrefix("/") {
+                app?.openWindow(from: self, linkPath: path)
+                replyHandler(true, nil)
+            } else {
+                replyHandler(nil, "malformed path")
+            }
         case "openInNewTab":
             // A document link's resolved path, as for the context menu: opened
             // as a click would, never a grant.
