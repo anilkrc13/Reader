@@ -1280,6 +1280,7 @@ function render(text) {
     a.href = "/open?path=" + encodeURIComponent(a.dataset.local) +
              (fragment === undefined ? "" : "#" + fragment);
   });
+  el.preview.querySelectorAll("table:not(.frontmatter)").forEach(shapeTable);
   el.preview.querySelectorAll("li > input[type=checkbox]").forEach((box) => {
     const item = box.parentElement;
     item.classList.add("task-list-item");
@@ -1595,6 +1596,35 @@ el.preview.addEventListener("click", (ev) => {
   setFold(head, !head.classList.contains("folded"));
   keepHeadingInView(head);
 });
+
+/* A table is fitted to the text column, and the browser would rather wrap a
+   cell than scroll, breaking even "08-18" at its hyphen. A value with no
+   space in it -- a date, an amount, an ID -- or a short one such as
+   "G19, G20" stays on one line, and a column of longer text keeps a readable
+   width; the table scrolls sideways instead of squeezing either. A column that is almost all numbers aligns right
+   with even-width digits, so amounts read down it as in a spreadsheet. */
+const NUMERIC_CELL = /^[−\-+(]?[$€£¥]?\s?[\d,.]*\d[\d,.]*\)?\s?%?$/;
+function shapeTable(table) {
+  const rows = [...table.rows];
+  const width = Math.max(0, ...rows.map((r) => r.cells.length));
+  for (let col = 0; col < width; col++) {
+    let values = 0, numbers = 0;
+    for (const row of rows) {
+      const cell = row.cells[col];
+      if (!cell) continue;
+      const text = cell.textContent.trim();
+      if (text && ((!/\s/.test(text) && text.length <= 32) || text.length <= 12)) cell.classList.add("t-keep");
+      else if (text) cell.classList.add("t-text");
+      if (cell.tagName === "TD" && text) {
+        values++;
+        if (NUMERIC_CELL.test(text)) numbers++;
+      }
+    }
+    if (values && numbers / values >= 0.8) {
+      for (const row of rows) row.cells[col]?.classList.add("t-num");
+    }
+  }
+}
 
 function renderCode(text) {
   el.preview.className = "prose codeview";

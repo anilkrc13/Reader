@@ -841,6 +841,11 @@ html[data-theme=light] .prose a code{
   padding-top:0;padding-bottom:9px;
 }
 .prose tbody td{color:var(--prose-body)}
+/* Set by shapeTable: a value with no space stays whole, and a numeric column
+   aligns right on even-width digits. */
+.prose :is(td,th).t-keep{white-space:nowrap}
+.prose td.t-text{min-width:10em}
+.prose :is(td,th).t-num{text-align:right;font-variant-numeric:tabular-nums}
 /* Reading > Tables > Column borders. Off by default: row rules alone keep a
    table reading as prose. On, the same hairline runs between the columns --
    the outer edges stay open either way, so the table still starts and ends on

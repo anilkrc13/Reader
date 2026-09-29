@@ -1,7 +1,7 @@
 # owned by skills/repository-context/scripts/context_freshness.py -- do not hand-edit
 {
-  "aggregate": "2e56cfae3ef660fb1d986ebbd1e908356e4af9939d1d3e274d91ae3cd8d57ccd",
-  "commit": "b57dc757ef9156056bad6b1d724105987c68a740",
+  "aggregate": "5bebedf8614c42e195be3942234bee4cdc35118665e98b451252fab809d6d980",
+  "commit": "c4a6c3537cbf9164801bcdaae66ab346aa439f4f",
   "exclude": [],
   "files": {
     ".github/ISSUE_TEMPLATE/bug_report.md": {
@@ -37,8 +37,8 @@
     "CHANGELOG.md": {
       "executable": false,
       "kind": "file",
-      "length": 15240,
-      "sha256": "abdd4f96e47db4681103626730ef11c9b98671fb8f49e3c4ba0e5af1b980430d"
+      "length": 15549,
+      "sha256": "0a099b716b314c5f872253f66ef89a3ee022ec984fe6116592093e158c5c2d7f"
     },
     "CONTRIBUTING.md": {
       "executable": false,
@@ -265,14 +265,14 @@
     "static/app.css": {
       "executable": false,
       "kind": "file",
-      "length": 85725,
-      "sha256": "d317198b2949bcbbfa330f1c4c8482c4b13a9db4771220730c9a8852569463e4"
+      "length": 85998,
+      "sha256": "058c2493ca425c26522a03b54d8d3eded8e0853773223a39de16421ad2e0cbb5"
     },
     "static/app.js": {
       "executable": false,
       "kind": "file",
-      "length": 257001,
-      "sha256": "c79ffde6e31498a82e1733b412ddb68b2256836e6a783a0dc0cdc0f9b895105b"
+      "length": 258393,
+      "sha256": "ca22aabdb45abd895a01e8f628744f64efed06ecb2540f096cb33cd5731adaf8"
     },
     "static/fonts/ebgaramond-latin-variable-italic.ttf": {
       "executable": false,
@@ -517,8 +517,8 @@
     "tests/browser/webmcp.spec.js": {
       "executable": false,
       "kind": "file",
-      "length": 61388,
-      "sha256": "9c7f1551d091d3f41f2af716d1264fbc7d5d9ece0b708ecf550d31569f0c7562"
+      "length": 62521,
+      "sha256": "00458c995922ae624ea99db331bcacc8fb71bb992493eed1492f5152e6bb12d4"
     },
     "tests/manual/update-feed-server.py": {
       "executable": false,

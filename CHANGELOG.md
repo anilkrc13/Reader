@@ -2,6 +2,13 @@
 
 All notable changes to Reader. Versions follow [semantic versioning](https://semver.org).
 
+## Unreleased
+
+- Tables keep short values whole: a date such as 08-18, an amount, an ID or a
+  short list such as "G19, G20" no longer wraps, and a column of longer text
+  keeps a readable width, so a wide table scrolls sideways instead of
+  squeezing. A column of numbers aligns right on even-width digits.
+
 ## 2.6.0
 
 - JSON files read like an editor's view of them: formatted, coloured, with

@@ -521,6 +521,23 @@ test("scrolls the document with the keyboard after opening it from the panel, an
   await expect.poll(top).toBeGreaterThan(0);
 });
 
+test("keeps short table values whole and right-aligns numeric columns", async ({page}) => {
+  const doc = path.join(workspace, "table.md");
+  await fs.writeFile(doc, "| Amt | GL | Date | Status |\n| --- | --- | --- | --- |\n" +
+    "| 149.90 | G19, G20 | 08-01 | Unmatched - Statement only |\n| −9,500.00 | G8 | 08-14 | Reconciled |\n");
+  await open(page, doc);
+  const cell = (r, c) => page.locator(`#preview tbody tr:nth-child(${r}) td:nth-child(${c})`);
+  // A date, an amount and a short list never wrap.
+  for (const [r, c] of [[1, 1], [1, 2], [1, 3], [2, 1]]) await expect(cell(r, c)).toHaveCSS("white-space", "nowrap");
+  // Longer text wraps, but keeps a readable width.
+  await expect(cell(1, 4)).toHaveCSS("white-space", "normal");
+  expect(parseFloat(await cell(1, 4).evaluate((n) => getComputedStyle(n).minWidth))).toBeGreaterThan(100);
+  // Only the column of numbers aligns right, header included.
+  await expect(cell(1, 1)).toHaveCSS("text-align", "right");
+  await expect(page.locator("#preview thead th").first()).toHaveCSS("text-align", "right");
+  await expect(cell(1, 3)).toHaveCSS("text-align", "left");
+});
+
 test("reads JSON as numbered, wrapping, foldable lines, and leaves the file as it is", async ({page}) => {
   await page.setViewportSize({width: 1300, height: 800});
   const nested = path.join(workspace, "nested.json");
