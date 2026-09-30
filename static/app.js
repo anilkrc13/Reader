@@ -1272,6 +1272,7 @@ function render(text) {
     }
     const [ref, fragment] = href.split("#");
     a.dataset.local = absolutise(ref, dir);
+    if (fragment) a.dataset.fragment = fragment;
     /* The raw relative href would resolve against Reader's server, not the
        document's folder, so the native menu's Open Link would load a page that
        does not exist. /open is never loaded: the macOS app intercepts it and
@@ -3760,7 +3761,7 @@ function previewOverflowParents(target) {
 
 /* Search and heading links reveal the containing spread. Continuous Preview
    keeps its existing smooth scrolling behavior. */
-function revealPreviewTarget(target, block = "start") {
+function revealPreviewTarget(target, block = "start", behavior = "smooth") {
   if (paging.active) {
     const parents = previewOverflowParents(target);
     const rect = (parents.at(-1) || target).getClientRects()[0];
@@ -3779,7 +3780,7 @@ function revealPreviewTarget(target, block = "start") {
     if (target === block) before.collapse(true);
     else before.setEndBefore(target);
     paging.anchor = {block: [...el.preview.children].indexOf(block), offset: before.toString().length};
-  } else target.scrollIntoView({behavior: "smooth", block});
+  } else target.scrollIntoView({behavior, block});
 }
 
 /* A scrollable code block, table or diagram owns arrows and wheel gestures,
@@ -4309,11 +4310,7 @@ el.preview.addEventListener("click", (ev) => {
   const href = a.getAttribute("href") || "";
   if (href.startsWith("#")) {
     ev.preventDefault();
-    const target = el.preview.querySelector("#" + CSS.escape(href.slice(1)));
-    if (target) {
-      revealFolds(target);
-      revealPreviewTarget(target);
-    }
+    jumpToAnchor(href.slice(1));
     return;
   }
   if (a.dataset.local) {
@@ -4328,9 +4325,30 @@ el.preview.addEventListener("click", (ev) => {
       SIDE ? host().openInNewTab(a.dataset.local) : openInNewTab(a.dataset.local);
       return;
     }
-    followLocalLink(a.dataset.local);
+    /* A link into another document's section opens that document at the
+       section, not at its top. The link itself is gone once the new document
+       renders, so the section name is read first. */
+    const fragment = a.dataset.fragment;
+    followLocalLink(a.dataset.local).then((opened) => {
+      if (fragment && opened && state.file && state.file.path === opened) jumpToAnchor(fragment, "auto");
+    });
   }
 });
+
+/* Scroll the preview to the element a #section link names, opening any fold
+   that hides it. The name may be percent-encoded, as in #caf%C3%A9. A jump into
+   a document that has just opened is instant: its layout is still settling,
+   and each adjustment of the scroll position would cancel a smooth scroll. */
+function jumpToAnchor(id, behavior = "smooth") {
+  let name = id;
+  try { name = decodeURIComponent(id); } catch (_) { /* keep it as written */ }
+  const target = el.preview.querySelector("#" + CSS.escape(name)) ||
+                 el.preview.querySelector("#" + CSS.escape(id));
+  if (!target) return false;
+  revealFolds(target);
+  revealPreviewTarget(target, "start", behavior);
+  return true;
+}
 
 /* A link to a Word or Excel document opens in the app that owns it;
    everything Reader renders itself opens in place. */

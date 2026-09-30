@@ -888,6 +888,18 @@ test("gives local links a Reader address the native menu can open, and opens the
   expect(await page.evaluate(() => window.reader.openLink("relative.md"))).toBeNull();
 });
 
+test("opens a link into another document at the section it names", async ({page}) => {
+  const target = path.join(workspace, "sections.md");
+  const linker = path.join(workspace, "section-linker.md");
+  const filler = Array.from({length: 120}, (_, i) => `Filler paragraph ${i}.`).join("\n\n");
+  await fs.writeFile(target, `# Top\n\n${filler}\n\n<a id="case-s1"></a>\n#### S1 section\n\nBody.\n`);
+  await fs.writeFile(linker, "[To S1](sections.md#case-s1)\n");
+  await open(page, linker);
+  await page.getByRole("link", {name: "To S1"}).click();
+  await expect.poll(async () => (await invoke(page, "reader_get_state", {})).activeDocument.path).toBe(target);
+  await expect(page.locator("#previewpane h4", {hasText: "S1 section"})).toBeInViewport();
+});
+
 test("round-trips a task and constrains file moves to the temporary workspace", async ({page}) => {
   const alpha = path.join(workspace, "alpha.md");
   const moved = path.join(workspace, "moved", "alpha.md");

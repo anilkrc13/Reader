@@ -8,6 +8,9 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
   short list such as "G19, G20" no longer wraps, and a column of longer text
   keeps a readable width, so a wide table scrolls sideways instead of
   squeezing. A column of numbers aligns right on even-width digits.
+- A link to a section of another document, such as
+  `test-cases-covered.md#case-s1`, now opens that document at the section.
+  It used to open at the top.
 
 ## 2.6.0
 
