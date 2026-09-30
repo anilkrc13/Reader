@@ -1272,6 +1272,7 @@ function render(text) {
     }
     const [ref, fragment] = href.split("#");
     a.dataset.local = absolutise(ref, dir);
+    if (fragment) a.dataset.fragment = fragment;
     /* The raw relative href would resolve against Reader's server, not the
        document's folder, so the native menu's Open Link would load a page that
        does not exist. /open is never loaded: the macOS app intercepts it and
@@ -3760,7 +3761,7 @@ function previewOverflowParents(target) {
 
 /* Search and heading links reveal the containing spread. Continuous Preview
    keeps its existing smooth scrolling behavior. */
-function revealPreviewTarget(target, block = "start") {
+function revealPreviewTarget(target, block = "start", behavior = "smooth") {
   if (paging.active) {
     const parents = previewOverflowParents(target);
     const rect = (parents.at(-1) || target).getClientRects()[0];
@@ -3779,7 +3780,7 @@ function revealPreviewTarget(target, block = "start") {
     if (target === block) before.collapse(true);
     else before.setEndBefore(target);
     paging.anchor = {block: [...el.preview.children].indexOf(block), offset: before.toString().length};
-  } else target.scrollIntoView({behavior: "smooth", block});
+  } else target.scrollIntoView({behavior, block});
 }
 
 /* A scrollable code block, table or diagram owns arrows and wheel gestures,
@@ -4309,33 +4310,57 @@ el.preview.addEventListener("click", (ev) => {
   const href = a.getAttribute("href") || "";
   if (href.startsWith("#")) {
     ev.preventDefault();
-    const target = el.preview.querySelector("#" + CSS.escape(href.slice(1)));
-    if (target) {
-      revealFolds(target);
-      revealPreviewTarget(target);
-    }
+    jumpToAnchor(href.slice(1));
     return;
   }
   if (a.dataset.local) {
     ev.preventDefault();
+    /* A link into another document's section opens that document at the
+       section, however it is opened. */
+    const fragment = a.dataset.fragment;
     /* ⌥-click opens it to the side, in the other pane of this tab. */
     if (ev.altKey) {
-      SIDE ? host()?.openBeside(a.dataset.local, "side") : openBeside(a.dataset.local, "main");
+      SIDE ? host()?.openBeside(a.dataset.local, "side", fragment) : openBeside(a.dataset.local, "main", fragment);
       return;
     }
     /* ⌘-click opens a new tab, as in a browser. Only the macOS app has tabs. */
     if (ev.metaKey && (SIDE ? host()?.hasTabs() : nativeBridge())) {
-      SIDE ? host().openInNewTab(a.dataset.local) : openInNewTab(a.dataset.local);
+      SIDE ? host().openInNewTab(a.dataset.local, fragment) : openInNewTab(a.dataset.local, fragment);
       return;
     }
-    followLocalLink(a.dataset.local);
+    followLocalLink(a.dataset.local, fragment);
   }
 });
 
+/* Scroll the preview to the element a #section link names, opening any fold
+   that hides it. The name may be percent-encoded, as in #caf%C3%A9. A jump into
+   a document that has just opened is instant: its layout is still settling,
+   and each adjustment of the scroll position would cancel a smooth scroll. */
+function jumpToAnchor(id, behavior = "smooth") {
+  let name = id;
+  try { name = decodeURIComponent(id); } catch (_) { /* keep it as written */ }
+  const target = el.preview.querySelector("#" + CSS.escape(name)) ||
+                 el.preview.querySelector("#" + CSS.escape(id));
+  if (!target) return false;
+  revealFolds(target);
+  revealPreviewTarget(target, "start", behavior);
+  return true;
+}
+
 /* A link to a Word or Excel document opens in the app that owns it;
-   everything Reader renders itself opens in place. */
-function followLocalLink(path) {
-  return EXT_APP.has(extOf(path)) ? openExternal(path) : openFile(path);
+   everything Reader renders itself opens in place, at the section the link
+   names if it names one. */
+async function followLocalLink(path, fragment) {
+  if (EXT_APP.has(extOf(path))) return openExternal(path);
+  return landAt(await openFile(path), fragment);
+}
+
+/* After a document opens for a link: go to the section the link names. The
+   open may have been refused or overtaken by another, and then there is
+   nothing to scroll. */
+function landAt(opened, fragment) {
+  if (fragment && opened && state.file && state.file.path === opened) jumpToAnchor(fragment, "auto");
+  return opened;
 }
 
 el.editor.addEventListener("input", () => {
@@ -5585,7 +5610,7 @@ window.addEventListener("resize", hideFmtBar);
    keeps the file panel, the active pane, the divider, and the split's place in
    the tab's saved state; each pane keeps its own document, mode and history.
    At most two documents: the side pane cannot split again. */
-const split = {frame: null, divider: null, active: "main", pendingPath: null};
+const split = {frame: null, divider: null, active: "main", pendingPath: null, pendingFragment: null};
 const SPLIT_MIN = 320;            // px each pane keeps
 const SPLIT_SNAP = 24;            // px either side of the middle that snap to it
 
@@ -5594,10 +5619,10 @@ function sideReader() {
 }
 function splitActive() { return split.frame ? split.active : "main"; }
 
-function openSplit({restore = null, ratio = null, path = null, activate = true} = {}) {
+function openSplit({restore = null, ratio = null, path = null, fragment = null, activate = true} = {}) {
   if (SIDE) return;
   if (split.frame) {
-    if (path) openInPane("side", path);
+    if (path) openInPane("side", path, fragment);
     return;
   }
   const room = $("main").getBoundingClientRect().width;
@@ -5624,6 +5649,7 @@ function openSplit({restore = null, ratio = null, path = null, activate = true} 
   split.frame = frame;
   split.divider = divider;
   split.pendingPath = path;
+  split.pendingFragment = fragment;
   S.split = {ratio: ratio ?? 0.5, pane: restore || {}};
   root.dataset.split = "on";
   applySplitRatio();
@@ -5636,9 +5662,9 @@ function openSplit({restore = null, ratio = null, path = null, activate = true} 
     side.setNativeChrome(root.dataset.nativeChrome === "on");
     side.setPaneActive(split.active === "side");
     if (split.pendingPath) {
-      const next = split.pendingPath;
-      split.pendingPath = null;
-      side.openLink(next);
+      const next = split.pendingPath, fragment = split.pendingFragment;
+      split.pendingPath = split.pendingFragment = null;
+      side.openLink(next, false, fragment);
     }
   });
   setActivePane(activate ? "side" : "main");
@@ -5675,20 +5701,24 @@ function panePath(which) {
 
 /* One document is never open in both panes: two editors on one file would
    write over each other. Asking for it again goes to the pane that has it. */
-async function openInPane(which, path) {
-  if (SIDE) return host()?.openInPane(which, path);
+async function openInPane(which, path, fragment) {
+  if (SIDE) return host()?.openInPane(which, path, fragment);
   const other = which === "side" ? "main" : "side";
-  if (split.frame && panePath(other) === path) { setActivePane(other); return; }
+  if (split.frame && panePath(other) === path) {
+    setActivePane(other);
+    if (fragment) other === "side" ? sideReader()?.jumpTo(fragment) : jumpToAnchor(fragment);
+    return;
+  }
   if (which === "side") {
-    if (!split.frame) { openSplit({path}); return; }
+    if (!split.frame) { openSplit({path, fragment}); return; }
     setActivePane("side");
     const side = sideReader();
-    if (side) await side.openLink(path);
-    else split.pendingPath = path;
+    if (side) await side.openLink(path, false, fragment);
+    else { split.pendingPath = path; split.pendingFragment = fragment; }
     return;
   }
   setActivePane("main");
-  try { await followLocalLink(path); } catch (err) { toast(err.message, true); }
+  try { await followLocalLink(path, fragment); } catch (err) { toast(err.message, true); }
 }
 
 /* What the file panel opens goes to the active pane. */
@@ -5698,22 +5728,24 @@ function openFromPanel(path) {
 
 /* Open to the Side: the other pane from the one it was asked from, splitting
    the tab if it shows one document. */
-function openBeside(path, from = splitActive()) {
-  if (SIDE) return host()?.openBeside(path, "side");
-  if (!split.frame) { openSplit({path}); return; }
-  openInPane(from === "side" ? "main" : "side", path);
+function openBeside(path, from, fragment) {
+  /* The app passes null when it has no pane to name. */
+  from = from || splitActive();
+  if (SIDE) return host()?.openBeside(path, "side", fragment);
+  if (!split.frame) { openSplit({path, fragment}); return; }
+  openInPane(from === "side" ? "main" : "side", path, fragment);
 }
 
-function openInNewTab(path) {
+function openInNewTab(path, fragment) {
   const bridge = nativeBridge();
-  if (bridge) bridge.postMessage({action: "openInNewTab", path}).catch(() => {});
-  else followLocalLink(path);
+  if (bridge) bridge.postMessage({action: "openInNewTab", path, ...(fragment ? {fragment} : {})}).catch(() => {});
+  else followLocalLink(path, fragment);
 }
 
-function openInNewWindow(path) {
+function openInNewWindow(path, fragment) {
   const bridge = nativeBridge();
-  if (bridge) bridge.postMessage({action: "openInNewWindow", path}).catch(() => {});
-  else followLocalLink(path);
+  if (bridge) bridge.postMessage({action: "openInNewWindow", path, ...(fragment ? {fragment} : {})}).catch(() => {});
+  else followLocalLink(path, fragment);
 }
 
 async function copyPath(path) {
@@ -6312,7 +6344,7 @@ window.reader = {
     else if (command === "fullscreen") toggleFullscreen();
   },
   /* The context menu's Open to the Side, from whichever pane was clicked. */
-  openBeside: (path, from) => openBeside(path, from),
+  openBeside: (path, from, fragment) => openBeside(path, from, fragment),
   // Split: the host's side of the conversation with its side pane.
   openSplit, closeSplit, toggleSplit, openInPane, openInNewTab, setActivePane, sideChanged,
   refreshTree: () => refreshTree(),
@@ -6346,13 +6378,16 @@ window.reader = {
      Window (`fresh`, which also moves the tree to the document's folder). The
      path is one a document link resolved to, so it gets exactly a click's
      treatment: no new grant, and read-only outside the workspace. */
-  openLink: async (path, fresh = false) => {
+  openLink: async (path, fresh = false, fragment = null) => {
     await bootReady;
     if (typeof path !== "string" || !path.startsWith("/")) return null;
-    if (fresh && !EXT_APP.has(extOf(path))) return openFromOS(path);
-    try { return await followLocalLink(path); }
+    if (typeof fragment !== "string") fragment = null;
+    if (fresh && !EXT_APP.has(extOf(path))) return landAt(await openFromOS(path), fragment);
+    try { return await followLocalLink(path, fragment); }
     catch (err) { toast(err.message, true); return null; }
   },
+  /* The host's way to send this pane to a section of the document it shows. */
+  jumpTo: (fragment) => typeof fragment === "string" && jumpToAnchor(fragment),
   /* The File menu's ⌘N. AppKit takes that key the moment a menu item claims it,
      so the menu hands it straight back here rather than the page losing it. */
   newDocument: () => openNewDoc(),

@@ -888,6 +888,75 @@ test("gives local links a Reader address the native menu can open, and opens the
   expect(await page.evaluate(() => window.reader.openLink("relative.md"))).toBeNull();
 });
 
+test("opens a link into another document at the section it names", async ({page}) => {
+  const target = path.join(workspace, "sections.md");
+  const linker = path.join(workspace, "section-linker.md");
+  const filler = Array.from({length: 120}, (_, i) => `Filler paragraph ${i}.`).join("\n\n");
+  await fs.writeFile(target, `# Top\n\n${filler}\n\n<a id="case-s1"></a>\n#### S1 section\n\nBody.\n`);
+  await fs.writeFile(linker, "[To S1](sections.md#case-s1)\n");
+  await open(page, linker);
+  await page.getByRole("link", {name: "To S1"}).click();
+  await expect.poll(async () => (await invoke(page, "reader_get_state", {})).activeDocument.path).toBe(target);
+  await expect(page.locator("#previewpane h4", {hasText: "S1 section"})).toBeInViewport();
+});
+
+test("keeps a link's section when it opens to the side, in a new tab or window, or from the app's menu", async ({page, context}) => {
+  await page.setViewportSize({width: 1440, height: 900});
+  const target = path.join(workspace, "sections-beside.md");
+  const linker = path.join(workspace, "section-beside-linker.md");
+  const filler = Array.from({length: 120}, (_, i) => `Filler paragraph ${i}.`).join("\n\n");
+  await fs.writeFile(target, `# Top\n\n${filler}\n\n<a id="case-s1"></a>\n#### S1 section\n\nBody.\n`);
+  await fs.writeFile(linker, "[To S1](sections-beside.md#case-s1)\n");
+  const heading = (frame) => frame.locator("#previewpane h4", {hasText: "S1 section"});
+  const mainPath = async () => (await invoke(page, "reader_get_state", {})).activeDocument?.path ?? null;
+  const side = page.frameLocator("#side-pane iframe");
+  const sidePath = () => page.evaluate(() => document.querySelector("#side-pane iframe")?.contentWindow?.reader?.currentPath());
+  const sideToTop = () => page.evaluate(() => { document.querySelector("#side-pane iframe").contentDocument.getElementById("previewpane").scrollTop = 0; });
+
+  // ⌥-click with one document: the split opens, at the section.
+  await open(page, linker);
+  await page.getByRole("link", {name: "To S1"}).click({modifiers: ["Alt"]});
+  await expect.poll(sidePath).toBe(target);
+  await expect(heading(side)).toBeInViewport();
+  // ⌥-click again once the side pane already shows it: back to the section.
+  await sideToTop();
+  await expect(heading(side)).not.toBeInViewport();
+  await page.getByRole("link", {name: "To S1"}).click({modifiers: ["Alt"]});
+  await expect(heading(side)).toBeInViewport();
+  // The app menu's Open to the Side, which names no pane.
+  await sideToTop();
+  await page.evaluate((p) => window.reader.openBeside(p, null, "case-s1"), target);
+  await expect(heading(side)).toBeInViewport();
+  await page.evaluate(() => window.reader.closeSplit());
+  await expect(page.locator("html")).toHaveAttribute("data-split", "off");
+
+  // The app menu's Open Link, and the page a new tab or window opens with.
+  for (const fresh of [false, true]) {
+    await open(page, linker);
+    await page.evaluate(([p, f]) => window.reader.openLink(p, f, "case-s1"), [target, fresh]);
+    await expect.poll(mainPath).toBe(target);
+    await expect(heading(page)).toBeInViewport();
+  }
+
+  // ⌘-click and the file menu hand the section to the app with the path.
+  const tab = await context.newPage();
+  await tab.addInitScript(() => {
+    window.__readerChrome = true;
+    window.__posted = [];
+    window.webkit = {messageHandlers: {reader: {postMessage: (message) => {
+      window.__posted.push(message);
+      return Promise.resolve(true);
+    }}}};
+  });
+  await tab.goto(baseURL);
+  await expect.poll(() => tab.evaluate(() => Object.keys(window.__readerWebMCPTools || {}).length)).toBe(11);
+  await open(tab, linker);
+  await tab.getByRole("link", {name: "To S1"}).click({modifiers: ["Meta"]});
+  await expect.poll(() => tab.evaluate(() => window.__posted.filter((m) => m.action === "openInNewTab")))
+    .toEqual([{action: "openInNewTab", path: target, fragment: "case-s1"}]);
+  await tab.close();
+});
+
 test("round-trips a task and constrains file moves to the temporary workspace", async ({page}) => {
   const alpha = path.join(workspace, "alpha.md");
   const moved = path.join(workspace, "moved", "alpha.md");
