@@ -220,16 +220,20 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate {
     /* A new tab starts in the folder of the tab it was opened from, with no
        document, like a new Finder tab. A link or a Finder document opened
        into it is delivered once its page has loaded. */
-    fileprivate func openTab(from source: ReaderPage?, linkPath: String? = nil, openPath: String? = nil) {
+    fileprivate func openTab(from source: ReaderPage?, linkPath: String? = nil,
+                             linkFragment: String? = nil, openPath: String? = nil) {
         let source = source ?? keyPage
         let page = openPage(intent: freshIntent(from: source), tabbedWith: source?.window)
         page.pendingLinkPath = linkPath
+        page.pendingLinkFragment = linkFragment
         page.pendingOpenPath = openPath
     }
 
-    fileprivate func openWindow(from source: ReaderPage?, linkPath: String? = nil) {
+    fileprivate func openWindow(from source: ReaderPage?, linkPath: String? = nil,
+                                linkFragment: String? = nil) {
         let page = openPage(intent: freshIntent(from: source ?? keyPage))
         page.pendingLinkPath = linkPath
+        page.pendingLinkFragment = linkFragment
     }
 
     private func freshIntent(from source: ReaderPage?) -> [String: Any] {
@@ -1476,6 +1480,15 @@ private func documentLinkPath(_ url: URL) -> String? {
     return path
 }
 
+/* The section a document link names (#case-s1), handed to the page with the
+   path so the document opens there rather than at its top. The page looks it
+   up as an element id, so it is only ever data. */
+private func documentLinkFragment(_ url: URL) -> String? {
+    guard let fragment = URLComponents(url: url, resolvingAgainstBaseURL: false)?.fragment,
+          !fragment.isEmpty else { return nil }
+    return fragment
+}
+
 /* A deliberately short list. A markdown document is untrusted content, and
    NSWorkspace opens whatever it is handed -- a file:// URL to an .app, or a
    custom scheme wired to another program, would be a way for a document to
@@ -1636,6 +1649,8 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
        a server startup path: the document's author chose the target, so it
        must not become a write grant. */
     var pendingLinkPath: String?
+    /* The section of that document the link named, if any. */
+    var pendingLinkFragment: String?
     /* This tab's place as the page last reported it, for the saved session.
        Plist types only: strings and booleans. */
     private(set) var tabState: [String: Any] = [:]
@@ -2030,7 +2045,7 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
         case "openInNewWindow":
             // As Open Link in New Window does: a click's treatment, no grant.
             if let path = body["path"] as? String, path.hasPrefix("/") {
-                app?.openWindow(from: self, linkPath: path)
+                app?.openWindow(from: self, linkPath: path, linkFragment: body["fragment"] as? String)
                 replyHandler(true, nil)
             } else {
                 replyHandler(nil, "malformed path")
@@ -2039,7 +2054,7 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
             // A document link's resolved path, as for the context menu: opened
             // as a click would, never a grant.
             if let path = body["path"] as? String, path.hasPrefix("/") {
-                app?.openTab(from: self, linkPath: path)
+                app?.openTab(from: self, linkPath: path, linkFragment: body["fragment"] as? String)
                 replyHandler(true, nil)
             } else {
                 replyHandler(nil, "malformed path")
@@ -2103,10 +2118,11 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
         nextNewWindow = .window
         if let url = navigationAction.request.url {
             if let path = documentLinkPath(url) {
+                let fragment = documentLinkFragment(url)
                 switch destination {
-                case .tab: app?.openTab(from: self, linkPath: path)
-                case .side: callPage("openBeside", [path])
-                case .window: app?.openWindow(from: self, linkPath: path)
+                case .tab: app?.openTab(from: self, linkPath: path, linkFragment: fragment)
+                case .side: callPage("openBeside", [path, NSNull(), fragment ?? NSNull()])
+                case .window: app?.openWindow(from: self, linkPath: path, linkFragment: fragment)
                 }
             } else if !isReaderItself(url) {
                 handOff(url)
@@ -2128,11 +2144,12 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
         if let path = documentLinkPath(url) {
             decisionHandler(.cancel)
             guard isPageLoaded, let frame = navigationAction.targetFrame else { return }
+            let fragment: Any = documentLinkFragment(url) ?? NSNull()
             if frame.isMainFrame {
-                callPage("openLink", [path])
+                callPage("openLink", [path, false, fragment])
             } else {
                 // A link in the split's second pane opens in that pane.
-                callPage("openInPane", ["side", path])
+                callPage("openInPane", ["side", path, fragment])
             }
             return
         }
@@ -2154,8 +2171,10 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
             deliver(path: path)
         }
         if let path = pendingLinkPath {
+            let fragment: Any = pendingLinkFragment ?? NSNull()
             pendingLinkPath = nil
-            callPage("openLink", [path, true])
+            pendingLinkFragment = nil
+            callPage("openLink", [path, true, fragment])
         }
     }
 

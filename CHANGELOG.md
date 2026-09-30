@@ -10,7 +10,9 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
   squeezing. A column of numbers aligns right on even-width digits.
 - A link to a section of another document, such as
   `test-cases-covered.md#case-s1`, now opens that document at the section.
-  It used to open at the top.
+  It used to open at the top. This holds however the link is opened: a
+  click, ⌥-click or Open to the Side, ⌘-click or Open Link in New Tab, Open
+  Link in New Window, and the right-click menu's Open Link.
 
 ## 2.6.0
 
