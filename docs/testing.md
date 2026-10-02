@@ -6,8 +6,8 @@
 python3 -m unittest discover -s tests -v
 ```
 
-Standard-library only, about ten seconds. [`tests/test_save_security.py`](../tests/test_save_security.py) pins
-the compare-and-replace behaviour of saves; [`tests/test_workspace_authorization.py`](../tests/test_workspace_authorization.py)
+Standard-library only, about ten seconds. [`tests/server/test_save_security.py`](../tests/server/test_save_security.py) pins
+the compare-and-replace behaviour of saves; [`tests/server/test_workspace_authorization.py`](../tests/server/test_workspace_authorization.py)
 exercises every mutation route and symlink escape. CI runs this suite on
 macOS, Linux and Windows so the server stays portable.
 
@@ -78,7 +78,7 @@ checks can run alongside the native browser and Python checks. Report wall time
 separately from summed command durations: overlapping commands do not add that
 sum to the user's wait. Keep build prerequisites in order.
 
-The Mac build gate comes from `AGENTS.md`. Changes to `static/`, `reader.py`,
+The Mac build gate comes from `AGENTS.md`. Changes to `src/reader/`, `reader.py`,
 `reader_backend.py`, `VERSION`, launcher or icon sources, licenses, or bundle
 metadata require `./macos/build-app.sh`, signature verification, and resource-copy
 checks. An extension-only runner or documentation change does not trigger that
@@ -125,3 +125,8 @@ CSS escaping, persisted choices, missing families, restored families, errors, an
 comparison panes. Its bridge is simulated; real AppKit enumeration and native
 compilation are checked separately. Actual installed-app font selection remains
 a manual acceptance check through `install/Reader.command`.
+
+Server/tooling tests live in `tests/server/`; discovery from `tests` recurses into
+that package. Root entrypoint and isolated-resource-tree tests protect launch and
+import compatibility after source moves. The native bundle must contain identical
+`src/` source and both root wrappers. Compare them after the mandated build.

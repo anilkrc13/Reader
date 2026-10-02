@@ -5,14 +5,14 @@
    ======================================================================== */
 
 /* ------------------------------------------------------------------ fonts */
-@font-face{font-family:Lora;src:url(/static/fonts/lora-latin-400-normal.woff2)format("woff2");font-weight:400;font-style:normal;font-display:swap}
-@font-face{font-family:Lora;src:url(/static/fonts/lora-latin-400-italic.woff2)format("woff2");font-weight:400;font-style:italic;font-display:swap}
-@font-face{font-family:Lora;src:url(/static/fonts/lora-latin-500-normal.woff2)format("woff2");font-weight:500;font-style:normal;font-display:swap}
-@font-face{font-family:Lora;src:url(/static/fonts/lora-latin-500-italic.woff2)format("woff2");font-weight:500;font-style:italic;font-display:swap}
-@font-face{font-family:Lora;src:url(/static/fonts/lora-latin-600-normal.woff2)format("woff2");font-weight:600;font-style:normal;font-display:swap}
-@font-face{font-family:Lora;src:url(/static/fonts/lora-latin-600-italic.woff2)format("woff2");font-weight:600;font-style:italic;font-display:swap}
-@font-face{font-family:Lora;src:url(/static/fonts/lora-latin-700-normal.woff2)format("woff2");font-weight:700;font-style:normal;font-display:swap}
-@font-face{font-family:Lora;src:url(/static/fonts/lora-latin-700-italic.woff2)format("woff2");font-weight:700;font-style:italic;font-display:swap}
+@font-face{font-family:Lora;src:url(/static/assets/fonts/lora-latin-400-normal.woff2)format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:Lora;src:url(/static/assets/fonts/lora-latin-400-italic.woff2)format("woff2");font-weight:400;font-style:italic;font-display:swap}
+@font-face{font-family:Lora;src:url(/static/assets/fonts/lora-latin-500-normal.woff2)format("woff2");font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:Lora;src:url(/static/assets/fonts/lora-latin-500-italic.woff2)format("woff2");font-weight:500;font-style:italic;font-display:swap}
+@font-face{font-family:Lora;src:url(/static/assets/fonts/lora-latin-600-normal.woff2)format("woff2");font-weight:600;font-style:normal;font-display:swap}
+@font-face{font-family:Lora;src:url(/static/assets/fonts/lora-latin-600-italic.woff2)format("woff2");font-weight:600;font-style:italic;font-display:swap}
+@font-face{font-family:Lora;src:url(/static/assets/fonts/lora-latin-700-normal.woff2)format("woff2");font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:Lora;src:url(/static/assets/fonts/lora-latin-700-italic.woff2)format("woff2");font-weight:700;font-style:italic;font-display:swap}
 
 /* ------------------------------------------------------- fixed app tokens */
 :root{

@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "lint_changed.py"
+SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "lint_changed.py"
 
 
 class FocusedLintTests(unittest.TestCase):

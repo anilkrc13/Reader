@@ -1,7 +1,11 @@
 import unittest
 
-from reader_backend import (EXTERNAL_APP_SUFFIXES, IMAGE_SUFFIXES,
-                            LISTABLE_SUFFIXES, TEXT_SUFFIXES)
+from reader_backend import (
+    EXTERNAL_APP_SUFFIXES,
+    IMAGE_SUFFIXES,
+    LISTABLE_SUFFIXES,
+    TEXT_SUFFIXES,
+)
 
 
 class ExternalOpenWhitelistTests(unittest.TestCase):

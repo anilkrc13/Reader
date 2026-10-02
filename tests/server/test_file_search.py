@@ -5,8 +5,7 @@ from pathlib import Path
 import reader_backend
 from reader_backend import DocumentStore, FileAccessPolicy
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def store_for(home: Path) -> DocumentStore:

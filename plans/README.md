@@ -1,11 +1,7 @@
-# Plans
+# Active plans
 
-Keep a change's approved design and verification plan together here while work is active. Record lasting decisions in the architecture or required contract before removing a finished plan. A prototype with an unmet host acceptance check stays open.
-
-[Conversation viewer](chatgpt-viewer/plan.md): read-only scope approved; local implementation completed; real desktop installation and routing verification pending.
-
-[Reading controls](reading-controls/implementation.md): reading/search and keyboard milestone passed independent review at `7d7370c`; embedded settings parity passed independent review at `607a88d`. Real-host prototype acceptance remains pending.
-
-[Scoped embedded links](reading-controls/scoped-links.md): passed independent review at `1661704`; real-host metadata, routing, and icon display remain unobserved.
-
-[Adaptive embedded settings](reading-controls/adaptive-settings.md): passed independent review at `c48b549`; 151 automated checks passed. Real-host acceptance remains pending.
+Only active changes belong here. [Source organization](source-layout/plan.md)
+is implemented and awaits its final checks and review. Remove its folder when
+complete. Permanent decisions live in [source ownership](../docs/architecture/source-layout.md).
+Unobserved desktop checks live in [host acceptance](../docs/embedded-acceptance.md).
+Git retains the history of completed plans.

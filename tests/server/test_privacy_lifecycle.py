@@ -7,8 +7,7 @@ from pathlib import Path
 
 from reader_backend import DocumentStore, FileAccessPolicy
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class PrivacyLifecycleTests(unittest.TestCase):

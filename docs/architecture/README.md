@@ -30,3 +30,11 @@ ask their trusted parent. No font inventory is supplied by the Python server.
 Lora is the sole bundled fallback; saved unavailable families are retained.
 Browser and embedded modes use Lora and generic system defaults. They do not
 request local-font permissions or probe a hardcoded list.
+
+See [source ownership](source-layout.md) for the layout, its history, compatibility
+entrypoints, and the test areas. Unobserved host checks live in
+[embedded acceptance](../embedded-acceptance.md), rather than completed plans.
+Installed choices are saved as `font:` followed by the exact family name; legacy
+keys resolve when installed. Missing choices remain saved and show their fallback.
+The family list refreshes at boot and when Settings opens. A failed refresh keeps
+the previous list. CSS names are quoted and selector labels are text.

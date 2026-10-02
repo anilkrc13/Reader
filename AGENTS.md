@@ -48,7 +48,7 @@ double-clicking it quits a running Reader, always rebuilds via
 `~/Applications/Reader.app`, and opens that installed copy, which is the app
 the user actually runs.
 
-- After changing `static/`, [`reader.py`](reader.py), [`reader_backend.py`](reader_backend.py), [`VERSION`](VERSION), the
+- After changing `src/reader/`, [`reader.py`](reader.py), [`reader_backend.py`](reader_backend.py), [`VERSION`](VERSION), the
   macOS launcher or icon sources, licenses, or bundle metadata, run
   `./macos/build-app.sh` before declaring the work complete.
 - Do not treat manual edits inside `build/Reader.app` as a finished build. The
@@ -69,4 +69,4 @@ Bump it and add a [`CHANGELOG.md`](CHANGELOG.md) entry in the same change as a r
 
 - [`docs/architecture/README.md`](docs/architecture/README.md) describes the local and embedded document owners.
 - [`extensions/chatgpt/README.md`](extensions/chatgpt/README.md) covers the read-only conversation viewer prototype, setup, and unverified host routing.
-- [`docs/testing.md`](docs/testing.md) lists the checks. [`plans/README.md`](plans/README.md) records active plan status and lifecycle.
+- [`docs/testing.md`](docs/testing.md) lists the checks. Temporary plans exist only while work is active. Permanent source ownership is in [`docs/architecture/source-layout.md`](docs/architecture/source-layout.md).

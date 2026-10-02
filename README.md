@@ -68,6 +68,14 @@ turning Reader into a browser app.
 | **Find a file** | `⇧⌘O`, the Files-panel magnifying glass, or Find a File in the native Edit menu searches names, anywhere below the folder you are browsing — including folders you never expanded. Each hit shows the folder holding it, `↑`/`↓` move, `↵` opens it and takes the tree with it. |
 | **Settings** | `⌘,` or the gear. See below. |
 
+## Source layout
+
+The shared implementation lives in [`src/reader/`](src/reader/). Web application
+code, assets, and vendored libraries have separate folders. Root Python files keep
+existing launch/import names. The native wrapper stays in `macos/`; the standalone
+conversation adapter stays in `extensions/chatgpt/`. See
+[source ownership](docs/architecture/source-layout.md) for the history and test map.
+
 ## Settings
 
 Seven sections, in a dialog laid out like a modern desktop app:
@@ -233,7 +241,7 @@ preview beside the editor. The editor shows the source, where a link is just tex
 
 ## Third-party components
 
-Bundled locally in `static/`, licences in `licenses/`:
+Bundled locally in `src/reader/web/`, licences in `licenses/`:
 [marked](https://marked.js.org) (markdown), [DOMPurify](https://github.com/cure53/DOMPurify)
 (sanitising), [highlight.js](https://highlightjs.org) (code), [Mermaid](https://mermaid.js.org)
 (diagrams), and the [Lora](https://fonts.google.com/specimen/Lora) default typeface

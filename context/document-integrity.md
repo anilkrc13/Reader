@@ -47,7 +47,7 @@ already inside a grant. A drop never adds a root.
 
 ## Regression evidence
 
-[`tests/test_save_security.py`](../tests/test_save_security.py) pins simultaneous compare-and-replace behavior.
-[`tests/test_workspace_authorization.py`](../tests/test_workspace_authorization.py) exercises every mutation route and
+[`tests/server/test_save_security.py`](../tests/server/test_save_security.py) pins simultaneous compare-and-replace behavior.
+[`tests/server/test_workspace_authorization.py`](../tests/server/test_workspace_authorization.py) exercises every mutation route and
 symlink escapes. [`tests/browser/webmcp.spec.js`](../tests/browser/webmcp.spec.js) delays and interleaves real page
 requests to pin session, revision, watcher, save-queue, and read-only behavior.

@@ -3,7 +3,7 @@ import { readFile, mkdir, writeFile, cp, readdir } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
-const source = resolve(here, '../../static');
+const source = resolve(here, '../../src/reader/web');
 const version = (await readFile(resolve(here, '../../VERSION'), 'utf8')).trim();
 const define = {__READER_VERSION__: JSON.stringify(version)};
 await mkdir(resolve(here, 'dist'), {recursive: true});
@@ -25,7 +25,7 @@ html = html.replace('<html ', '<html data-host="chatgpt" ')
   .replace('</head>', () => `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src data:; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'"><style>${css}</style></head>`);
 const safeScript = text => text.replace(/<\/script/gi, '<\\/script');
 let scripts = '';
-for (const name of ['marked.min.js', 'purify.min.js', 'highlight.min.js', 'mermaid.min.js', 'app.js']) {
+for (const name of ['vendor/marked.min.js', 'vendor/purify.min.js', 'vendor/highlight.min.js', 'vendor/mermaid.min.js', 'app.js']) {
   scripts += `<script>${safeScript(await readFile(resolve(source, name), 'utf8'))}</script>`;
 }
 scripts += `<script type="module">${safeScript(app.outputFiles[0].text)}</script>`;

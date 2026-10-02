@@ -14,7 +14,7 @@ import subprocess
 import unittest
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # Matches Markdown link syntax [text](target). Link text itself may contain
 # a nested `code span`, so this only needs to find the (...) part; it is not

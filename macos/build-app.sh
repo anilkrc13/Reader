@@ -23,7 +23,9 @@ mkdir -p "$RESOURCES_DIR" "$MACOS_BIN_DIR"
 cp "$ROOT_DIR/reader.py" "$RESOURCES_DIR/reader.py"
 cp "$ROOT_DIR/VERSION" "$RESOURCES_DIR/VERSION"
 cp "$ROOT_DIR/reader_backend.py" "$RESOURCES_DIR/reader_backend.py"
-ditto "$ROOT_DIR/static" "$RESOURCES_DIR/static"
+mkdir -p "$RESOURCES_DIR/src"
+ditto "$ROOT_DIR/src" "$RESOURCES_DIR/src"
+find "$RESOURCES_DIR/src" -type d -name __pycache__ -prune -exec rm -rf {} +
 cp "$MACOS_DIR/Assets/ReaderDockIcon-Light.png" "$RESOURCES_DIR/ReaderDockIcon-Light.png"
 cp "$MACOS_DIR/Assets/ReaderDockIcon-Dark.png" "$RESOURCES_DIR/ReaderDockIcon-Dark.png"
 if [ -d "$ROOT_DIR/licenses" ]; then

@@ -2,8 +2,8 @@ import json
 import tempfile
 import threading
 import unittest
-from unittest import mock
 from pathlib import Path
+from unittest import mock
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 

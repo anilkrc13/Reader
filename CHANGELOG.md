@@ -4,6 +4,11 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- Shared implementation is organized under `src/reader/`. Web assets and vendored
+  libraries have named folders. Root launch/import commands remain compatible.
+  Server tests have one area. Completed plans are replaced by permanent source
+  ownership and host acceptance docs.
+
 - The Mac app lists installed font families for body and headings through AppKit.
   Saved choices survive missing fonts and use a fallback until available again.
   Lora is the sole bundled default. Browser and embedded viewers explain their
