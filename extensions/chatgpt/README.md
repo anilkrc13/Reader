@@ -2,6 +2,8 @@
 
 This package opens host-provided Markdown in the shared Reader interface. It is read only. It has no document save, local Reader server connection, native menu, or folder browser. A scoped server tool validates relative Markdown links for host-mediated opening. The theme follows Codex, including changes while the panel is open. Find and Refresh use icon buttons. The Settings gear opens Reader’s shared settings panel. Appearance includes four light papers and three dark surfaces; Codex controls light/dark mode. Reading includes typography, headings, spacing, percentage content width, table borders, presets, and reading layout. Code includes highlighting, typeface, size, and wrapping. These display choices use a separate storage key with an in-memory fallback. Reset affects only supported embedded display preferences. Editor, Files & watching, and About explain features that belong to the Mac app. Shortcuts lists supported embedded commands. Narrow panels use wider content and smaller document titles. The Python browser and Mac app keep their existing boot path.
 
+Settings uses the iframe's own width and height. At 1000px wide or less, or 600px high or less, it fills the pane with Back, a section picker, and stacked controls. The content scrolls below those fixed controls. Larger panes keep the centered modal and category rail. Live resize keeps preferences and control focus. Closing returns to the recorded reading passage, including after typography changes. The native settings shell is unchanged.
+
 The local build and protocol tests work. Desktop installation, default viewer selection, ordinary file-link routing, and assistant-edit refresh have not been observed in the real host. Do not call this integration delivered until those checks pass. Editing needs a separate approved save design.
 
 ## Build and check
@@ -70,3 +72,12 @@ The SDK documents the `getResourcePath(extra._meta)` scope pattern and
 [documented interface fields](https://developers.openai.com/plugins/build/plugins).
 Actual host metadata, routing, and icon display remain unobserved. Same-thread
 Back/Forward remains pending because the SDK exposes no complete history API.
+
+## Settings pane acceptance
+
+In the real host, open Settings in a narrow side pane and in a wide but short pane.
+Confirm Back remains reachable while all sections and fine-tune controls scroll.
+Resize to a roomy pane while a control is focused, then resize back. Confirm the
+choice and focus survive. Close and reopen several times and confirm Reader returns
+to the same passage. Repeat in light and dark mode. The simulated iframe tests
+cover these layouts; actual host acceptance remains pending.

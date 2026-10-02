@@ -4,6 +4,11 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- Embedded Settings fills narrow or short panes. Back and a section picker remain
+  visible while stacked controls scroll. Roomy panes retain the modal. Resize keeps
+  choices and focus. Closing returns to the recorded reading passage after text
+  size changes. Native settings behavior is unchanged.
+
 - Embedded local Markdown links can open through a capable host after validation
   inside the opened document’s directory. Missing host metadata, path escapes,
   symlink escapes, and unsupported targets are refused. No filesystem grants are added.

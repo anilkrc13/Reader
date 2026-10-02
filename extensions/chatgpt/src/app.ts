@@ -8,6 +8,8 @@ declare global {
       loading(name: string): void;
       show(text: string, file: {name: string; resourceUri: string}): void;
       preferences(values?: Record<string, unknown>): Record<string, unknown>;
+      readingAnchor(): {path?: string; block: number; offset: number; inset: number};
+      restoreReadingAnchor(anchor: {path?: string; block: number; offset: number; inset: number}): void;
       find(): void; settings(): void; error(message: string): void;
     };
     readerEmbeddedHost: {openLink(href: string): Promise<void>};
@@ -133,6 +135,60 @@ layoutRow.append(layoutLabel, layoutControls);
 settings.querySelector('[data-panel="reading"] .group')!.append(layoutRow);
 const reset = document.getElementById("btn-reset")!;
 settings.querySelector(".set-head")!.insertBefore(reset, document.getElementById("set-close"));
+// Compact mode is a screen inside this iframe, never based on the monitor size.
+const scrim = document.getElementById("scrim")!;
+const body = settings.querySelector<HTMLElement>(".set-body")!;
+const header = settings.querySelector<HTMLElement>(".set-head")!;
+const close = document.getElementById("set-close")!;
+const closeIcon = close.querySelector("svg")!; closeIcon.classList.add("embedded-close-icon");
+const backIcon = document.querySelector("#btn-back svg")!.cloneNode(true) as SVGElement;
+backIcon.classList.add("embedded-back-icon");
+const backLabel = document.createElement("span"); backLabel.className = "embedded-back-label"; backLabel.textContent = "Back";
+close.append(backIcon, backLabel);
+reset.setAttribute("aria-label", "Reset all to defaults");
+const categories = Array.from(settings.querySelectorAll<HTMLButtonElement>(".cat"));
+const pickerRow = document.createElement("label"); pickerRow.className = "embedded-settings-picker";
+const pickerLabel = document.createElement("span"); pickerLabel.textContent = "Section";
+const picker = document.createElement("select"); picker.className = "control"; picker.setAttribute("aria-label", "Settings section");
+for (const category of categories) {
+  const option = document.createElement("option"); option.value = category.dataset.cat!; option.textContent = category.textContent!.trim(); picker.append(option);
+}
+picker.addEventListener("change", () => categories.find(category => category.dataset.cat === picker.value)!.click());
+pickerRow.append(pickerLabel, picker); settings.insertBefore(pickerRow, body);
+const compactPane = window.matchMedia("(max-width: 1000px), (max-height: 600px)");
+function syncSettingsSection() {
+  picker.value = categories.find(category => category.getAttribute("aria-selected") === "true")!.dataset.cat!;
+}
+function sizeSettingsToPane() {
+  const focused = document.activeElement as HTMLElement | null;
+  const compact = compactPane.matches;
+  scrim.dataset.settingsLayout = compact ? "compact" : "modal";
+  if (compact) { settings.prepend(header); header.prepend(close); }
+  else { body.prepend(header); header.append(close); }
+  close.setAttribute("aria-label", compact ? "Back to document" : "Close settings");
+  close.title = compact ? "Back to document (Esc)" : "Close (Esc)";
+  reset.textContent = compact ? "Reset" : "Reset all to defaults";
+  syncSettingsSection();
+  settings.querySelector(".set-rail")!.setAttribute("aria-orientation", "vertical");
+  if (!scrim.hidden && focused && settings.contains(focused)) {
+    const target = compact && focused.classList.contains("cat") ? picker :
+      !compact && focused === picker ? categories.find(category => category.dataset.cat === picker.value)! : focused;
+    target.focus({preventScroll: true});
+  }
+}
+compactPane.addEventListener("change", sizeSettingsToPane);
+sizeSettingsToPane();
+new MutationObserver(syncSettingsSection).observe(settings.querySelector(".set-rail")!, {subtree: true, attributes: true, attributeFilter: ["aria-selected"]});
+let settingsAnchor: ReturnType<typeof reader.readingAnchor> | undefined;
+new MutationObserver(() => {
+  if (!scrim.hidden) {
+    settingsAnchor = reader.readingAnchor();
+    if (compactPane.matches) close.focus({preventScroll: true});
+  } else if (settingsAnchor) {
+    reader.restoreReadingAnchor(settingsAnchor);
+    settingsAnchor = undefined;
+  }
+}).observe(scrim, {attributes: true, attributeFilter: ["hidden"]});
 iconButton("Settings", "#btn-settings svg", () => reader.settings()).setAttribute("aria-haspopup", "dialog");
 try {
   await app.connect();

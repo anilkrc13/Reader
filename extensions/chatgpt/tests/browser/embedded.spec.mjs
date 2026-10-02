@@ -2,13 +2,13 @@ import {test, expect} from '@playwright/test';
 import fs from 'node:fs';
 const html = fs.readFileSync(new URL('../../dist/viewer.html', import.meta.url), 'utf8');
 
-async function host(page, {resources = true, storage = true, links = false, localFiles = false, theme = "light", savedPrefs = {}, documentText = null} = {}) {
+async function host(page, {resources = true, storage = true, links = false, localFiles = false, theme = "light", savedPrefs = {}, documentText = null, paneSize = null} = {}) {
   const requests = [], errors = [];
   page.on('request', request => requests.push(request.url()));
   page.on('pageerror', error => errors.push(error.message));
   await page.route('http://reader.test/**', route => route.fulfill({body:'<!doctype html><html><body></body></html>',contentType:'text/html'}));
   await page.goto('http://reader.test/');
-  await page.evaluate(({html, resources, storage, links, localFiles, theme, savedPrefs, documentText}) => {
+  await page.evaluate(({html, resources, storage, links, localFiles, theme, savedPrefs, documentText, paneSize}) => {
     if (storage) localStorage.setItem("reader.chatgpt.reading.v1", JSON.stringify(savedPrefs));
     window.host = {calls:[], frames:[], text: '# Reader\n\nA shared reading interface.\n\n- [x] Read only\n\n![Relative image](./secret.png)\n\n[Relative file](./secret.md) · [External](https://example.com) · [Section](#reader)\n\n<script>window.pwned=true</script>\n<img src="x" onerror="window.pwned=true">', fail:false};
     window.addEventListener('message', event => {
@@ -32,14 +32,20 @@ async function host(page, {resources = true, storage = true, links = false, loca
     });
     if (documentText !== null) window.host.text = documentText;
     window.host.add = () => {
-      const frame = document.createElement('iframe'); frame.style='width:100%;height:700px;border:0';
+      const frame = document.createElement('iframe'); frame.style=`width:${paneSize ? paneSize.width+'px' : '100%'};height:${paneSize ? paneSize.height : 700}px;border:0`;
       frame.sandbox=storage?'allow-scripts allow-same-origin':'allow-scripts';
       frame.srcdoc=html; document.body.append(frame); window.host.frames.push(frame);
     };
     window.host.add();
-  }, {html, resources, storage, links, localFiles, theme, savedPrefs, documentText});
+  }, {html, resources, storage, links, localFiles, theme, savedPrefs, documentText, paneSize});
   const frame = page.frameLocator('iframe').first();
   return {frame, requests, errors};
+}
+
+async function settingsSection(frame, name) {
+  const picker=frame.getByRole('combobox',{name:'Settings section'});
+  if(await picker.isVisible()) await picker.selectOption({label:name});
+  else await frame.getByRole('tab',{name,exact:true}).click();
 }
 
 test('bundled SDK viewer reads, sanitizes, refreshes and never calls local APIs or writes', async ({page}, testInfo) => {
@@ -79,12 +85,12 @@ test('storage denial falls back to memory and a second panel keeps its own docum
   const {frame,errors}=await host(page,{storage:false});
   await expect(frame.locator('#preview h1')).toHaveText('Reader');
   await frame.getByRole('button',{name:'Settings',exact:true}).click();
-  await frame.getByRole('tab',{name:'Reading',exact:true}).click();
+  await settingsSection(frame,'Reading');
   { const bodyFineTune=frame.locator('[data-panel=reading] details').first();
   if (!(await bodyFineTune.evaluate(n=>n.open))) await bodyFineTune.locator('summary').click(); }
   await frame.getByRole('slider',{name:'Body text size'}).press('ArrowRight');
   await expect(frame.locator('html')).toHaveAttribute('style',/--fs-body: 17px/);
-  await frame.getByRole('button',{name:'Close settings'}).click();
+  await frame.getByRole('button',{name:/Close settings|Back to document/}).click();
   await page.evaluate(()=>{window.host.text='# Second'; window.host.add();});
   await expect(page.frameLocator('iframe').nth(1).locator('#preview h1')).toHaveText('Second');
   await expect(frame.locator('#preview h1')).toHaveText('Reader');
@@ -139,11 +145,11 @@ test('same-document anchors reveal a distant heading in single-column and two-pa
   await frame.getByRole('link',{name:'Return to top'}).click();
   await expect.poll(()=>frame.locator('#previewpane').evaluate(node=>node.scrollTop)).toBeLessThan(200);
   await frame.getByRole('button',{name:'Settings',exact:true}).click();
-  await frame.getByRole('tab',{name:'Reading',exact:true}).click();
+  await settingsSection(frame,'Reading');
   { const bodyFineTune=frame.locator('[data-panel=reading] details').first();
   if (!(await bodyFineTune.evaluate(n=>n.open))) await bodyFineTune.locator('summary').click(); }
   await frame.getByRole('button',{name:'Two-page layout',exact:true}).click();
-  await frame.getByRole('button',{name:'Close settings'}).click();
+  await frame.getByRole('button',{name:/Close settings|Back to document/}).click();
   await expect(frame.locator('html')).toHaveAttribute('data-paged','yes');
   await frame.getByRole('link',{name:'Go to destination'}).click();
   await expect.poll(visibleInPane).toBeTruthy();
@@ -203,7 +209,7 @@ test('host theme wins over saved theme and reading preferences improve narrow he
   expect(dimensions.line / dimensions.font).toBeGreaterThan(1.15);
   await page.screenshot({path:testInfo.outputPath('embedded-heading-dark.png')});
   await frame.getByRole('button',{name:'Settings',exact:true}).click();
-  await frame.getByRole('tab',{name:'Reading',exact:true}).click();
+  await settingsSection(frame,'Reading');
   { const bodyFineTune=frame.locator('[data-panel=reading] details').first();
   if (!(await bodyFineTune.evaluate(n=>n.open))) await bodyFineTune.locator('summary').click(); }
   const dialog=frame.getByRole('dialog',{name:'Settings'});
@@ -215,7 +221,7 @@ test('host theme wins over saved theme and reading preferences improve narrow he
   await expect(frame.locator('html')).toHaveAttribute('style',/--lh-body: 2.2/);
   await expect(frame.locator('html')).toHaveAttribute('style',/--fs-body: 13px/);
   await page.screenshot({path:testInfo.outputPath('embedded-settings-dark.png')});
-  await frame.getByRole('button',{name:'Close settings'}).click();
+  await frame.getByRole('button',{name:/Close settings|Back to document/}).click();
   await expect(frame.getByRole('button',{name:'Settings',exact:true})).toBeFocused();
   const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('reader.chatgpt.reading.v1')));
   expect(saved).toMatchObject({fontSize:13,lineHeight:2.2,measure:100,previewLayout:'single'});
@@ -224,7 +230,7 @@ test('host theme wins over saved theme and reading preferences improve narrow he
   await page.evaluate(()=>window.host.frames[0].contentWindow.postMessage({jsonrpc:'2.0',method:'ui/notifications/host-context-changed',params:{theme:'light'}},'*'));
   await expect(frame.locator('html')).toHaveAttribute('data-theme','light');
   await frame.getByRole('button',{name:'Settings',exact:true}).click();
-  await frame.getByRole('tab',{name:'Reading',exact:true}).click();
+  await settingsSection(frame,'Reading');
   { const bodyFineTune=frame.locator('[data-panel=reading] details').first();
   if (!(await bodyFineTune.evaluate(n=>n.open))) await bodyFineTune.locator('summary').click(); }
   await page.screenshot({path:testInfo.outputPath('embedded-settings-light.png')});
@@ -269,7 +275,7 @@ test('embedded reading keys preserve control focus and nested scrolling', async 
   await page.keyboard.press('Home'); await expect.poll(top).toBe(0);
   const gear=frame.getByRole('button',{name:'Settings',exact:true});
   await gear.click();
-  await frame.getByRole('tab',{name:'Reading',exact:true}).click();
+  await settingsSection(frame,'Reading');
   { const bodyFineTune=frame.locator('[data-panel=reading] details').first();
   if (!(await bodyFineTune.evaluate(n=>n.open))) await bodyFineTune.locator('summary').click(); }
   const dialog=frame.getByRole('dialog',{name:'Settings'});
@@ -299,7 +305,7 @@ test('embedded reading keys navigate two-page reading and retain toolbar activat
   const {frame}=await host(page,{documentText:'# Paged keyboard\n\n'+('A long reading paragraph.\n\n'.repeat(150))});
   await expect(frame.locator('#preview h1')).toHaveText('Paged keyboard');
   await frame.getByRole('button',{name:'Settings',exact:true}).click();
-  await frame.getByRole('tab',{name:'Reading',exact:true}).click();
+  await settingsSection(frame,'Reading');
   { const bodyFineTune=frame.locator('[data-panel=reading] details').first();
   if (!(await bodyFineTune.evaluate(n=>n.open))) await bodyFineTune.locator('summary').click(); }
   await frame.getByRole('button',{name:'Two-page layout',exact:true}).click();
@@ -344,7 +350,7 @@ test('shared papers follow host mode, persist across panels, and reset independe
   }
   expect(new Set(darkColors).size).toBe(3);
   await page.screenshot({path:info.outputPath('settings-appearance-dark.png')});
-  await frame.getByRole('button',{name:'Close settings'}).click();
+  await frame.getByRole('button',{name:/Close settings|Back to document/}).click();
   await page.evaluate(()=>window.host.add());
   const second=page.frameLocator('iframe').nth(1);
   await expect(second.locator('#preview h1')).toHaveText('Reader');
@@ -366,7 +372,7 @@ test('shared reading and code controls affect rendering and unsupported tabs exp
   const {frame,errors}=await host(page,{documentText:'# Adjustable title\n\nBody text.\n\n## Heading\n\n```js\nconst longLine = "'+('long '.repeat(60))+'";\n```\n\n| A | B |\n|---|---|\n| One | Two |'});
   await expect(frame.locator('#preview h1')).toHaveText('Adjustable title');
   await frame.getByRole('button',{name:'Settings',exact:true}).click();
-  await frame.getByRole('tab',{name:'Reading',exact:true}).click();
+  await settingsSection(frame,'Reading');
   await frame.locator('#sel-body').selectOption('inter');
   await frame.getByRole('button',{name:'Focus',exact:true}).click();
   const details=frame.locator('[data-panel=reading] details');
@@ -381,7 +387,7 @@ test('shared reading and code controls affect rendering and unsupported tabs exp
   expect(full/half).toBeCloseTo(2,1); expect(full).toBeGreaterThan(1000);
   await frame.getByRole('switch',{name:'Column borders'}).click();
   await page.screenshot({path:info.outputPath('settings-reading-wide.png')});
-  await frame.getByRole('tab',{name:'Code',exact:true}).click();
+  await settingsSection(frame,'Code');
   await frame.getByRole('button',{name:'Vivid',exact:true}).click();
   await frame.locator('#sel-mono').selectOption('jetbrains');
   await frame.getByRole('slider',{name:'Code size',exact:true}).press('End');
@@ -393,14 +399,14 @@ test('shared reading and code controls affect rendering and unsupported tabs exp
   await expect(frame.locator('html')).toHaveAttribute('data-theme','dark');
   await page.screenshot({path:info.outputPath('settings-code-dark.png')});
   for (const [tab,panel,explanation] of [['Editor','editor','read only'],['Files & watching','files','no folder browser'],['About','about','read-only conversation viewer']]) {
-    await frame.getByRole('tab',{name:tab,exact:true}).click();
+    await settingsSection(frame,tab);
     await expect(frame.locator(`[data-panel=${panel}]`)).toContainText(explanation);
     await expect(frame.locator(`[data-panel=${panel}]`).locator('input,select,button')).toHaveCount(0);
     await page.screenshot({path:info.outputPath(`settings-${panel}.png`)});
   }
-  await frame.getByRole('tab',{name:'Shortcuts',exact:true}).click();
+  await settingsSection(frame,'Shortcuts');
   await expect(frame.locator('[data-panel=keys]')).not.toContainText('Save');
-  await frame.getByRole('button',{name:'Close settings'}).click();
+  await frame.getByRole('button',{name:/Close settings|Back to document/}).click();
   await page.evaluate(()=>window.host.add());
   const second=page.frameLocator('iframe').nth(1);
   await expect(second.locator('#preview h1')).toHaveText('Adjustable title');
@@ -409,9 +415,9 @@ test('shared reading and code controls affect rendering and unsupported tabs exp
   await expect(second.locator('html')).toHaveAttribute('data-code','vivid');
   await page.setViewportSize({width:430,height:850});
   await frame.getByRole('button',{name:'Settings',exact:true}).click();
-  await frame.getByRole('tab',{name:'Reading',exact:true}).click();
+  await settingsSection(frame,'Reading');
   await page.screenshot({path:info.outputPath('settings-reading-narrow.png')});
-  await frame.getByRole('button',{name:'Close settings'}).click();
+  await frame.getByRole('button',{name:/Close settings|Back to document/}).click();
   await expect(frame.locator('#preview h1')).toHaveCSS('font-size','43.2px');
   expect(errors).toEqual([]);
 });
@@ -482,5 +488,101 @@ test('a delayed local link cannot open after switching away and back, a newer li
   await page.evaluate(()=>{const r=window.host.pendingLinks.shift();r.source.postMessage({jsonrpc:'2.0',id:r.id,result:r.result},'*');});
   await frame.getByRole('button',{name:'Find',exact:true}).click();
   expect(await page.evaluate(()=>window.host.calls.filter(c=>c.method==='openai/files/open').length)).toBe(1);
+  expect(errors).toEqual([]);
+});
+
+
+for (const [label,width,height,compact] of [['narrow tall',360,720,true],['wide short',1100,320,true],['narrow short',360,280,true],['roomy',1100,800,false]]) {
+  test(`settings fit the actual ${label} iframe pane`, async ({page},info) => {
+    await page.setViewportSize({width:1600,height:1050});
+    const {frame,errors}=await host(page,{paneSize:{width,height},documentText:'# Pane settings\n\n'+('Reading paragraph.\n\n'.repeat(100))});
+    await expect(frame.locator('#preview h1')).toHaveText('Pane settings');
+    const pane=frame.locator('#previewpane');
+    await pane.evaluate(n=>n.scrollTop=900);
+    const position=await pane.evaluate(n=>n.scrollTop);
+    const gear=frame.getByRole('button',{name:'Settings',exact:true});
+    await gear.click();
+    const dialog=frame.getByRole('dialog',{name:'Settings'});
+    await page.locator('iframe').first().screenshot({path:info.outputPath('settings-appearance-'+label.replace(' ','-')+'.png')});
+    const bounds=await dialog.evaluate(n=>{const r=n.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};});
+    if(compact) expect(bounds).toEqual({x:0,y:0,width,height});
+    else {expect(bounds.x).toBeGreaterThan(0);expect(bounds.y).toBeGreaterThan(0);expect(bounds.width).toBeLessThan(width);}
+    const back=frame.getByRole('button',{name:compact?'Back to document':'Close settings',exact:true});
+    await expect(back).toBeVisible();
+    if(compact) await expect(back).toBeFocused();
+    for(const [category,tab] of [['appearance','Appearance'],['reading','Reading'],['code','Code'],['editor','Editor'],['files','Files & watching'],['keys','Shortcuts'],['about','About']]) {
+      if(compact) await frame.getByRole('combobox',{name:'Settings section'}).selectOption(category);
+      else await settingsSection(frame,tab);
+      await expect(frame.locator(`[data-panel=${category}]`)).toBeVisible();
+      const overflow=await frame.locator('.set-scroll').evaluate(n=>n.scrollWidth-n.clientWidth);
+      expect(overflow).toBeLessThanOrEqual(1);
+      expect(await frame.locator('.set-scroll').evaluate(n=>n.clientHeight)).toBeGreaterThan(height*.5);
+    }
+    if(compact) await frame.getByRole('combobox',{name:'Settings section'}).selectOption('reading');
+    else await settingsSection(frame,'Reading');
+    await frame.locator('[data-panel=reading] details').nth(1).locator('summary').click();
+    await frame.getByRole('slider',{name:'Heading bottom margin override'}).focus();
+    await frame.getByRole('slider',{name:'Heading bottom margin override'}).press('ArrowRight');
+    await frame.getByRole('switch',{name:'Column borders'}).click();
+    await page.locator('iframe').first().screenshot({path:info.outputPath('settings-'+label.replace(' ','-')+'.png')});
+    await back.click(); await expect(gear).toBeFocused();
+    await expect.poll(()=>pane.evaluate(n=>n.scrollTop)).toBeCloseTo(position,0);
+    await gear.click(); await expect(frame.getByRole('switch',{name:'Column borders'})).toHaveAttribute('aria-checked','true');
+    await dialog.press('Escape'); await expect(gear).toBeFocused();
+    expect(errors).toEqual([]);
+  });
+}
+
+test('settings resize without losing choices, focused controls, or the reading passage', async ({page},info) => {
+  await page.setViewportSize({width:1600,height:1050});
+  const documentText='# Resize settings\n\n'+Array.from({length:100},(_,i)=>`Paragraph ${i}. A distinctive passage with enough words to wrap in a small pane.\n\n`).join('');
+  const {frame,errors}=await host(page,{paneSize:{width:360,height:400},documentText});
+  await expect(frame.locator('#preview h1')).toHaveText('Resize settings');
+  await frame.locator('#preview p').nth(40).evaluate(n=>n.scrollIntoView({block:'start'}));
+  const passage=()=>frame.locator('#previewpane').evaluate(pane=>{
+    const top=pane.getBoundingClientRect().top;
+    const first=[...pane.querySelectorAll('#preview p')].find(p=>p.getBoundingClientRect().bottom>top+1);
+    return Number(first.textContent.match(/Paragraph (\d+)/)[1]);
+  });
+  const started=await passage();
+  const gear=frame.getByRole('button',{name:'Settings',exact:true});
+  const back=frame.getByRole('button',{name:'Back to document',exact:true});
+  const picker=frame.getByRole('combobox',{name:'Settings section'});
+  await gear.click(); await expect(back).toBeFocused();
+  await back.press('Tab'); await page.keyboard.press('Tab'); await expect(picker).toBeFocused();
+  // Native type-ahead works in headless Chrome; its arrow-driven menu is not opened there.
+  await picker.press('r'); await expect(frame.locator('[data-panel=reading]')).toBeVisible();
+  await picker.press('Tab'); await picker.focus(); await page.keyboard.type('Appearance');
+  await expect(frame.locator('[data-panel=appearance]')).toBeVisible();
+  await frame.getByRole('button',{name:'Large',exact:true}).click();
+  await picker.selectOption('reading');
+  await frame.locator('[data-panel=reading] details').first().locator('summary').click();
+  const font=frame.getByRole('slider',{name:'Body text size',exact:true});
+  await font.focus(); await font.press('ArrowRight'); await expect(font).toHaveValue('17');
+  await page.evaluate(()=>{const f=window.host.frames[0];f.style.width='1100px';f.style.height='800px';});
+  await expect(frame.locator('#scrim')).toHaveAttribute('data-settings-layout','modal');
+  await expect(font).toBeFocused(); await expect(font).toHaveValue('17');
+  await expect(frame.getByRole('button',{name:'Close settings'})).toBeVisible();
+  await page.locator('iframe').first().screenshot({path:info.outputPath('settings-resized-modal.png')});
+  await frame.getByRole('tab',{name:'Code',exact:true}).focus();
+  await page.evaluate(()=>{const f=window.host.frames[0];f.style.width='360px';f.style.height='280px';});
+  await expect(frame.locator('#scrim')).toHaveAttribute('data-settings-layout','compact');
+  await expect(picker).toBeFocused(); await expect(picker).toHaveValue('reading');
+  await picker.selectOption('code');
+  const wrap=frame.getByRole('switch',{name:'Wrap long lines'});
+  await wrap.click(); await wrap.press('Tab'); await expect(back).toBeFocused();
+  await back.press('Shift+Tab'); await expect(wrap).toBeFocused();
+  await page.locator('iframe').first().screenshot({path:info.outputPath('settings-resized-compact-large.png')});
+  await back.click(); await expect(gear).toBeFocused();
+  await expect.poll(passage).toBeCloseTo(started,0);
+  for(let i=0;i<3;i++) {
+    await gear.click(); await expect(back).toBeFocused();
+    await expect(wrap).toHaveAttribute('aria-checked','true');
+    await back.press('Escape'); await expect(gear).toBeFocused();
+    await expect.poll(passage).toBeCloseTo(started,0);
+  }
+  await gear.click(); await picker.selectOption('reading');
+  await expect(font).toHaveValue('17');
+  await expect(frame.locator('html')).toHaveAttribute('data-uiscale','large');
   expect(errors).toEqual([]);
 });

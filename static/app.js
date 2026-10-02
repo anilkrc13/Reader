@@ -6544,6 +6544,16 @@ if (EMBEDDED) {
       applySettings(); syncDialog();
       return Object.fromEntries(keys.map(key => [key, S[key]]));
     },
+    readingAnchor() {
+      const anchor = captureReadingAnchor();
+      const inset = readingRange(anchor)?.getBoundingClientRect().top - el.previewpane.getBoundingClientRect().top;
+      return {path: state.file?.path, ...anchor, inset: Number.isFinite(inset) ? inset : 0};
+    },
+    restoreReadingAnchor(anchor) {
+      if (anchor.path !== state.file?.path) return;
+      restoreReadingAnchor(anchor);
+      if (!paging.active) el.previewpane.scrollTop -= anchor.inset;
+    },
     find: () => findOpen(), settings: () => openSettings(),
     error: message => { $("embedded-status").textContent = message; toast(message, true); },
   };
