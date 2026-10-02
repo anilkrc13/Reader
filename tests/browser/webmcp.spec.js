@@ -1383,6 +1383,18 @@ test('save status reports failure and conflict without claiming edits are saved'
   expect((await state(page)).dirty).toBe(true);
   await page.screenshot({path:'build/reading-controls/save-failed.png'});
   await page.unroute('**/api/save');
+  let releaseRetry, sawRetry;
+  const retryReleased = new Promise(resolve => {releaseRetry = resolve;});
+  const retrySeen = new Promise(resolve => {sawRetry = resolve;});
+  await page.route('**/api/save', async route => {sawRetry(); await retryReleased; await route.continue();});
+  await page.evaluate(() => {window.__retrySave = window.__readerWebMCPTools.reader_save_document.execute({});});
+  await retrySeen;
+  await invoke(page, 'reader_replace_document_text', {text:'# Newer draft\n'});
+  releaseRetry();
+  expect((await page.evaluate(() => window.__retrySave)).status).toBe('saved');
+  await expect(page.locator('#save-status')).toHaveText('Unsaved');
+  expect((await state(page)).dirty).toBe(true);
+  await page.unroute('**/api/save');
   await fs.writeFile(file, '# External edit\n');
   const result = await invoke(page, 'reader_save_document');
   expect(result.status).toBe('conflict');

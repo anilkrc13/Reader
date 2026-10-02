@@ -4,6 +4,10 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- Embedded keyboard scrolling works after a document opens and after Find or
+  Settings closes. Inputs and nested scrollers keep their keys. Live refresh
+  preserves control focus.
+
 - A heading outline opens on demand inside each local Markdown document pane.
   It navigates to folded sections and headings in two-page reading.
 - Quiet save status shows Saving, Saved, Unsaved, or Read-only. Failures and

@@ -2173,7 +2173,8 @@ async function openFile(path, {keepScroll = false, silent = false, record = true
    row, so a freshly opened document is given focus -- unless the reader is
    typing somewhere, or a dialog is open. */
 function focusReading() {
-  if (root.dataset.mode === "edit" || editingText() || overlayOpen()) return;
+  if (root.dataset.mode === "edit" || editingText() || overlayOpen() ||
+      (EMBEDDED && document.querySelector("dialog[open]"))) return;
   el.previewpane.focus({preventScroll: true});
 }
 
@@ -2233,6 +2234,7 @@ async function saveSnapshot(snapshot, {auto = false, conflict = "prompt", quiet 
     return {status: "unchanged"};
   }
   state.saving = snapshot;
+  state.saveError = "";
   updateSaveStatus();
   try {
     const res = await api("/api/save", {
@@ -4551,8 +4553,34 @@ function adjustTextSize(delta) {
      7. App chords    -- everything else ⌘-something, one else-if chain
    -------------------------------------------------------------------------- */
 
+function embeddedReadingKey(ev) {
+  if (!state.file || ev.metaKey || ev.ctrlKey || ev.altKey || editingText() ||
+      document.querySelector("dialog[open]")) return false;
+  const key = ev.key;
+  if (!["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(key) ||
+      (ev.shiftKey && key !== " ")) return false;
+  const target = ev.target instanceof Element ? ev.target : document.activeElement;
+  if (el.previewpane.contains(target) && nativePreviewInput(target)) return false;
+  // Space activates a toolbar button. Its other reading keys can move the document.
+  if (target.closest("input,textarea,select,button,summary,[contenteditable=true]") &&
+      (key === " " || !target.closest("#toolbar"))) return false;
+  ev.preventDefault();
+  const backward = ["ArrowUp", "PageUp", "Home"].includes(key) || (key === " " && ev.shiftKey);
+  if (paging.active) {
+    if (!ev.repeat) showSpread(key === "Home" ? 0 : key === "End" ? Number.MAX_SAFE_INTEGER : paging.page + (backward ? -1 : 1));
+  } else if (key === "Home" || key === "End") {
+    el.previewpane.scrollTo({top: key === "Home" ? 0 : el.previewpane.scrollHeight});
+  } else {
+    const distance = key.startsWith("Arrow") ? 40 : el.previewpane.clientHeight * .9;
+    el.previewpane.scrollBy({top: distance * (backward ? -1 : 1)});
+  }
+  return true;
+}
+
 document.addEventListener("keydown", (ev) => {
   if (EMBEDDED) {
+    if (document.querySelector("dialog[open]")) return;
+    if (embeddedReadingKey(ev)) return;
     const mod = ev.metaKey || ev.ctrlKey;
     const link = ev.target.closest?.("a[data-embedded-link]");
     if (link && ev.key === "Enter") { ev.preventDefault(); window.readerEmbeddedHost?.openLink(link.dataset.embeddedLink); return; }
@@ -5109,10 +5137,12 @@ function findOpen() {
 }
 
 function findCloseBar() {
+  const returnToReading = EMBEDDED && el.findbar.contains(document.activeElement);
   find.open = false;
   el.findbar.hidden = true;
   findClear();
   findPaint();
+  if (returnToReading && !document.querySelector("dialog[open]")) el.previewpane.focus({preventScroll: true});
 }
 
 /* A re-render replaces the preview wholesale, taking the marks with it. */
@@ -6483,6 +6513,7 @@ if (EMBEDDED) {
       root.dataset.doc = "md";
       render(text);
       restoreScroll(el.previewpane, top);
+      if (!same) focusReading();
     },
     preferences(values = {}) {
       if (["auto", "light", "dark"].includes(values.theme)) S.theme = values.theme;

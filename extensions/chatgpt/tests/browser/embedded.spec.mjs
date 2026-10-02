@@ -2,13 +2,13 @@ import {test, expect} from '@playwright/test';
 import fs from 'node:fs';
 const html = fs.readFileSync(new URL('../../dist/viewer.html', import.meta.url), 'utf8');
 
-async function host(page, {resources = true, storage = true, links = false, theme = "light", savedPrefs = {}} = {}) {
+async function host(page, {resources = true, storage = true, links = false, theme = "light", savedPrefs = {}, documentText = null} = {}) {
   const requests = [], errors = [];
   page.on('request', request => requests.push(request.url()));
   page.on('pageerror', error => errors.push(error.message));
   await page.route('http://reader.test/**', route => route.fulfill({body:'<!doctype html><html><body></body></html>',contentType:'text/html'}));
   await page.goto('http://reader.test/');
-  await page.evaluate(({html, resources, storage, links, theme, savedPrefs}) => {
+  await page.evaluate(({html, resources, storage, links, theme, savedPrefs, documentText}) => {
     if (storage) localStorage.setItem("reader.chatgpt.reading.v1", JSON.stringify(savedPrefs));
     window.host = {calls:[], frames:[], text: '# Reader\n\nA shared reading interface.\n\n- [x] Read only\n\n![Relative image](./secret.png)\n\n[Relative file](./secret.md) · [External](https://example.com) · [Section](#reader)\n\n<script>window.pwned=true</script>\n<img src="x" onerror="window.pwned=true">', fail:false};
     window.addEventListener('message', event => {
@@ -24,13 +24,14 @@ async function host(page, {resources = true, storage = true, links = false, them
         else reply({contents:[{uri:message.params.uri,text:window.host.text,_meta:{'openai/resource':{writable:true,etag:'v1'}}}]});
       } else if (message.id !== undefined) reply({});
     });
+    if (documentText !== null) window.host.text = documentText;
     window.host.add = () => {
       const frame = document.createElement('iframe'); frame.style='width:100%;height:700px;border:0';
       frame.sandbox=storage?'allow-scripts allow-same-origin':'allow-scripts';
       frame.srcdoc=html; document.body.append(frame); window.host.frames.push(frame);
     };
     window.host.add();
-  }, {html, resources, storage, links, theme, savedPrefs});
+  }, {html, resources, storage, links, theme, savedPrefs, documentText});
   const frame = page.frameLocator('iframe').first();
   return {frame, requests, errors};
 }
@@ -214,4 +215,78 @@ test('host theme wins over saved theme and reading preferences improve narrow he
   await expect(next.locator('html')).toHaveAttribute('data-theme','dark');
   expect(requests.filter(url=>url!=='http://reader.test/')).toEqual([]);
   expect(errors).toEqual([]);
+});
+
+
+test('embedded reading keys preserve control focus and nested scrolling', async ({page}) => {
+  const text='# Keyboard reading\n\n'+('A reading paragraph.\n\n'.repeat(100))+
+    '<pre tabindex="0" style="height:80px;overflow:auto">'+('Nested code line\n'.repeat(100))+'</pre>';
+  const {frame}=await host(page, {documentText:text});
+  const pane=frame.locator('#previewpane');
+  await expect(frame.locator('#preview h1')).toHaveText('Keyboard reading');
+  await expect(pane).toBeFocused();
+  const top=()=>pane.evaluate(n=>n.scrollTop);
+  for (const [down,up] of [['ArrowDown','ArrowUp'],['PageDown','PageUp'],['Space','Shift+Space']]) {
+    await page.keyboard.press(down);
+    await expect.poll(top).toBeGreaterThan(0);
+    await page.keyboard.press(up);
+    await expect.poll(top).toBe(0);
+  }
+  await page.keyboard.press('End'); await expect.poll(top).toBeGreaterThan(1000);
+  await page.keyboard.press('Home'); await expect.poll(top).toBe(0);
+  await frame.getByRole('button',{name:'Find',exact:true}).click();
+  await frame.locator('#find-q').fill('reading');
+  await frame.locator('#find-q').press('Home');
+  await expect(frame.locator('#find-q')).toBeFocused();
+  // A refresh must not take the caret from Find.
+  await page.evaluate(()=>{window.host.text+='\nUpdated ending.';window.host.frames[0].contentWindow.postMessage({jsonrpc:'2.0',method:'notifications/resources/updated',params:{uri:'host:demo'}},'*');});
+  await expect(frame.locator('#preview')).toContainText('Updated ending.');
+  await expect(frame.locator('#find-q')).toBeFocused();
+  await frame.locator('#find-q').press('Escape');
+  await expect(pane).toBeFocused();
+  await page.keyboard.press('Home'); await expect.poll(top).toBe(0);
+  await page.keyboard.press('PageDown'); await expect.poll(top).toBeGreaterThan(0);
+  await page.keyboard.press('Home'); await expect.poll(top).toBe(0);
+  const gear=frame.getByRole('button',{name:'Reading preferences',exact:true});
+  await gear.click();
+  const dialog=frame.getByRole('dialog',{name:'Reading preferences'});
+  const slider=frame.getByRole('slider',{name:'Text size'});
+  await slider.press('Home');
+  await expect(slider).toHaveValue('13');
+  await expect.poll(top).toBe(0);
+  await page.evaluate(()=>{window.host.text+='\nSettings update.';window.host.frames[0].contentWindow.postMessage({jsonrpc:'2.0',method:'notifications/resources/updated',params:{uri:'host:demo'}},'*');});
+  await expect(frame.locator('#preview')).toContainText('Settings update.');
+  await expect(slider).toBeFocused();
+  await dialog.press('Escape'); await expect(gear).toBeFocused();
+  await page.keyboard.press('PageDown'); await expect.poll(top).toBeGreaterThan(0);
+  await page.keyboard.press('Home'); await expect.poll(top).toBe(0);
+  // Space still activates a focused toolbar control.
+  await gear.press('Space'); await expect(dialog).toBeVisible();
+  await dialog.press('Escape');
+  const nested=frame.locator('#preview pre');
+  await nested.focus();
+  const outer=await top();
+  await nested.press('PageDown');
+  await expect.poll(()=>nested.evaluate(n=>n.scrollTop)).toBeGreaterThan(0);
+  expect(await top()).toBe(outer);
+});
+
+test('embedded reading keys navigate two-page reading and retain toolbar activation', async ({page}) => {
+  await page.setViewportSize({width:1400,height:850});
+  const {frame}=await host(page,{documentText:'# Paged keyboard\n\n'+('A long reading paragraph.\n\n'.repeat(150))});
+  await expect(frame.locator('#preview h1')).toHaveText('Paged keyboard');
+  await frame.getByRole('button',{name:'Reading preferences',exact:true}).click();
+  await frame.getByRole('combobox',{name:'Reading layout'}).selectOption('spread');
+  await frame.getByRole('dialog',{name:'Reading preferences'}).press('Escape');
+  await expect(frame.locator('html')).toHaveAttribute('data-paged','yes');
+  for (const [down,up] of [['ArrowDown','ArrowUp'],['PageDown','PageUp']]) {
+    await page.keyboard.press(down); await expect(frame.locator('#page-label')).toContainText('Pages 3–4');
+    await page.keyboard.press(up); await expect(frame.locator('#page-label')).toContainText('Pages 1–2');
+  }
+  await frame.locator('#previewpane').focus();
+  await page.keyboard.press('Space'); await expect(frame.locator('#page-label')).toContainText('Pages 3–4');
+  await page.keyboard.press('Shift+Space'); await expect(frame.locator('#page-label')).toContainText('Pages 1–2');
+  await page.keyboard.press('End'); await expect(frame.locator('#page-prev')).toBeEnabled();
+  await expect(frame.locator('#page-next')).toBeDisabled();
+  await page.keyboard.press('Home'); await expect(frame.locator('#page-label')).toContainText('Pages 1–2');
 });

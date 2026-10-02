@@ -2,10 +2,8 @@
 
 These items do not hold up the completed local reading controls.
 
-Keyboard scrolling has a separate reproduced embedded regression. A long document
-receives no initial reading focus, so Arrow Down after load leaves scrollTop at zero.
-The keyboard fix must preserve Find inputs, Settings controls, nested scrollers,
-and focus during live refresh.
+The [keyboard regression and its repair](keyboard.md) are part of the completed
+reading-controls milestone.
 
 Same-thread Back and Forward remain blocked on host capabilities. The installed
 extension SDK exposes the current file’s name and opaque resource URI. Its app API
