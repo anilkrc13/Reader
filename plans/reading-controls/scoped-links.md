@@ -61,4 +61,8 @@ Resolution and host opening cannot be one atomic operation with the documented
 path-only API. The host owns final access policy; concurrent filesystem replacement
 between validation and opening is outside this prototype's guarantees.
 
-Independent review of a frozen local commit is the remaining delivery check.
+Independent review of frozen `cc8d1e9..1661704` passed with no concrete findings.
+The reviewer independently reran the real stdio containment case: one pass, zero
+failures. The checkpoint is ready for owner inspection. Actual host metadata,
+file routing, and icon display remain unobserved. No PR, push, merge, deployment,
+installation, cache edit, or private host reload occurred.

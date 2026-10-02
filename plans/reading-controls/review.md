@@ -35,3 +35,19 @@ and the final gate logs. Evidence shows 11 embedded browser, 34 local browser,
 90 server, and seven protocol tests passing. The Mac bundle was rebuilt, signed,
 and compared with source resources. Actual Codex host UI and native menu
 acceptance remain unobserved.
+
+## Scoped local links and existing branding
+
+Independent review of frozen `cc8d1e9..1661704f50fbc625fea104e81b54053087906060`
+passed with no concrete findings. The reviewer independently reran the real stdio
+containment case: one pass, zero failures. Review checked SDK metadata parsing,
+path-only host opening, lexical and canonical containment, regular Markdown
+targets, missing-context refusal, no content reads, stale-reply guards, and
+unchanged native source. The host-refusal screenshot and final logs were inspected.
+
+Evidence shows 13 embedded browser, nine protocol/security, 34 local browser, and
+90 Python checks passing. Build, signature, native resource copies, and packaged
+artwork equality passed. The documented validation/open race remains outside the
+prototype's guarantees. Actual host metadata, file routing, and icon display
+remain unobserved. Back/Forward still lacks a complete same-thread history API.
+The checkpoint is ready for owner inspection; no publication or installation occurred.
