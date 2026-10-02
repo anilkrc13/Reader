@@ -66,7 +66,7 @@ Embedded tests use two workers because page, storage, routes, and output are
 isolated. Server discovery includes `tests/server`. Each platform's build and
 checks use only its required source and keep generated output under `build`.
 All test code belongs under `tests`. Adapter runner configuration lives beside
-its tests. Shared Playwright defaults remain in root `playwright.config.js`. Protocol checks use
+its tests. Shared Playwright defaults live in `tests/playwright.config.js`. Protocol checks use
 Node createRequire anchored to the adapter manifest to resolve its pinned SDK;
 root Playwright dependencies serve the relocated browser suite.
 
@@ -88,7 +88,7 @@ The adapter manifest owns its own runtime dependencies and module type.
 | Root item | Owner and reason |
 | --- | --- |
 | `src/` | Shared application and platform adapter source, assets, metadata, notices. |
-| `tests/` | All tests, adapter runner configuration, and manual test helpers. |
+| `tests/` | All tests, shared and adapter runner configuration, and manual test helpers. |
 | `scripts/` | Server launcher, project build command, shared runtime packager, and focused lint runner. |
 | `install/` | The user-facing source installer and update command. |
 | `docs/`, `context/` | Architecture, contributor checks, and document integrity contracts. |
@@ -98,7 +98,6 @@ The adapter manifest owns its own runtime dependencies and module type.
 | `package.json`, `package-lock.json` | Pinned repo-wide development tools and build/test commands; not a second application package. |
 | `requirements-dev.txt` | The pinned Python linter. Reader has no Python runtime dependency manifest. |
 | `config/` | ESLint, Ruff, and SwiftLint rules. The focused lint runner supplies each path explicitly. |
-| `playwright.config.js` | Shared test defaults and the local browser suite's output path. Adapter configuration lives beside its tests. |
 | `.github/`, `.gitignore`, `.git/` | CI and issue templates, generated/state exclusions, and Git data. |
 | `build/` | Mac app, extension package, release files, build staging, browser output, and ignored inspection/validation tools. |
 | `node_modules/` | Ignored repo-wide development dependencies. The adapter's ignored dependencies stay at its package boundary. |
@@ -192,7 +191,7 @@ bundle-resource root, so preferences and authorization paths do not move.
 
 The remaining tracked root files each have a purpose in the table above. Node
 manifests stay together at the root for standard npm commands and reproducible
-tooling. Playwright defaults stay there by project policy. There is no unused
+tooling. Playwright defaults live under `tests/`. There is no unused
 tracked root file supported for deletion. Historical verification paragraphs
 above describe earlier checkouts; the table and launcher section describe today.
 
@@ -209,3 +208,17 @@ and isolated packaged launch passed. Web and Mac builds passed; selected runtime
 files, web assets, and notices match source in both. The Mac signature verifies.
 The tracked-file audit found no file matching the ignore rules. No installation,
 app launch, publication, or push occurred. Installed-app testing remains manual.
+
+Shared Playwright configuration moved to `tests/playwright.config.js` after the
+owner removed the former root-location rule. It selects `tests/browser` and
+writes to `build/browser-test-results`. The adapter configuration imports it
+from `tests/chatgpt`, then selects its own browser folder and output directory.
+Use `npm run test:webmcp`; a direct invocation needs
+`npx playwright test --config tests/playwright.config.js`. CI already uses the
+npm command for the local suite and an explicit config for the embedded suite.
+
+The config move passed all 35 local and 18 embedded browser checks. Both suites
+discover the same tests and keep one and two workers respectively. Four source
+layout checks, the documentation link check, and focused ESLint/Ruff passed.
+No application or packaging source changed, so this follow-up did not rebuild
+the Mac app. No installation or push occurred.

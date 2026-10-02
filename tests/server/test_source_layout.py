@@ -56,7 +56,7 @@ class SourceLayoutTests(unittest.TestCase):
     def test_root_has_no_legacy_source_or_generated_app_outputs(self):
         legacy = [name for name in ("macos", "static", "fonts", "builds", "test-results",
                                     "manifest.json", "reader_backend.py", "eslint.config.mjs",
-                                    "ruff.toml", ".swiftlint.yml", "reader.py") if (ROOT / name).exists()]
+                                    "ruff.toml", ".swiftlint.yml", "reader.py", "playwright.config.js") if (ROOT / name).exists()]
         legacy.extend(path.name for pattern in ("Reader-*.zip", "Reader-*.dmg")
                       for path in ROOT.glob(pattern))
         self.assertEqual(legacy, [], "Application source belongs in src; output belongs in build")

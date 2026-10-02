@@ -77,8 +77,8 @@ Bump it and add a [`CHANGELOG.md`](CHANGELOG.md) entry in the same change as a r
   output. Assess shared and adapter ownership before cross-platform changes.
 
 - Put every test under the root `tests/` tree. ChatGPT tests and their runner
-  configuration belong in `tests/chatgpt/`. Shared Playwright defaults remain
-  in the root `playwright.config.js`. Review the actual source/test tree
+  configuration belong in `tests/chatgpt/`. Shared Playwright defaults belong in
+  `tests/playwright.config.js`. Review the actual source/test tree
   before delivery; passing behavior tests do not prove files have the right owner.
   Do not commit generated output or dependencies under `src`.
 

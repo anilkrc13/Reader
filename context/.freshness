@@ -1,7 +1,7 @@
 # owned by skills/repository-context/scripts/context_freshness.py -- do not hand-edit
 {
-  "aggregate": "e4bd581a90ff466939863a1fe94c37f0a8c9928442b26c7d2b3c476aa3b07486",
-  "commit": "4e4b0bb78db32d85af0d20afe63395ecd4991c77",
+  "aggregate": "ea771f22ec3c6a4486f9d5b73db3034be488ed71f594805ff2632c35ce878aa2",
+  "commit": "a8ae88bf975a19eb33b958866bc49bbc6db47cfb",
   "exclude": [],
   "files": {
     ".github/ISSUE_TEMPLATE/bug_report.md": {
@@ -97,14 +97,8 @@
     "package.json": {
       "executable": false,
       "kind": "file",
-      "length": 813,
-      "sha256": "5adf6b8992d7faaadcefcd0a100572c2d1a6ca71cefbe441ee65ae3be1175117"
-    },
-    "playwright.config.js": {
-      "executable": false,
-      "kind": "file",
-      "length": 647,
-      "sha256": "cc13202bc461f361b4b7d6c79588a313f3b547131dcef848476c6ff5e15200eb"
+      "length": 849,
+      "sha256": "e3dcd71da012789f116d9e1a478298e737b65027db97ffc5ee8795574cb1390a"
     },
     "requirements-dev.txt": {
       "executable": false,
@@ -451,8 +445,8 @@
     "tests/README.md": {
       "executable": false,
       "kind": "file",
-      "length": 1697,
-      "sha256": "eebd44295dffbccadb0eeffcfc1b5ac360300664fe06bac6b0fb1ffa37b809d4"
+      "length": 1696,
+      "sha256": "f60dfdcdcc95ad2b718d3d56c2f9c0ca602b0b71eb9f9d96884ceb8b1001ef57"
     },
     "tests/browser/webmcp.spec.js": {
       "executable": false,
@@ -469,8 +463,8 @@
     "tests/chatgpt/playwright.config.cjs": {
       "executable": false,
       "kind": "file",
-      "length": 249,
-      "sha256": "4314270751407321b4b0d293780f6303306352d7020c00b969e16c7d9c20594c"
+      "length": 246,
+      "sha256": "d38c74e1a2ac9a330a35c38ffcde78e06d30013c2ea8648de34c48345376a3ff"
     },
     "tests/chatgpt/server.integration.test.mjs": {
       "executable": false,
@@ -489,6 +483,12 @@
       "kind": "file",
       "length": 4451,
       "sha256": "e8a7cd2f274f4e083a30838581f54a0aeecc7de694f71a5d334c52234110ef89"
+    },
+    "tests/playwright.config.js": {
+      "executable": false,
+      "kind": "file",
+      "length": 642,
+      "sha256": "1330082b958dd8e0a70ae48868244baf5a809f9a5eb3583d4ec0e2c71d00a87a"
     },
     "tests/server/__init__.py": {
       "executable": false,
@@ -583,8 +583,8 @@
     "tests/server/test_source_layout.py": {
       "executable": false,
       "kind": "file",
-      "length": 3415,
-      "sha256": "13ed1ebf58ca76e4cff25cd012dea142a2f9f4afa76d6e09ddba06eafa17d6df"
+      "length": 3439,
+      "sha256": "42c3123a7059efffcf697ee2ed31352cc6c7e2605235d82c97f3ce10ccac27f4"
     },
     "tests/server/test_workspace_authorization.py": {
       "executable": false,
