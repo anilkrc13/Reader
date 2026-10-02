@@ -1,12 +1,12 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
-  "name": "reader-markdown",
+  "name": "reader-markdown-dev",
   "version": "2.6.0",
   "description": "Read Markdown files in Reader in the desktop conversation panel.",
   "extensions": {
     "com.openai": {
       "interface": {
-        "displayName": "Reader Markdown",
+        "displayName": "Reader-Dev",
         "shortDescription": "Read-only Markdown viewer",
         "logo": "./assets/reader.png",
         "composerIcon": "./assets/reader.png"

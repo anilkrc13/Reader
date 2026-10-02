@@ -2,7 +2,7 @@
 
 Reader's releases are built by [`.github/workflows/release.yml`](../.github/workflows/release.yml), triggered by
 pushing a tag. It also supports a dispatch from `main` to validate and archive the committed
-plugin package without creating a release tag. Tagged releases keep the Mac app
+development plugin package and stage production without creating a release tag. Tagged releases keep the Mac app
 and plugin on the same versioned source.
 
 ## Cutting a release
@@ -30,7 +30,7 @@ and plugin on the same versioned source.
 5. Watch the Actions run. It builds `Reader.app`, verifies the signature,
    zips it, writes `manifest.json`, builds a `.dmg` of the same build, and
    publishes those assets plus `Reader-plugin-<version>.zip` as a GitHub Release
-   named after the tag. The marketplace package is already on `main`.
+   named after the tag. Publishing the production marketplace branch is a separate action.
 
 ## Two artifacts, two purposes
 
@@ -114,35 +114,26 @@ staging also stay under `build`. Nothing is published by these local scripts.
 
 ## Plugin package and Git marketplace
 
-The existing Release workflow builds the bundled plugin with pinned Node
-dependencies before starting the Mac release job. `scripts/plugin_release.py`
-checks the manifest against `VERSION` and the release tag. It requires the
-server, viewer, branding, project license, shared notices, and bundled npm notices.
-Unexpected files, missing files, and symlinks fail the job before publication.
+Reader uses one implementation and two logical identities:
 
-`Reader-plugin-<version>.zip` contains a `reader-markdown/` folder with the
-portable plugin at its root. It joins the Mac ZIP, DMG, and updater manifest
-on each tagged GitHub release. The updater still reads only its existing Mac
-manifest. Git marketplace installation uses exploded files rather than this ZIP.
+| Channel | Display name | Catalog | Plugin and MCP configuration key | Source |
+| --- | --- | --- | --- | --- |
+| Development | Reader-Dev | `reader-dev` | `reader-markdown-dev` | Checkout / `main` |
+| Production | Reader | `reader-github` | `reader-markdown` | Proposed `reader-release` branch |
 
-The repository's default `main` branch contains everything needed to discover
-and install Reader:
+The distinct catalog and plugin names prevent the development checkout from
+sharing production's discovery identity. The physical package folder remains
+`plugins/reader-markdown` in both trees; manifests determine identity. The
+existing local label edit is carried forward as `Reader-Dev`. No installed plugin
+or configured marketplace is migrated by generation. Host discovery and existing
+registrations need verification after a separately authorized registration change.
 
-```
-.agents/plugins/marketplace.json
-plugins/release.json
-plugins/reader-markdown/
-```
+### Generate development and stage production
 
-The public catalog is named `reader-github`. Its source path is
-`./plugins/reader-markdown`, within the fetched repository. This is the only
-public file under `.agents`; other assistant state and root `AGENTS.md` remain
-ignored. `plugins/release.json` records the version, repository URL, and all
-package hashes. Source commit and tag provenance belong to the staged release
-artifact, where they can refer to a completed commit.
-
-The ready package is generated output approved for tracking on `main`. Edit
-`src/reader`, then regenerate it before opening the source PR:
+The Node build emits production manifests into `build/chatgpt`. `sync` derives
+only the development manifest and MCP key; runtime files, branding, and licenses
+are identical. The checkout tracks the development catalog, package, and hash
+record. Edit `src/reader`, then regenerate them:
 
 ```sh
 npm run build:chatgpt
@@ -154,41 +145,93 @@ python3 scripts/plugin_release.py check \
   --repository-root . --repository-url https://github.com/anilkrc13/Reader
 ```
 
-`sync` owns the public catalog, package files, and hash manifest. It preserves
-other plugin folders and private assistant state. Unexpected files and symlinks
-in the package fail validation. `check` never writes or repairs files. CI rebuilds
-from pinned dependencies and compares every package byte, version, catalog path,
-and hash. A stale committed package blocks delivery. A release version change
-requires regeneration; moving identical files does not require a version bump.
+`sync` owns `.agents/plugins/marketplace.json`, `plugins/reader-markdown`, and
+`plugins/release.json`. It accepts the legacy Reader catalog with a label-only
+edit, and refuses unknown catalog settings, extra files, or symlinks before
+writing. Private assistant state and other plugin folders are preserved. `check`
+is read only and compares all development bytes, hashes, versions, and catalog
+paths. CI rebuilds with pinned dependencies and rejects stale generated files.
 
-Release automation rebuilds, checks, and archives the committed package. It
-never commits or pushes catalog changes, so it cannot bypass branch protection
-or trigger itself through a generated commit. A package failure prevents Mac
-publication. The existing `plugin-marketplace` branch is unused and is retained
-only as history; neither discovery nor release automation depends on it.
-
-A manual validation run from merged `main` is available:
+Production staging uses the production build, never the development package:
 
 ```sh
-gh workflow run release.yml --ref main
+python3 scripts/plugin_release.py stage \
+  --plugin-dir build/chatgpt --version-file VERSION \
+  --source-commit "$(git rev-parse HEAD)" \
+  --repository-url https://github.com/anilkrc13/Reader \
+  --output-dir build/plugin-marketplace --archive-dir build/releases
 ```
 
-It keeps the package and ZIP as Actions artifacts. It skips the Mac job and
-creates no tag or GitHub Release. Dispatches from other branches are skipped.
+Destinations must be unused ordinary paths without symlink parents. Staging
+validates the production identity, complete file set, catalog, and hashes. It
+writes a production tree plus `Reader-plugin-<version>.zip` without rewriting the
+development catalog, package, or source build. A tagged release adds
+`--tag v<version>`, matching `VERSION`. The ZIP has a `reader-markdown/` root and
+includes the server, viewer, manifests, artwork, project license, shared notices,
+and bundled npm notices. The Mac updater still consumes only its Mac manifest.
 
-## Install from GitHub
+For publishable provenance, regenerate from a completed clean source commit and
+supply that exact SHA. A dirty checkout stage is only a local preview; the SHA
+format check does not establish source freshness. This identity preparation is
+unreleased and retains the current version. A release must bump `VERSION` and
+add its `CHANGELOG.md` entry.
 
-Add `https://github.com/anilkrc13/Reader` in the desktop marketplace UI. No branch
-selection is needed. The supported CLI equivalent is:
+### Proposed production source and publication boundary
+
+Production consumers should fetch `https://github.com/anilkrc13/Reader` at the
+explicit `reader-release` ref. The branch must contain the entire validated
+staging tree:
+
+```
+.agents/plugins/marketplace.json  # reader-github, displayed as Reader
+plugins/reader-markdown/         # production manifests and complete ready package
+release.json                    # version, source commit/tag, repository URL, hashes
+```
+
+Git installation does not execute the build. Publishing only a catalog that
+points to development files would therefore install the wrong identity. `main`
+remains the development source; a plain repository URL would select that channel
+after these changes land. The proposed `reader-release` branch is not created or
+published by this change. The legacy `plugin-marketplace` branch is unused and
+retained as history.
+
+The release workflow checks development, stages production, and uploads Actions
+artifacts. Tagged runs also publish Mac and plugin release assets. Neither it nor
+the local generator commits or pushes a distribution branch. Production branch
+publication, marketplace source migration, and installation require separate
+authorization. Publish the validated staged contents from a clean source commit
+before changing any production registration, then verify branch/ref, identities,
+package hashes, and real host acceptance on a machine without the checkout.
+
+### Installation and update semantics
+
+After the proposed branch has been published, the production CLI route is:
 
 ```sh
-codex plugin marketplace add https://github.com/anilkrc13/Reader
+codex plugin marketplace add https://github.com/anilkrc13/Reader --ref reader-release
 codex plugin add reader-markdown@reader-github
 ```
 
-The package needs Node 22 or newer on the host path. It needs no local build,
-source checkout, or dependency install. Refresh discovery with
-`codex plugin marketplace upgrade reader-github`, then use the host's plugin
-update action. The plugin has no document settings file; embedded display
-preferences remain owned by the host viewer. Real file routing still needs
-[host acceptance](embedded-acceptance.md).
+For local development, after generation, the separate route is:
+
+```sh
+codex plugin marketplace add /path/to/Reader
+codex plugin add reader-markdown-dev@reader-dev
+```
+
+These are instructions, not actions performed by the generator. An existing
+`reader-github` source using `main` or the local checkout must be explicitly
+migrated to the production ref through the host's marketplace management. Adding
+another source is not proof that an existing registration changed. Existing
+installed identities and cached packages are untouched by this repository change.
+
+The installed CLI documents `--ref` for Git source selection and
+`codex plugin marketplace upgrade reader-github` for refreshing the configured Git
+snapshot. A catalog refresh does not prove that an installed plugin updated.
+Automatic installed-plugin updates have not been verified; use the host's update
+action and check its installed version and identity on each machine. Real file
+routing and refresh still require [host acceptance](embedded-acceptance.md).
+
+A manual workflow dispatch from merged `main` validates and archives the packages
+without publishing the production branch, creating a tag, or running the Mac job.
+Dispatches from other branches are skipped.

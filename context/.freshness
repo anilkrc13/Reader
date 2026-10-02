@@ -1,14 +1,14 @@
 # owned by skills/repository-context/scripts/context_freshness.py -- do not hand-edit
 {
-  "aggregate": "d0d78c1ac64500602f8b4a7aabdfb3bfbaf5199f61430add5c9cb469f9dde8c6",
-  "commit": "1a22db07a9a1507ae7a6781b5321ef50f6bf4a0e",
+  "aggregate": "8133d091c6b7d4d9e586590526891dc671e379e60af9848f6403f8ccd07da359",
+  "commit": "7b047e0b415364f2119609d405de855414a1e1a1",
   "exclude": [],
   "files": {
     ".agents/plugins/marketplace.json": {
       "executable": false,
       "kind": "file",
-      "length": 386,
-      "sha256": "139216107622dd4a843e86781f7d54042adb98633eb41d75b407c67a45166887"
+      "length": 384,
+      "sha256": "cadf4290a764a8139691c719f28515370f02b9c9142a445c03a74a40475508eb"
     },
     ".gitattributes": {
       "executable": false,
@@ -31,14 +31,14 @@
     ".github/workflows/release.yml": {
       "executable": false,
       "kind": "file",
-      "length": 6489,
-      "sha256": "711f9267ecbbfb0b798687da839740bf17d139bb6d5d02424df1a1f1429073f4"
+      "length": 6614,
+      "sha256": "98ee4865044ffe011744f348b6d59eef2be99ca99af43c088e445f7efcc28ce8"
     },
     ".github/workflows/tests.yml": {
       "executable": false,
       "kind": "file",
-      "length": 4049,
-      "sha256": "3b1222346eeaf739ba8f1a1e18c1e2ce85c033d1d6b3de99de7b2ceff5a8df9e"
+      "length": 4062,
+      "sha256": "65181de53caed79b3d6be1b80fa3babbdc6f24e937e26a4ece22b6abc0e85765"
     },
     ".gitignore": {
       "executable": false,
@@ -49,8 +49,8 @@
     "CHANGELOG.md": {
       "executable": false,
       "kind": "file",
-      "length": 19163,
-      "sha256": "01e1d4e895d7e063c7a744c0ee36b247037f925a6b479e2e1a855c59c5171a8a"
+      "length": 19360,
+      "sha256": "b883537a6090f44bd6d0a917b855c2db3fc7f7f0dc0366acb1be53d1e5d85bf0"
     },
     "CONTRIBUTING.md": {
       "executable": false,
@@ -67,8 +67,8 @@
     "README.md": {
       "executable": false,
       "kind": "file",
-      "length": 22367,
-      "sha256": "7f7684543053b9ca7a350acc0e6ed7b066c60fd29693d0f89c1ecd7f68224021"
+      "length": 22642,
+      "sha256": "78fab3be459cc5a79bb4b72fc97fded71b67ac511a89a9796964a2daf33584c3"
     },
     "SECURITY.md": {
       "executable": false,
@@ -163,14 +163,14 @@
     "plugins/reader-markdown/mcp.json": {
       "executable": false,
       "kind": "file",
-      "length": 243,
-      "sha256": "13fdc13ff9e7892ada887b5605cd603bae78b0e2b78bdb903d5ba380dd27ea61"
+      "length": 247,
+      "sha256": "ee9545e39bd59a62bca9250d1ef3a2ca1e649f51328ca171a40173c842f4ab06"
     },
     "plugins/reader-markdown/plugin.json": {
       "executable": false,
       "kind": "file",
-      "length": 476,
-      "sha256": "69a32b70a605ee8276b7ab3b7ffccd8b4a369fb7e3218ca0376ace17527d675d"
+      "length": 475,
+      "sha256": "fef237459cefa1002a619219c6ed93999223fca6a76db0fdfa8a328f70cbdb31"
     },
     "plugins/reader-markdown/server.mjs": {
       "executable": false,
@@ -194,7 +194,7 @@
       "executable": false,
       "kind": "file",
       "length": 1313,
-      "sha256": "c573fa99ba558e9e957c1583546b56e5f5e1c0d2cd1983f3407f6c53850ba159"
+      "sha256": "33191dfca3fd476e0a0edf850367d0690eb6a01d3e816da753fac0aa5a6fb01f"
     },
     "requirements-dev.txt": {
       "executable": false,
@@ -223,8 +223,8 @@
     "scripts/plugin_release.py": {
       "executable": false,
       "kind": "file",
-      "length": 10299,
-      "sha256": "95dc6a08f0baf1f93de15a8080a180b1ba7a80dd50abde30be33aedeecc4ed96"
+      "length": 12057,
+      "sha256": "8992be3d861ba419aa6951d6aa714479d14f4d10e490d2874fd6931ed6017dd9"
     },
     "scripts/reader.py": {
       "executable": true,
@@ -253,8 +253,8 @@
     "src/reader/chatgpt/README.md": {
       "executable": false,
       "kind": "file",
-      "length": 9374,
-      "sha256": "bc7f9b7874fd97fe77369ad5e3db8ddb8388ad51aa348dd29efa91c538f6c9d8"
+      "length": 10062,
+      "sha256": "0b58e82586267cc2fca7587a3abc988870d1c80e301b3fd453ca4540dacd53fe"
     },
     "src/reader/chatgpt/app.ts": {
       "executable": false,
@@ -265,8 +265,8 @@
     "src/reader/chatgpt/build.mjs": {
       "executable": false,
       "kind": "file",
-      "length": 4555,
-      "sha256": "86033526be196a4962fdaa6afe09e4692c22a391410ffbe886f62cb0f9645866"
+      "length": 4546,
+      "sha256": "076a2daa9153b1f50d82e1ea5f6d2348d8c1725fe14c486d88e6cc4c045f6918"
     },
     "src/reader/chatgpt/embedded.css": {
       "executable": false,
@@ -655,8 +655,8 @@
     "tests/server/test_plugin_release.py": {
       "executable": false,
       "kind": "file",
-      "length": 9607,
-      "sha256": "0e81f08385fe5dc07af3a2174954c32b152d0c0a9773147b0bf82a1cc8bc4b5f"
+      "length": 14510,
+      "sha256": "e70ff1c2d744182240644d865847f31f47dea6642035ec3efdfdac5e7ce93886"
     },
     "tests/server/test_portability.py": {
       "executable": false,
