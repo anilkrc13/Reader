@@ -75,29 +75,6 @@ folder of unrelated helpers. Completed plans are removed after decisions are her
 and outstanding acceptance checks are in [host acceptance](../embedded-acceptance.md).
 Git retains the history. Create temporary plans only while work is active.
 
-The final implementation was independently reviewed at `90b1970` on October 2,
-2026, covering changes from `1d0cda5`. All 156 checks passed on the final source
-layout: 94 server/tooling, 35 local browser, 18 embedded browser, and 9 protocol
-checks. Focused ESLint, Ruff, and SwiftLint passed. The native build and signature
-passed. Its 25 selected runtime resources match source, and no adapter source,
-Node dependencies, caches, or extension output are shipped. The exact CI bundle
-verification and two source-layout compatibility tests also passed independently.
-
-Reader Local's existing repo catalog and its tracked example point at
-`./build/chatgpt`. The local catalog migration changed only the Reader source
-path. Installation policy and other fields were preserved. This does not install
-or update a host plugin. Actual installed-app and host acceptance are still
-tracked in the linked acceptance page. The completed source-layout plan is removed.
-
-The owner identified that adapter tests still lived under source after the first
-layout review. They were moved to `tests/chatgpt` in `59ded0e`, which passed an
-independent structural review. All 31 affected checks passed: 18 embedded, nine
-protocol, and four layout/document checks. Focused lint and the regenerated native
-app's signature/resource checks passed. The structural guard rejects the previous
-misplaced-test tree when run against an isolated temporary Git index. Independent
-review also reran all three layout checks successfully. Application behavior was
-unchanged; unrelated native/browser and server suites were not repeated.
-
 ## Root ownership
 
 The root is the project entry and tool configuration area. Application code belongs
@@ -154,3 +131,22 @@ identifying them as output of earlier checks in this task. Current suites keep
 their screenshots inside their own output directories. Document scratch uses
 owned temporary directories with registered teardown, including setup failures.
 Unknown local Markdown files and assistant state remain preserved.
+
+The complete repository cleanup was independently reviewed at `d9f8838` on
+October 2, 2026, covering changes from `916c739`. The reviewer inspected the
+actual tracked, untracked, ignored, source, test, and output trees against this
+map. All 159 checks passed: 97 Python, 35 local browser, 18 embedded browser,
+and nine protocol checks. Focused lint passed. The reviewer reran all four layout
+checks and verified matching legal notices in all three outputs.
+
+The single project build produced web, Mac, and ChatGPT packages. Resource and
+signature checks passed. The final release ZIP matches the current signed app;
+its manifest hash and size agree. The DMG passed its mounted app/link checks and
+checksum verification. Runtime source and the moved notices/metadata retain their
+original bytes. Test-owned document scratch was gone after each suite. Tool
+caches were distinguished from fixtures and their audit roots were removed.
+
+The Reader Local catalog still points at `./build/chatgpt` with unchanged policy.
+No installation, publication, or push occurred. [Host acceptance](../embedded-acceptance.md)
+retains the installed-app and real host checks. Completed cleanup plans are removed;
+Git retains the history.

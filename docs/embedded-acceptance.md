@@ -57,3 +57,8 @@ passed with the relocated adapter and selected native runtime. Reader Local's
 repo catalog now resolves to `build/chatgpt`, matching the tracked example. This
 path migration preserves installation policy and does not establish host routing
 or update installed copies. Use the current package README for installation.
+
+The full repository cleanup was reviewed at `d9f8838`. All 159 checks, focused
+lint, the one-command build, legal/resource comparisons, and local release
+verification passed. Source/tests/output ownership was checked against the actual
+tree. This evidence does not replace the installed-app and real-host checks above.
