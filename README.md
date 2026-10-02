@@ -72,8 +72,9 @@ turning Reader into a browser app.
 
 The shared implementation lives in [`src/reader/`](src/reader/). Web application
 code, assets, and vendored libraries have separate folders. Root Python files keep
-existing launch/import names. The native wrapper stays in `macos/`; the standalone
-conversation adapter stays in `extensions/chatgpt/`. See
+existing launch/import names. Native build scripts stay in `macos/`; the standalone
+conversation adapter lives in `src/reader/chatgpt/`. The Mac launcher and its
+assets live in `src/reader/macos/`. Both builds use artwork from `src/reader/common/`. See
 [source ownership](docs/architecture/source-layout.md) for the history and test map.
 
 ## Settings

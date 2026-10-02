@@ -12,18 +12,18 @@ From the Reader root, with Node 22 or newer:
 
 ```sh
 npm ci
-npm ci --prefix extensions/chatgpt --ignore-scripts
-npm --prefix extensions/chatgpt run build
-npm --prefix extensions/chatgpt test
+npm ci --prefix src/reader/chatgpt --ignore-scripts
+npm --prefix src/reader/chatgpt run build
+npm --prefix src/reader/chatgpt test
 npm run test:embedded
 ```
 
-The build reads the version from the root `VERSION`. `dist/` contains a portable plugin manifest, stdio MCP configuration, a bundled server, and the HTML resource. Scripts, styles, and fonts are embedded. The server serves the UI and validates related Markdown link paths. It never reads document contents. The host handles the opaque document resource. The package copies existing Reader artwork into its supported logo and composer-icon fields. No listener or public filesystem service is started.
+The build reads the version from the root `VERSION`. `build/chatgpt/` at the repository root contains a portable plugin manifest, stdio MCP configuration, a bundled server, and the HTML resource. Scripts, styles, and fonts are embedded. The server serves the UI and validates related Markdown link paths. It never reads document contents. The host handles the opaque document resource. The package copies existing Reader artwork into its supported logo and composer-icon fields. No listener or public filesystem service is started.
 
 The stdio command can be checked independently:
 
 ```sh
-node extensions/chatgpt/dist/server.mjs
+node build/chatgpt/server.mjs
 ```
 
 It waits for MCP messages on stdin. It does not print a web URL. The integration test connects a real MCP client to this exact bundle and verifies its Markdown entrypoint and UI resource. The browser tests use the real App SDK with a simulated host. They prove protocol wiring and rendering, not desktop routing.
@@ -33,7 +33,8 @@ It waits for MCP messages on stdin. It does not print a web URL. The integration
 OpenAI documents a [repo-local marketplace installation route](https://developers.openai.com/plugins/build/plugins). This route has not been proven for this Reader package or this account. The actual desktop application is `/Applications/ChatGPT.app`, version `26.928.40906`, read from its installed Info.plist on October 2, 2026. The active conversation surface is Codex desktop. The computer-use tool refuses access to `com.openai.codex`, so this task cannot inspect its Plugins Directory or click a conversation file link.
 
 1. Build the package with the commands above.
-2. Add the entry from `marketplace.example.json` to the repo's `.agents/plugins/marketplace.json`. If no catalog exists, copy the example there. The source path is relative to the Reader root. It points to `./extensions/chatgpt/dist`. Keep any existing catalog entries. This task has not created or enabled that catalog.
+2. Add the entry from `marketplace.example.json` to the repo's `.agents/plugins/marketplace.json`. If no catalog exists, copy the example there. The source path is relative to the Reader root. It points to `./build/chatgpt`. Keep any existing catalog entries. The existing Reader Local entry was migrated to the new build path. Other entries
+and installation settings were preserved; no plugin was installed or enabled.
 3. Restart the desktop app. In its Plugins Directory, select **Reader Local**, then install **Reader Markdown**. Start a new local Codex conversation with the plugin enabled. The plugin configuration runs `node ./server.mjs` from the installed package root. Node must be on the host's executable path. Record any connection error or requested setting.
 4. Ask the assistant to create a short Markdown file and return an ordinary clickable file link. Click the link. Record whether Reader appears in the conversation side panel. If the host offers a viewer chooser, choose Reader and record the default setting. A browser or native Reader window is not a passing result.
 5. With that panel open, ask the assistant to change the file's heading. Confirm the panel updates without reopening it. Open a second Markdown file and confirm the panels stay independent. Record the application version, conversation mode, selected viewer, and results.
@@ -89,3 +90,10 @@ the sole bundled default, and the generic system face; headings can match body.
 Code uses the system monospace stack. Saved unavailable choices remain saved and
 show their fallback. The viewer does not call browser font enumeration or request
 its permission. The native Mac app supplies installed families through AppKit.
+
+The adapter source lives at this package root. Shared UI lives beside it in
+`src/reader/web`. The package builds into `build/chatgpt` and uses common icon
+artwork. The repo-local Reader Local catalog now points to `./build/chatgpt`. Its policy
+and other properties are unchanged. An independent catalog that still points to
+`extensions/chatgpt/dist` needs the same path update. Installed host configuration
+and caches have not been changed.

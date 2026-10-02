@@ -31,8 +31,9 @@ Mac resource tree. It must contain no Swift source, TypeScript, Node dependencie
 or extension output. The extension builds from shared web plus its adapter and
 uses common artwork. Root launch commands and authorization/preferences roots
 remain unchanged. Update all build references, tests, CI, docs, and example
-marketplace paths together. Leave the owner's untracked marketplace catalog alone;
-record that an existing installation must select the new output path explicitly.
+marketplace paths together. The owner later authorized migrating only the existing Reader Local entry from
+`./extensions/chatgpt/dist` to `./build/chatgpt`. Preserve other catalog properties
+and installation state. Do not change installed host configuration or caches.
 
 The earlier shared-source move is retained. Revise its remaining paths in one
 change. Run affected server, browser, extension, lint, and native packaging checks.

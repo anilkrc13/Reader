@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 MACOS_DIR="$ROOT_DIR/macos"
+MACOS_SOURCE_DIR="$ROOT_DIR/src/reader/macos"
 BUILD_DIR="$ROOT_DIR/build"
 APP_BUNDLE="$BUILD_DIR/Reader.app"
 RESOURCES_DIR="$APP_BUNDLE/Contents/Resources"
@@ -23,16 +24,23 @@ mkdir -p "$RESOURCES_DIR" "$MACOS_BIN_DIR"
 cp "$ROOT_DIR/reader.py" "$RESOURCES_DIR/reader.py"
 cp "$ROOT_DIR/VERSION" "$RESOURCES_DIR/VERSION"
 cp "$ROOT_DIR/reader_backend.py" "$RESOURCES_DIR/reader_backend.py"
-mkdir -p "$RESOURCES_DIR/src"
-ditto "$ROOT_DIR/src" "$RESOURCES_DIR/src"
+mkdir -p "$RESOURCES_DIR/src/reader"
+cp "$ROOT_DIR/src/__init__.py" "$RESOURCES_DIR/src/__init__.py"
+for source_file in __init__.py server.py backend.py; do
+  cp "$ROOT_DIR/src/reader/$source_file" "$RESOURCES_DIR/src/reader/$source_file"
+done
+ditto "$ROOT_DIR/src/reader/web" "$RESOURCES_DIR/src/reader/web"
 find "$RESOURCES_DIR/src" -type d -name __pycache__ -prune -exec rm -rf {} +
-cp "$MACOS_DIR/Assets/ReaderDockIcon-Light.png" "$RESOURCES_DIR/ReaderDockIcon-Light.png"
-cp "$MACOS_DIR/Assets/ReaderDockIcon-Dark.png" "$RESOURCES_DIR/ReaderDockIcon-Dark.png"
+cp "$MACOS_SOURCE_DIR/Assets/ReaderDockIcon-Light.png" "$RESOURCES_DIR/ReaderDockIcon-Light.png"
+cp "$MACOS_SOURCE_DIR/Assets/ReaderDockIcon-Dark.png" "$RESOURCES_DIR/ReaderDockIcon-Dark.png"
 if [ -d "$ROOT_DIR/licenses" ]; then
   ditto "$ROOT_DIR/licenses" "$RESOURCES_DIR/licenses"
 fi
 
-ICON_SOURCE="$MACOS_DIR/Assets/ReaderIcon.icon"
+ICON_SOURCE="$WORK_DIR/ReaderIcon.icon"
+mkdir -p "$ICON_SOURCE/Assets"
+cp "$MACOS_SOURCE_DIR/Assets/ReaderIcon.icon/icon.json" "$ICON_SOURCE/icon.json"
+cp "$ROOT_DIR/src/reader/common/ReaderIcon-1024.png" "$ICON_SOURCE/Assets/ReaderIcon-1024.png"
 if [ ! -d "$ICON_SOURCE" ]; then
   echo "Missing icon source: $ICON_SOURCE" >&2
   exit 1
@@ -65,7 +73,7 @@ for arch in "${ARCHS[@]}"; do
     -sdk "$SDK_PATH" \
     -framework Cocoa \
     -framework WebKit \
-    "$MACOS_DIR/ReaderLauncher.swift" \
+    "$MACOS_SOURCE_DIR/ReaderLauncher.swift" \
     -o "$output"
   OBJECTS+=("$output")
 done

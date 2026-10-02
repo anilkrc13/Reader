@@ -42,13 +42,13 @@ The bundle has no automated tests. After [`./macos/build-app.sh`](../macos/build
 
 ## Embedded Markdown prototype
 
-Install the pinned extension dependencies with `npm ci --prefix extensions/chatgpt --ignore-scripts`.
-Run `npm --prefix extensions/chatgpt run build` and `npm --prefix extensions/chatgpt test` for session and real stdio-server checks.
+Install the pinned extension dependencies with `npm ci --prefix src/reader/chatgpt --ignore-scripts`.
+Run `npm --prefix src/reader/chatgpt run build` and `npm --prefix src/reader/chatgpt test` for session and real stdio-server checks.
 Run `npm run test:embedded` for the bundled UI and App SDK in a simulated iframe host. These tests are separate from the existing local-server browser suite.
 
 The simulated host covers read-only startup, subscriptions, updates, storage denial, independent panels, missing capabilities, relative-content handling, sanitization, host theme changes, saved reading preferences, all light/dark paper choices, independent reset, shared Reading/Code rendering, unsupported settings explanations, icon controls, narrow heading layout, initial keyboard focus, reading keys after Find and Settings, live-refresh focus, nested scrolling, and two-page keyboard navigation. The bundled UI also checks host-mediated local opening, missing capability, host errors, cross-document anchor limits, and stale link responses. The real stdio suite verifies trusted metadata requirements, traversal and symlink containment, regular Markdown targets, and branding asset equality. The session suite covers delayed reads, refresh ordering, switches, and disposal. Pane tests use a large parent window with narrow/tall, wide/short, narrow/short, and roomy iframes. They check every category, scrolling to fine-tune controls, keyboard focus containment, live resize, large interface size, repeated open/close, saved choices, and the same reading passage after typography changes. Screenshots include initial Appearance, scrolled Reading, and resized modal/compact states. Screenshots are written to `build/embedded-test-results/`.
 
-Actual desktop file-link routing and live refresh need the manual check in [`extensions/chatgpt/README.md`](../extensions/chatgpt/README.md). A mock-host pass does not establish that acceptance condition. Test native changes using the installed copy updated by `install/Reader.command`; do not launch the generated build bundle directly.
+Actual desktop file-link routing and live refresh need the manual check in [`src/reader/chatgpt/README.md`](../src/reader/chatgpt/README.md). A mock-host pass does not establish that acceptance condition. Test native changes using the installed copy updated by `install/Reader.command`; do not launch the generated build bundle directly.
 
 ## Faster iteration without less coverage
 
@@ -128,5 +128,7 @@ a manual acceptance check through `install/Reader.command`.
 
 Server/tooling tests live in `tests/server/`; discovery from `tests` recurses into
 that package. Root entrypoint and isolated-resource-tree tests protect launch and
-import compatibility after source moves. The native bundle must contain identical
-`src/` source and both root wrappers. Compare them after the mandated build.
+import compatibility after source moves. The native bundle must contain identical Python package markers, server/backend
+modules, the web tree, and both root wrappers. Compare those selected resources
+after the mandated build. Verify that Mac/ChatGPT adapter source, Node dependencies,
+and extension output are absent. The extension output lives in `build/chatgpt`.

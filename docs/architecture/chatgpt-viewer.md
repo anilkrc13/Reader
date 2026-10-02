@@ -1,6 +1,6 @@
 # Conversation viewer design
 
-The extension is a local prototype in `extensions/chatgpt`. It bundles `src/reader/web/index.html`, scripts, styles, and fonts. Its server registers a `.md` file entrypoint, serves a UI resource, and validates scoped relative Markdown links. It reads no document contents and exposes no general filesystem tools. The desktop host owns document authorization and supplies the opaque resource URI.
+The extension is a local prototype in `src/reader/chatgpt`. It bundles `src/reader/web/index.html`, scripts, styles, and fonts. Its server registers a `.md` file entrypoint, serves a UI resource, and validates scoped relative Markdown links. It reads no document contents and exposes no general filesystem tools. The desktop host owns document authorization and supplies the opaque resource URI.
 
 The shared frontend recognizes the embedded document marker before boot. It skips local preferences, tab restoration, server setup, watchers, native bridges, and automation hooks. It disables local API calls and writes to native preferences. The page retains shared Markdown sanitization, rendering, appearance, find, and reading layout. It exposes a narrow reading interface to the extension SDK client. Unsupported controls stay hidden and editing shortcuts cannot switch modes.
 
@@ -10,7 +10,7 @@ The host owns document contents. Each panel owns its loaded preview and reading 
 
 Relative content cannot confer access to other resources. The renderer replaces unresolved images before inserting them into the live page. Links to other files have no navigable href. A relative Markdown link requires host file-open capability and server validation using the host-owned opened-file path from tool-call metadata. The resolver rejects lexical escapes and canonical paths outside that document’s directory, including symlinks. Only regular Markdown targets qualify. The result path is app-only metadata; the host performs the actual open under its own policy. No root or write grant is added. Absolute paths, system schemes, queries, and cross-document section anchors remain unavailable. Resolution and host opening are separate operations and cannot prevent concurrent filesystem replacement between them. External HTTP and HTTPS links go through the host. The resource CSP permits embedded assets and no network connections.
 
-The implementation is complete locally. [Host acceptance](../embedded-acceptance.md) tracks desktop installation, ordinary file-link routing, and assistant-edit refresh that remain unobserved. The [package README](../../extensions/chatgpt/README.md) records setup and limitations. Editing remains deferred.
+The implementation is complete locally. [Host acceptance](../embedded-acceptance.md) tracks desktop installation, ordinary file-link routing, and assistant-edit refresh that remain unobserved. The [package README](../../src/reader/chatgpt/README.md) records setup and limitations. Editing remains deferred.
 
 The package reuses the existing Reader icon in `assets/reader.png`. Its interface
 logo and composer icon reference that packaged asset. Host icon display is an

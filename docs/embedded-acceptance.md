@@ -3,7 +3,7 @@
 The local implementation and simulated host tests pass. Actual Codex desktop
 installation, default viewer selection, metadata supply, file opening, icon display,
 and edit-driven refresh remain unobserved. Build and setup are in the
-[extension README](../extensions/chatgpt/README.md). Do not treat simulated-host
+[extension README](../src/reader/chatgpt/README.md). Do not treat simulated-host
 success as evidence of those desktop checks. Do not edit installed plugin caches.
 
 ## Checks to perform in the actual host

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {DocumentSession} from '../dist/session.mjs';
+import {DocumentSession} from '../../../../build/chatgpt/session.mjs';
 const tick = () => new Promise(resolve => setImmediate(resolve));
 function fixture() {
   const reads = [], calls = [], shown = [], errors = [];

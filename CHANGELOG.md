@@ -4,6 +4,8 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- Keep shared, Mac, and ChatGPT adapter source in one tree and separate build output.
+
 - Shared implementation is organized under `src/reader/`. Web assets and vendored
   libraries have named folders. Root launch/import commands remain compatible.
   Server tests have one area. Completed plans are replaced by permanent source

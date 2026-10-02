@@ -25,7 +25,11 @@ class SourceLayoutTests(unittest.TestCase):
             resource = Path(temporary)
             for name in ("reader.py", "reader_backend.py", "VERSION"):
                 shutil.copy(ROOT / name, resource / name)
-            shutil.copytree(ROOT / "src", resource / "src")
+            (resource / "src/reader").mkdir(parents=True)
+            shutil.copy(ROOT / "src/__init__.py", resource / "src/__init__.py")
+            for name in ("__init__.py", "server.py", "backend.py"):
+                shutil.copy(ROOT / "src/reader" / name, resource / "src/reader" / name)
+            shutil.copytree(ROOT / "src/reader/web", resource / "src/reader/web")
             result = subprocess.run([sys.executable, str(resource / "reader.py"), "--help"],
                                     cwd=resource, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)

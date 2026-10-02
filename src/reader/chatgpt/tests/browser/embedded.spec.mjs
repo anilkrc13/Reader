@@ -1,6 +1,6 @@
 import {test, expect} from '@playwright/test';
 import fs from 'node:fs';
-const html = fs.readFileSync(new URL('../../dist/viewer.html', import.meta.url), 'utf8');
+const html = fs.readFileSync(new URL('../../../../../build/chatgpt/viewer.html', import.meta.url), 'utf8');
 
 async function host(page, {resources = true, storage = true, links = false, localFiles = false, theme = "light", savedPrefs = {}, documentText = null, paneSize = null} = {}) {
   const requests = [], errors = [];

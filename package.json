@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "test:webmcp": "playwright test",
-    "test:embedded": "npm --prefix extensions/chatgpt run build && playwright test --config extensions/chatgpt/playwright.config.cjs",
+    "test:embedded": "npm --prefix src/reader/chatgpt run build && playwright test --config src/reader/chatgpt/playwright.config.cjs",
     "lint:changed": "python3 scripts/lint_changed.py"
   },
   "devDependencies": {

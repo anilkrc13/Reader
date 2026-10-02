@@ -68,5 +68,10 @@ Bump it and add a [`CHANGELOG.md`](CHANGELOG.md) entry in the same change as a r
 ## Extension prototype and checks
 
 - [`docs/architecture/README.md`](docs/architecture/README.md) describes the local and embedded document owners.
-- [`extensions/chatgpt/README.md`](extensions/chatgpt/README.md) covers the read-only conversation viewer prototype, setup, and unverified host routing.
+- [`src/reader/chatgpt/README.md`](src/reader/chatgpt/README.md) covers the read-only conversation viewer prototype, setup, and unverified host routing.
 - [`docs/testing.md`](docs/testing.md) lists the checks. Temporary plans exist only while work is active. Permanent source ownership is in [`docs/architecture/source-layout.md`](docs/architecture/source-layout.md).
+
+- Keep shared web, Mac, and ChatGPT adapter source under `src/reader/`. ChatGPT
+  remains a complete Node package there. Native packaging selects Python/web
+  runtime files; it must exclude adapter sources, Node dependencies, and extension
+  output. Assess shared and adapter ownership before cross-platform changes.
