@@ -4,6 +4,10 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- Add a read-only Markdown conversation viewer prototype that shares Reader’s
+  rendering and reading controls. Desktop installation and file-link routing
+  still need a real-host check.
+
 - Tables keep short values whole: a date such as 08-18, an amount, an ID or a
   short list such as "G19, G20" no longer wraps, and a column of longer text
   keeps a readable width, so a wide table scrolls sideways instead of

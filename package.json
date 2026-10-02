@@ -2,7 +2,8 @@
   "name": "reader-integration-tests",
   "private": true,
   "scripts": {
-    "test:webmcp": "playwright test"
+    "test:webmcp": "playwright test",
+    "test:embedded": "npm --prefix extensions/chatgpt run build && playwright test --config extensions/chatgpt/playwright.config.cjs"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1"

@@ -6,6 +6,7 @@
 (() => {
 "use strict";
 
+const EMBEDDED = document.documentElement.dataset.host === "chatgpt";
 const TOKEN = new URLSearchParams(location.search).get("t") || "";
 const $ = (id) => document.getElementById(id);
 const root = document.documentElement;
@@ -221,6 +222,7 @@ function setNativeChrome(on) {
 }
 
 function cacheLocally() {
+  if (EMBEDDED) return;
   // The side pane is not what the next launch's first window should open.
   if (!SIDE) { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (_) {} }
   // The split's second pane takes a settings change at once, not on the next sync.
@@ -486,6 +488,7 @@ function loadTabState() {
    the theme can be applied before the first paint. */
 let prefsTimer = null;
 function savePrefs() {
+  if (EMBEDDED) return;
   cacheLocally();
   clearTimeout(prefsTimer);
   prefsTimer = setTimeout(() => {
@@ -696,6 +699,7 @@ mq.addEventListener("change", () => { if (S.theme === "auto") applySettings(); }
    ======================================================================== */
 
 async function api(path, {method = "GET", body = null, query = {}, signal = null} = {}) {
+  if (EMBEDDED) throw new Error("Local files are unavailable in this panel.");
   const qs = new URLSearchParams(query).toString();
   const res = await fetch(path + (qs ? "?" + qs : ""), {
     method,
@@ -1239,7 +1243,25 @@ function render(text) {
     FORBID_TAGS: ["style", "form", "iframe", "object", "embed"],
     ALLOW_DATA_ATTR: false,
   });
-  el.preview.innerHTML = html;
+  if (EMBEDDED) {
+    const fragment = document.createElement("template");
+    fragment.innerHTML = html;
+    fragment.content.querySelectorAll("img").forEach(img => {
+      if (/^data:image\/(?:png|jpeg|gif|webp);base64,/i.test(img.getAttribute("src") || "")) return;
+      const note = document.createElement("span");
+      note.className = "embedded-unavailable";
+      note.textContent = "Image unavailable: " + (img.alt || img.getAttribute("src") || "image");
+      img.replaceWith(note);
+    });
+    fragment.content.querySelectorAll("a[href]").forEach(a => {
+      const href = a.getAttribute("href");
+      if (href.startsWith("#")) return;
+      a.dataset.embeddedLink = href;
+      a.removeAttribute("href"); a.removeAttribute("target");
+      a.setAttribute("role", "link"); a.tabIndex = 0;
+    });
+    el.preview.replaceChildren(fragment.content);
+  } else el.preview.innerHTML = html;
   renderMermaidBlocks(el.preview, mermaidGeneration);
   /* A document that opens with an H1 is treating it as its title. Mark it
      separately so the title can be displayed prominently without redefining
@@ -1258,6 +1280,13 @@ function render(text) {
   el.preview.querySelectorAll("img[src]").forEach((img) => {
     const src = img.getAttribute("src");
     if (!src || EXTERNAL.test(src) || src.startsWith("//")) return;
+    if (EMBEDDED) {
+      const note = document.createElement("span");
+      note.className = "embedded-unavailable";
+      note.textContent = "Image unavailable: " + (img.alt || src);
+      img.replaceWith(note);
+      return;
+    }
     const localPath = absolutise(src, dir);
     img.dataset.localPath = localPath;
     img.src = rawURL(localPath);
@@ -1270,6 +1299,7 @@ function render(text) {
       a.target = "_blank"; a.rel = "noopener noreferrer";
       return;
     }
+    if (EMBEDDED) return;
     const [ref, fragment] = href.split("#");
     a.dataset.local = absolutise(ref, dir);
     if (fragment) a.dataset.fragment = fragment;
@@ -1288,7 +1318,7 @@ function render(text) {
     /* marked ships task checkboxes with `disabled` set, so clearing the
        attribute is what actually makes them clickable -- simply not disabling
        them here leaves the renderer's own attribute in place. */
-    box.disabled = false;
+    box.disabled = EMBEDDED;
     /* marked emits "<input> text", and that leading space is added to the gap
        the stylesheet already sets. It also has nowhere sensible to sit once the
        checkbox is positioned out of the flow, so it goes. */
@@ -2345,6 +2375,7 @@ function startPrefsSync() {
 }
 
 function restartWatch() {
+  if (EMBEDDED) return;
   clearInterval(watchTimer);
   watchTimer = null;
   const on = !!(S.autoRefresh && state.file);
@@ -2965,6 +2996,7 @@ function showNewDocForm() {
    a browser cannot open it, so the picker drawn in the dialog stays for that,
    and stays the only implementation a test can drive. */
 function nativeBridge() {
+  if (EMBEDDED) return null;
   // The side pane asks through the host page: the app answers the main frame only.
   if (SIDE) return null;
   return (window.webkit && window.webkit.messageHandlers &&
@@ -4296,6 +4328,7 @@ el.tree.addEventListener("contextmenu", (ev) => {
 });
 
 el.preview.addEventListener("change", (ev) => {
+  if (EMBEDDED) return;
   const box = ev.target;
   if (!(box instanceof HTMLInputElement) || box.type !== "checkbox") return;
   if (!box.parentElement || !box.parentElement.classList.contains("task-list-item")) return;
@@ -4307,7 +4340,12 @@ el.preview.addEventListener("change", (ev) => {
 el.preview.addEventListener("click", (ev) => {
   const a = ev.target.closest("a");
   if (!a) return;
-  const href = a.getAttribute("href") || "";
+  const href = a.dataset.embeddedLink || a.getAttribute("href") || "";
+  if (EMBEDDED && !href.startsWith("#")) {
+    ev.preventDefault();
+    window.readerEmbeddedHost?.openLink(href);
+    return;
+  }
   if (href.startsWith("#")) {
     ev.preventDefault();
     jumpToAnchor(href.slice(1));
@@ -4490,6 +4528,15 @@ function adjustTextSize(delta) {
    -------------------------------------------------------------------------- */
 
 document.addEventListener("keydown", (ev) => {
+  if (EMBEDDED) {
+    const mod = ev.metaKey || ev.ctrlKey;
+    const link = ev.target.closest?.("a[data-embedded-link]");
+    if (link && ev.key === "Enter") { ev.preventDefault(); window.readerEmbeddedHost?.openLink(link.dataset.embeddedLink); return; }
+    if (mod && ev.key.toLowerCase() === "f") { ev.preventDefault(); findOpen(); }
+    else if (ev.key === "Escape") findCloseBar();
+    else if (mod && !["c", "a"].includes(ev.key.toLowerCase())) ev.preventDefault();
+    return;
+  }
   /* 1. Escape closes the topmost open surface. */
   if (ev.key === "Escape") {
     if (fileFind.open) { ev.preventDefault(); fileFindCloseBar(); return; }
@@ -6331,6 +6378,51 @@ async function openFromOS(path) {
 }
 
 /* small automation hook (same-origin pages only) — used by the test suite */
+if (EMBEDDED) {
+  S.autoSave = false; S.autoRefresh = false; S.hidden = true; S.mode = "preview";
+  root.dataset.empty = "yes";
+  const status = document.createElement("div");
+  status.id = "embedded-status"; status.setAttribute("role", "status");
+  status.textContent = "Waiting for a Markdown file";
+  $("toolbar").after(status);
+  applySettings();
+  el.editor.readOnly = true;
+  const keys = ["theme", "fontSize", "previewLayout"];
+  window.readerEmbedded = {
+    loading(name) {
+      state.file = null;
+      el.preview.replaceChildren();
+      el.editor.value = "";
+      el.docname.textContent = "Opening " + name;
+      $("embedded-status").textContent = "Opening document…";
+    },
+    show(text, file) {
+      const same = state.file?.path === file.resourceUri;
+      const top = same ? el.previewpane.scrollTop : 0;
+      state.file = {path: file.resourceUri, dir: "", kind: "md", writable: false};
+      state.dirty = false;
+      el.editor.value = text;
+      el.docname.textContent = file.name;
+      $("embedded-status").textContent = "Read only";
+      root.dataset.empty = "no";
+      root.dataset.doc = "md";
+      render(text);
+      restoreScroll(el.previewpane, top);
+    },
+    preferences(values = {}) {
+      if (["auto", "light", "dark"].includes(values.theme)) S.theme = values.theme;
+      if (Number.isFinite(values.fontSize) && values.fontSize >= 13 && values.fontSize <= 26) S.fontSize = values.fontSize;
+      if (["single", "spread"].includes(values.previewLayout)) S.previewLayout = values.previewLayout;
+      applySettings();
+      return Object.fromEntries(keys.map(key => [key, S[key]]));
+    },
+    find: () => findOpen(),
+    error: message => { $("embedded-status").textContent = message; toast(message, true); },
+  };
+  bootDone();
+  window.dispatchEvent(new Event("reader-embedded-ready"));
+  return;
+}
 window.reader = {
   goto: (p) => setRoot(p), open: (p) => openFile(p), openFromOS,
   /* The app's title bar buttons, and its full screen hand-back. */

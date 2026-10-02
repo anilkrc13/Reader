@@ -34,3 +34,9 @@ the user actually runs.
 [`VERSION`](VERSION) at the repo root is the only place the version number lives. The
 server reads it at startup and the build script stamps it into [`Info.plist`](macos/Info.plist).
 Bump it and add a [`CHANGELOG.md`](CHANGELOG.md) entry in the same change as a release.
+
+## Extension prototype and checks
+
+- [`docs/architecture/README.md`](docs/architecture/README.md) describes the local and embedded document owners.
+- [`extensions/chatgpt/README.md`](extensions/chatgpt/README.md) covers the read-only conversation viewer prototype, setup, and unverified host routing.
+- [`docs/testing.md`](docs/testing.md) lists the checks. [`plans/README.md`](plans/README.md) records active plan status and lifecycle.

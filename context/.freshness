@@ -1,7 +1,7 @@
 # owned by skills/repository-context/scripts/context_freshness.py -- do not hand-edit
 {
-  "aggregate": "5bebedf8614c42e195be3942234bee4cdc35118665e98b451252fab809d6d980",
-  "commit": "c4a6c3537cbf9164801bcdaae66ab346aa439f4f",
+  "aggregate": "d2db854dbbec2c702a945d59524dcaa56d33d159ac3fe4fc91f34f687e260114",
+  "commit": "29bf914286fe5353ad4dcff234b46d78caad412e",
   "exclude": [],
   "files": {
     ".github/ISSUE_TEMPLATE/bug_report.md": {
@@ -37,8 +37,8 @@
     "CHANGELOG.md": {
       "executable": false,
       "kind": "file",
-      "length": 15549,
-      "sha256": "0a099b716b314c5f872253f66ef89a3ee022ec984fe6116592093e158c5c2d7f"
+      "length": 16076,
+      "sha256": "8e0c776d1ab05ffbc679d6b708a66f1f4bf566704ea562cc5742ff7805daa33c"
     },
     "CONTRIBUTING.md": {
       "executable": false,
@@ -69,6 +69,90 @@
       "kind": "file",
       "length": 6,
       "sha256": "6693435eadb673dda297a0652d241e293e361200bc40db949cf2501d18dd01ee"
+    },
+    "extensions/chatgpt/.gitignore": {
+      "executable": false,
+      "kind": "file",
+      "length": 7,
+      "sha256": "fe56da5f27d174b011ca65d2c1c9be83ca19ce1428e1594f8ed3ca037e8814ed"
+    },
+    "extensions/chatgpt/README.md": {
+      "executable": false,
+      "kind": "file",
+      "length": 5265,
+      "sha256": "0c9b1f8b5e6ebfc83b1ee80ecb61df3d29462f39b17f5015df0fd16d2acd4738"
+    },
+    "extensions/chatgpt/build.mjs": {
+      "executable": false,
+      "kind": "file",
+      "length": 4656,
+      "sha256": "f9657fa516496a78c17d828971666414975efcc6535f994dc25ce20401124691"
+    },
+    "extensions/chatgpt/marketplace.example.json": {
+      "executable": false,
+      "kind": "file",
+      "length": 310,
+      "sha256": "a70be70104f47380bab820e3f64da546daf0c5a1c449e436212cf38a9ba470ab"
+    },
+    "extensions/chatgpt/package.json": {
+      "executable": false,
+      "kind": "file",
+      "length": 507,
+      "sha256": "b7929e4fe1ac726e3f3b99c8fdc3f9ace4aa925d0d14c82dd33f06fbc0474674"
+    },
+    "extensions/chatgpt/playwright.config.cjs": {
+      "executable": false,
+      "kind": "file",
+      "length": 216,
+      "sha256": "754632aee3bd204e069cc46c6087ab00ab0f7f39369e1fa6c8ac65bdd75d30a9"
+    },
+    "extensions/chatgpt/src/app.ts": {
+      "executable": false,
+      "kind": "file",
+      "length": 4096,
+      "sha256": "dac1f4e1ecd263076d539dec5f24b9351144baf11160d7bf0b6e43aaf23b4e41"
+    },
+    "extensions/chatgpt/src/env.d.ts": {
+      "executable": false,
+      "kind": "file",
+      "length": 42,
+      "sha256": "6746905242af307933bbf15e8a06b3f4ec8e8cec23568c2410742d438a52103c"
+    },
+    "extensions/chatgpt/src/server.ts": {
+      "executable": false,
+      "kind": "file",
+      "length": 1471,
+      "sha256": "504b4ded581e5679c3e0d4999e7f9653464995f2a47c96de482bf734ccc8da18"
+    },
+    "extensions/chatgpt/src/session.ts": {
+      "executable": false,
+      "kind": "file",
+      "length": 3412,
+      "sha256": "b2a6238528ea2c8b5a177bcf4c139fb4f6adff2cdf1fa3f88115108783d08c19"
+    },
+    "extensions/chatgpt/tests/browser/embedded.spec.mjs": {
+      "executable": false,
+      "kind": "file",
+      "length": 7877,
+      "sha256": "b6364ca83776e81933ea06b07b1d402da1296bf29ef3986115760371f275c0b1"
+    },
+    "extensions/chatgpt/tests/server.integration.test.mjs": {
+      "executable": false,
+      "kind": "file",
+      "length": 1443,
+      "sha256": "f1564ba864c1dde327bcd005cb8cf3f6f883f9059661912eaa2a81c6e00dacab"
+    },
+    "extensions/chatgpt/tests/session.test.mjs": {
+      "executable": false,
+      "kind": "file",
+      "length": 4354,
+      "sha256": "ac25d77781d4c389e295d423279262e6da71e0689c18dba1018949e160528b5d"
+    },
+    "extensions/chatgpt/tsconfig.json": {
+      "executable": false,
+      "kind": "file",
+      "length": 187,
+      "sha256": "f136076f48066b131c1541454259e00cdf7b72b12048aad1616c250b09521c0f"
     },
     "install/Reader.command": {
       "executable": true,
@@ -187,8 +271,8 @@
     "macos/ReaderLauncher.swift": {
       "executable": false,
       "kind": "file",
-      "length": 101380,
-      "sha256": "c5e1769faf5a036b0aae6c33bbb9a472f12fa5cd3daceb89d482bcba1e74adf3"
+      "length": 102556,
+      "sha256": "f8bf75e25649cb22151b7ed81ebf1eba5ceb2f7baec2377ed101c7aeac33678c"
     },
     "macos/build-app.sh": {
       "executable": true,
@@ -235,8 +319,8 @@
     "package.json": {
       "executable": false,
       "kind": "file",
-      "length": 178,
-      "sha256": "466f156bfcc7d3bcfe170ed7925597ce7328876224e38207b387589d5db6da91"
+      "length": 313,
+      "sha256": "94156ce0f5e5966281433d9251d65ac8d98ca5f6c55ffe0ae589ff803395e532"
     },
     "playwright.config.js": {
       "executable": false,
@@ -271,8 +355,8 @@
     "static/app.js": {
       "executable": false,
       "kind": "file",
-      "length": 258393,
-      "sha256": "ca22aabdb45abd895a01e8f628744f64efed06ecb2540f096cb33cd5731adaf8"
+      "length": 264436,
+      "sha256": "25e7c99bb9eab47ae650f4cce6a266d24d3a3ca18849dbdf1a546dd5a1e6874a"
     },
     "static/fonts/ebgaramond-latin-variable-italic.ttf": {
       "executable": false,
@@ -517,8 +601,8 @@
     "tests/browser/webmcp.spec.js": {
       "executable": false,
       "kind": "file",
-      "length": 62521,
-      "sha256": "00458c995922ae624ea99db331bcacc8fb71bb992493eed1492f5152e6bb12d4"
+      "length": 66451,
+      "sha256": "80565c341d4570737b4691812b829c06462d8c7797974d628d9033a351bd2c1e"
     },
     "tests/manual/update-feed-server.py": {
       "executable": false,

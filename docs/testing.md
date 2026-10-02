@@ -33,3 +33,13 @@ The bundle has no automated tests. After [`./macos/build-app.sh`](../macos/build
 2. Confirm changed resources match their copies under `Contents/Resources/`.
 3. Launch it with no server running, then again with one already running, and
    once by double-clicking a `.md` file in Finder.
+
+## Embedded Markdown prototype
+
+Install the pinned extension dependencies with `npm ci --prefix extensions/chatgpt --ignore-scripts`.
+Run `npm --prefix extensions/chatgpt run build` and `npm --prefix extensions/chatgpt test` for session and real stdio-server checks.
+Run `npm run test:embedded` for the bundled UI and App SDK in a simulated iframe host. These tests are separate from the existing local-server browser suite.
+
+The simulated host covers read-only startup, subscriptions, updates, storage denial, independent panels, missing capabilities, relative-content handling, and sanitization. The session suite covers delayed reads, refresh ordering, switches, and disposal. Screenshots are written to `test-results/embedded/`.
+
+Actual desktop file-link routing and live refresh need the manual check in [`extensions/chatgpt/README.md`](../extensions/chatgpt/README.md). A mock-host pass does not establish that acceptance condition. Test native changes using the installed copy updated by `install/Reader.command`; do not launch the generated build bundle directly.
