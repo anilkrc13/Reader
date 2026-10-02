@@ -75,3 +75,8 @@ Bump it and add a [`CHANGELOG.md`](CHANGELOG.md) entry in the same change as a r
   remains a complete Node package there. Native packaging selects Python/web
   runtime files; it must exclude adapter sources, Node dependencies, and extension
   output. Assess shared and adapter ownership before cross-platform changes.
+
+- Put every test and test-runner configuration under the root `tests/` tree.
+  ChatGPT checks belong in `tests/chatgpt/`. Review the actual source/test tree
+  before delivery; passing behavior tests do not prove files have the right owner.
+  Do not commit generated output or dependencies under `src`.

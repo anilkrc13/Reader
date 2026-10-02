@@ -66,3 +66,27 @@ jobs:
           test ! -e build/Reader.app/Contents/Resources/src/reader/chatgpt
           test ! -e build/Reader.app/Contents/Resources/src/reader/macos
           test ! -e build/Reader.app/Contents/Resources/src/reader/common
+
+  chatgpt:
+    name: ChatGPT adapter checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - run: npm ci --prefix src/reader/chatgpt --ignore-scripts
+      - run: npm --prefix src/reader/chatgpt run build
+      - run: npm run test:chatgpt
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:embedded
+        env:
+          READER_PLAYWRIGHT_CHANNEL: chromium
+      - name: Keep the failure context
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-test-results
+          path: build/embedded-test-results/
+          if-no-files-found: ignore

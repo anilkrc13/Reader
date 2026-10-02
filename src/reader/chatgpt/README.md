@@ -14,7 +14,7 @@ From the Reader root, with Node 22 or newer:
 npm ci
 npm ci --prefix src/reader/chatgpt --ignore-scripts
 npm --prefix src/reader/chatgpt run build
-npm --prefix src/reader/chatgpt test
+npm run test:chatgpt
 npm run test:embedded
 ```
 
@@ -97,3 +97,8 @@ artwork. The repo-local Reader Local catalog now points to `./build/chatgpt`. It
 and other properties are unchanged. An independent catalog that still points to
 `extensions/chatgpt/dist` needs the same path update. Installed host configuration
 and caches have not been changed.
+
+Adapter tests live in `tests/chatgpt`, outside application source. Its browser
+runner configuration lives there too. The protocol client uses this package's
+pinned SDK through Node createRequire. `npm --prefix src/reader/chatgpt test`
+remains a compatible command and delegates to the root test tree.

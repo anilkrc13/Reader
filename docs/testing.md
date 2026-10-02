@@ -43,7 +43,7 @@ The bundle has no automated tests. After [`./macos/build-app.sh`](../macos/build
 ## Embedded Markdown prototype
 
 Install the pinned extension dependencies with `npm ci --prefix src/reader/chatgpt --ignore-scripts`.
-Run `npm --prefix src/reader/chatgpt run build` and `npm --prefix src/reader/chatgpt test` for session and real stdio-server checks.
+Run `npm --prefix src/reader/chatgpt run build` and `npm run test:chatgpt` for session and real stdio-server checks in `tests/chatgpt`.
 Run `npm run test:embedded` for the bundled UI and App SDK in a simulated iframe host. These tests are separate from the existing local-server browser suite.
 
 The simulated host covers read-only startup, subscriptions, updates, storage denial, independent panels, missing capabilities, relative-content handling, sanitization, host theme changes, saved reading preferences, all light/dark paper choices, independent reset, shared Reading/Code rendering, unsupported settings explanations, icon controls, narrow heading layout, initial keyboard focus, reading keys after Find and Settings, live-refresh focus, nested scrolling, and two-page keyboard navigation. The bundled UI also checks host-mediated local opening, missing capability, host errors, cross-document anchor limits, and stale link responses. The real stdio suite verifies trusted metadata requirements, traversal and symlink containment, regular Markdown targets, and branding asset equality. The session suite covers delayed reads, refresh ordering, switches, and disposal. Pane tests use a large parent window with narrow/tall, wide/short, narrow/short, and roomy iframes. They check every category, scrolling to fine-tune controls, keyboard focus containment, live resize, large interface size, repeated open/close, saved choices, and the same reading passage after typography changes. Screenshots include initial Appearance, scrolled Reading, and resized modal/compact states. Screenshots are written to `build/embedded-test-results/`.
@@ -132,3 +132,10 @@ import compatibility after source moves. The native bundle must contain identica
 modules, the web tree, and both root wrappers. Compare those selected resources
 after the mandated build. Verify that Mac/ChatGPT adapter source, Node dependencies,
 and extension output are absent. The extension output lives in `build/chatgpt`.
+
+All ChatGPT test code lives in `tests/chatgpt`. Its Playwright configuration
+selects `tests/chatgpt/browser` and retains two isolated workers. Protocol tests
+resolve the adapter's pinned SDK through Node createRequire anchored to its
+manifest. CI builds that package and runs both suites. The source-layout guard
+rejects committed tests or generated output under `src`; ignored package-local
+Node dependencies remain build tooling.

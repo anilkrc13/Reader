@@ -38,3 +38,19 @@ class SourceLayoutTests(unittest.TestCase):
             result = subprocess.run([sys.executable, "-c", probe], cwd=resource,
                                     capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_source_tree_contains_no_tests_or_generated_artifacts(self):
+        tracked = subprocess.check_output(
+            ["git", "ls-files", "-z", "src"], cwd=ROOT
+        ).decode().split("\0")
+        forbidden = {"test", "tests", "build", "dist", "test-results",
+                     "playwright-report", "__pycache__", "node_modules"}
+        misplaced = []
+        for name in filter(None, tracked):
+            path = Path(name)
+            if (forbidden.intersection(path.parts) or path.name.startswith("test_")
+                    or ".test." in path.name or ".spec." in path.name
+                    or path.name.startswith("playwright.config.")
+                    or path.suffix in {".pyc", ".pyo"}):
+                misplaced.append(name)
+        self.assertEqual(misplaced, [], "Tests belong under tests; generated files are ignored")

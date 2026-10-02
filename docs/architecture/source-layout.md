@@ -12,12 +12,13 @@ src/reader/
     vendor/                  browser libraries
   common/                    artwork used by Mac and ChatGPT builds
   macos/                     Swift launcher and native icon recipe/assets
-  chatgpt/                   Node adapter package and its tests
+  chatgpt/                   Node adapter source and package configuration
 reader.py, reader_backend.py compatible launch and import names
 macos/                       native metadata and build/release scripts
 scripts/                     development and repository tools
 tests/server/                local server and tooling checks
 tests/browser/               shared UI with the local server
+tests/chatgpt/               adapter protocol and simulated-host checks
 build/Reader.app             ignored native output
 build/chatgpt/               ignored extension output
 docs/                        permanent contracts and acceptance guidance
@@ -30,8 +31,8 @@ bundles the shared UI; it does not maintain a second Reader implementation.
 The new layout puts application source in one place and separates its owners.
 
 The ChatGPT adapter remains a complete Node package inside the source tree. Its
-package root owns its module type, pinned dependencies, compiler, and protocol
-and simulated-host tests. Source files live directly in that package. Standard
+package root owns its module type, pinned dependencies, and compiler. Source
+files live directly in that package. Its tests live separately in `tests/chatgpt`. Standard
 Node resolution still finds its own dependencies. Nesting a package does not
 require combining its dependencies with the local Python or Mac app.
 
@@ -58,6 +59,9 @@ Root browser tests use one worker because filesystem fixtures are shared.
 Embedded tests use two workers because page, storage, routes, and output are
 isolated. Server discovery includes `tests/server`. Each platform's build and
 checks use only its required source and keep generated output under `build`.
+All test code and runner configurations belong under `tests`. Protocol checks use
+Node createRequire anchored to the adapter manifest to resolve its pinned SDK;
+root Playwright dependencies serve the relocated browser suite.
 
 Choose the source owner before adding files. Assess a cross-platform feature
 against the shared base and adapter boundaries before implementation. Update

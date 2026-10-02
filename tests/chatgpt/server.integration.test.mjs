@@ -1,14 +1,18 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {Client} from '@modelcontextprotocol/sdk/client/index.js';
-import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
+import {createRequire} from 'node:module';
 import {fileURLToPath} from 'node:url';
 import {mkdtemp, mkdir, writeFile, symlink, realpath, rm, readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 
+// Use the adapter's pinned SDK without duplicating dependencies in the root package.
+const require = createRequire(new URL('../../src/reader/chatgpt/package.json', import.meta.url));
+const {Client} = require('@modelcontextprotocol/sdk/client/index.js');
+const {StdioClientTransport} = require('@modelcontextprotocol/sdk/client/stdio.js');
+
 test('the bundled stdio server advertises only Markdown and serves its self-contained UI', async () => {
-  const transport=new StdioClientTransport({command:process.execPath,args:[fileURLToPath(new URL('../../../../build/chatgpt/server.mjs',import.meta.url))]});
+  const transport=new StdioClientTransport({command:process.execPath,args:[fileURLToPath(new URL('../../build/chatgpt/server.mjs',import.meta.url))]});
   const client=new Client({name:'Reader integration test',version:'1'},{});
   try {
     await client.connect(transport);
@@ -41,7 +45,7 @@ test('real server confines local links to the host-opened directory and returns 
   await symlink(outside,join(base,'escape-dir'));
   await symlink(join(base,'secret.txt'),join(base,'alias.md'));
   await symlink(allowed,join(base,'safe.md'));
-  const transport=new StdioClientTransport({command:process.execPath,args:[fileURLToPath(new URL('../../../../build/chatgpt/server.mjs',import.meta.url))]});
+  const transport=new StdioClientTransport({command:process.execPath,args:[fileURLToPath(new URL('../../build/chatgpt/server.mjs',import.meta.url))]});
   const client=new Client({name:'Reader local-link security test',version:'1'},{});
   const meta={'openai/resource':{path:opened}};
   const call=(href,_meta=meta,args={})=>client.callTool({name:'reader_resolve_local_link',arguments:{href,...args},_meta});
@@ -70,10 +74,10 @@ test('real server confines local links to the host-opened directory and returns 
 });
 
 test('packaged branding uses existing Reader artwork and both manifest assets exist', async () => {
-  const plugin=JSON.parse(await readFile(new URL('../../../../build/chatgpt/plugin.json',import.meta.url),'utf8'));
+  const plugin=JSON.parse(await readFile(new URL('../../build/chatgpt/plugin.json',import.meta.url),'utf8'));
   const ui=plugin.extensions['com.openai'].interface;
   assert.equal(ui.logo,'./assets/reader.png'); assert.equal(ui.composerIcon,ui.logo);
-  const icon=await readFile(new URL('../../../../build/chatgpt/'+ui.logo,import.meta.url));
-  const original=await readFile(new URL('../../common/ReaderIcon-1024.png',import.meta.url));
+  const icon=await readFile(new URL('../../build/chatgpt/'+ui.logo,import.meta.url));
+  const original=await readFile(new URL('../../src/reader/common/ReaderIcon-1024.png',import.meta.url));
   assert.deepEqual(icon,original);
 });
