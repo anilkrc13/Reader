@@ -105,3 +105,23 @@ Use these measures separately when judging the user's total wait.
 Benchmark log: `/tmp/reader-runner-two-workers.log`. Exact Playwright counts and
 runtime: `/tmp/reader-runner-two-workers-report.json`. Full-command wall time and
 exit status: `/tmp/reader-runner-two-workers-receipt.json`.
+
+## Focused linting
+
+The owner approved changed-file linting. Install pinned Node tools with `npm ci`.
+For Python, run `python3 -m venv build/lint-venv`, then
+`build/lint-venv/bin/python -m pip install -r requirements-dev.txt`.
+On macOS install SwiftLint with `brew install swiftlint`; validation used 0.65.1.
+Run `npm run lint:changed` before committing. After committing, use
+`npm run lint:changed -- --base <previous-commit>` to check that same change.
+The runner uses Git's changed and untracked source paths. It skips generated
+outputs and minified vendors. ESLint checks JavaScript and TypeScript mistakes;
+TypeScript compilation still checks names and types. Ruff checks Python mistakes
+and import order. SwiftLint checks duplicate imports, forced try, and trailing
+whitespace with its cache disabled. No size or complexity rules apply.
+
+The installed-font browser regression checks native bridge names, legacy choices,
+CSS escaping, persisted choices, missing families, restored families, errors, and
+comparison panes. Its bridge is simulated; real AppKit enumeration and native
+compilation are checked separately. Actual installed-app font selection remains
+a manual acceptance check through `install/Reader.command`.

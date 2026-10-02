@@ -2042,6 +2042,10 @@ private final class ReaderPage: NSObject, NSWindowDelegate, WKNavigationDelegate
             return
         }
         switch action {
+        case "fontFamilies":
+            replyHandler(NSFontManager.shared.availableFontFamilies.sorted {
+                $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+            }, nil)
         case "chooseFolder":
             chooseFolder(startingAt: body["current"] as? String, reply: replyHandler)
         case "checkForUpdates":

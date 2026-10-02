@@ -22,3 +22,11 @@ remains Unsaved until a save succeeds. A failed or conflicting save keeps the di
 text and reports its outcome. Late saves cannot change another document’s label.
 Live remains a separate disk-watch indicator. None of these controls adds write grants.
 The embedded viewer retains its read-only status and its own toolbar controls.
+
+The Mac wrapper owns installed-font enumeration through
+`NSFontManager.shared.availableFontFamilies`. Its existing origin-checked,
+main-frame-only bridge supplies names to the shared selectors. Comparison panes
+ask their trusted parent. No font inventory is supplied by the Python server.
+Lora is the sole bundled fallback; saved unavailable families are retained.
+Browser and embedded modes use Lora and generic system defaults. They do not
+request local-font permissions or probe a hardcoded list.

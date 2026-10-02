@@ -4,6 +4,11 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- The Mac app lists installed font families for body and headings through AppKit.
+  Saved choices survive missing fonts and use a fallback until available again.
+  Lora is the sole bundled default. Browser and embedded viewers explain their
+  installed-font limit and keep Lora plus system choices without new permissions.
+
 - Embedded Settings fills narrow or short panes. Back and a section picker remain
   visible while stacked controls scroll. Roomy panes retain the modal. Resize keeps
   choices and focus. Closing returns to the recorded reading passage after text

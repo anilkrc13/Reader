@@ -81,3 +81,11 @@ Resize to a roomy pane while a control is focused, then resize back. Confirm the
 choice and focus survive. Close and reopen several times and confirm Reader returns
 to the same passage. Repeat in light and dark mode. The simulated iframe tests
 cover these layouts; actual host acceptance remains pending.
+
+## Fonts
+
+This host SDK supplies no installed-font list. Body and heading choices are Lora,
+the sole bundled default, and the generic system face; headings can match body.
+Code uses the system monospace stack. Saved unavailable choices remain saved and
+show their fallback. The viewer does not call browser font enumeration or request
+its permission. The native Mac app supplies installed families through AppKit.

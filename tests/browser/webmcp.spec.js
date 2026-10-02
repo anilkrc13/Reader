@@ -1404,3 +1404,58 @@ test('save status reports failure and conflict without claiming edits are saved'
   await expect(page.locator('#save-status')).toHaveText('Saved');
   await page.screenshot({path:'build/reading-controls/saved.png'});
 });
+
+
+test("native installed font choices survive reload, removal, and comparison panes", async ({page}, info) => {
+  await fs.writeFile(path.join(stateDir, "preferences.json"), JSON.stringify({bodyFont:"georgia", headFont:"poppins"}));
+  await page.addInitScript(() => {
+    window.__fontFamilies = ["Georgia", "Poppins", 'Quoted "Family"\\Name'];
+    window.__fontCalls = [];
+    window.webkit = {messageHandlers:{reader:{postMessage: async message => {
+      window.__fontCalls.push(message.action);
+      if (message.action === "fontFamilies") {
+        if (window.__fontFail) throw new Error("unavailable");
+        return window.__fontFamilies;
+      }
+      return true;
+    }}}};
+  });
+  await page.reload();
+  await expect(page.locator("#sel-body")).toHaveValue("font:Georgia");
+  await expect(page.locator("#sel-head")).toHaveValue("font:Poppins");
+  await open(page, path.join(workspace,"alpha.md"));
+  await page.locator("#btn-settings").click();
+  await page.locator('[data-cat="reading"]').click();
+  await page.locator("#sel-body").selectOption("font:Georgia");
+  await page.locator("#sel-head").selectOption('font:Quoted "Family"\\Name');
+  expect(await page.locator("html").evaluate(n=>n.style.getPropertyValue("--font-head"))).toContain('\\"Family\\"\\\\Name');
+  await page.locator("#sel-head").selectOption("font:Georgia");
+  await expect.poll(async()=>JSON.parse(await fs.readFile(path.join(stateDir,"preferences.json"),"utf8")).headFont).toBe("font:Georgia");
+  await page.screenshot({path:info.outputPath("installed-font-settings.png")});
+  await page.locator("#set-close").click();
+  await expect(page.locator("#preview h1")).toHaveCSS("font-family",/Georgia/);
+  await page.reload();
+  await expect(page.locator("#sel-head")).toHaveValue("font:Georgia");
+  await page.evaluate(()=>window.__fontFamilies=[]);
+  await page.locator("#btn-settings").click();
+  await expect(page.locator('#sel-head option:checked')).toHaveText(/Georgia.*unavailable.*Lora/);
+  expect(await page.locator("html").evaluate(n=>n.style.getPropertyValue("--font-head"))).toBe("Lora,serif");
+  await page.locator('[data-cat="reading"]').click();
+  await page.screenshot({path:info.outputPath("missing-font-settings.png")});
+  expect(JSON.parse(await fs.readFile(path.join(stateDir,"preferences.json"),"utf8")).headFont).toBe("font:Georgia");
+  await page.locator("#set-close").click();
+  await page.evaluate(()=>window.__fontFamilies=["Georgia"]);
+  await page.locator("#btn-settings").click();
+  await expect(page.locator('#sel-head option:checked')).toHaveText("Georgia");
+  await page.locator("#set-close").click();
+  await page.evaluate(()=>window.__fontFail=true);
+  await page.locator("#btn-settings").click();
+  await expect(page.locator(".font-source").first()).toContainText("Could not refresh");
+  await expect(page.locator('#sel-head option:checked')).toHaveText("Georgia");
+  await page.locator("#set-close").click();
+  await page.evaluate(()=>window.__fontFail=false);
+  await page.locator("#btn-split").click();
+  const side=page.frameLocator("#side-pane iframe");
+  await expect(side.locator('#sel-body option[value="font:Georgia"]')).toHaveCount(1);
+  expect(await page.evaluate(()=>window.__fontCalls)).toContain("fontFamilies");
+});

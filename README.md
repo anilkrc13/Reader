@@ -78,7 +78,10 @@ Seven sections, in a dialog laid out like a modern desktop app:
   frosted-glass panel option, and which side the file panel sits on.
 - **Reading** — three presets (Compact, Comfortable, Focus) plus individual
   control of body and heading typeface, text size, line height, line width and
-  paragraph spacing. A live specimen shows the effect as you drag.
+  paragraph spacing. The Mac app lists installed font families. Lora is the one
+  bundled default. Missing saved fonts fall back without erasing the choice.
+  Browser and embedded viewers offer Lora and system defaults because they do
+  not supply a permitted installed-font list. A live specimen shows the effect as you drag.
 - **Code** — highlight palette (brand, muted, vivid), monospace face, code size,
   and whether long lines wrap.
 - **Editor** — editor typeface and size, tab width, spell check, editor and preview
@@ -233,16 +236,9 @@ preview beside the editor. The editor shows the source, where a link is just tex
 Bundled locally in `static/`, licences in `licenses/`:
 [marked](https://marked.js.org) (markdown), [DOMPurify](https://github.com/cure53/DOMPurify)
 (sanitising), [highlight.js](https://highlightjs.org) (code), [Mermaid](https://mermaid.js.org)
-(diagrams), and the
-[Poppins](https://fonts.google.com/specimen/Poppins),
-[EB Garamond](https://fonts.google.com/specimen/EB+Garamond),
-[Figtree](https://fonts.google.com/specimen/Figtree),
-[Satoshi](https://www.fontshare.com/fonts/satoshi) (ITF Free Font License),
-[Lora](https://fonts.google.com/specimen/Lora),
-[Inter](https://fonts.google.com/specimen/Inter),
-[Source Serif 4](https://fonts.google.com/specimen/Source+Serif+4) and
-[JetBrains Mono](https://www.jetbrains.com/lp/mono/) typefaces
-(SIL Open Font License).
+(diagrams), and the [Lora](https://fonts.google.com/specimen/Lora) default typeface
+(SIL Open Font License). Other font choices in the Mac app come from installed
+font families. The interface and default code face use operating system stacks.
 
 ## License
 

@@ -373,7 +373,9 @@ test('shared reading and code controls affect rendering and unsupported tabs exp
   await expect(frame.locator('#preview h1')).toHaveText('Adjustable title');
   await frame.getByRole('button',{name:'Settings',exact:true}).click();
   await settingsSection(frame,'Reading');
-  await frame.locator('#sel-body').selectOption('inter');
+  await expect(frame.locator('.font-source').first()).toContainText('Installed font browsing is available in the Mac app');
+  await expect(frame.locator('#sel-body option')).toHaveCount(2);
+  await frame.locator('#sel-body').selectOption('system');
   await frame.getByRole('button',{name:'Focus',exact:true}).click();
   const details=frame.locator('[data-panel=reading] details');
   await details.nth(1).locator('summary').click();
@@ -389,11 +391,11 @@ test('shared reading and code controls affect rendering and unsupported tabs exp
   await page.screenshot({path:info.outputPath('settings-reading-wide.png')});
   await settingsSection(frame,'Code');
   await frame.getByRole('button',{name:'Vivid',exact:true}).click();
-  await frame.locator('#sel-mono').selectOption('jetbrains');
+  await frame.locator('#sel-mono').selectOption('system');
   await frame.getByRole('slider',{name:'Code size',exact:true}).press('End');
   await frame.getByRole('switch',{name:'Wrap long lines'}).click();
   await expect(frame.locator('#preview pre')).toHaveCSS('white-space','pre-wrap');
-  await expect(frame.locator('#preview code').first()).toHaveCSS('font-family',/JetBrains/);
+  await expect(frame.locator('#preview code').first()).toHaveCSS('font-family',/monospace/);
   await page.screenshot({path:info.outputPath('settings-code-wide.png')});
   await page.evaluate(()=>window.host.frames[0].contentWindow.postMessage({jsonrpc:'2.0',method:'ui/notifications/host-context-changed',params:{theme:'dark'}},'*'));
   await expect(frame.locator('html')).toHaveAttribute('data-theme','dark');

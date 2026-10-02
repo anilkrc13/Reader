@@ -5,11 +5,6 @@
    ======================================================================== */
 
 /* ------------------------------------------------------------------ fonts */
-@font-face{font-family:Poppins;src:url(/static/fonts/poppins-latin-400-normal.woff2)format("woff2");font-weight:400;font-style:normal;font-display:swap}
-@font-face{font-family:Poppins;src:url(/static/fonts/poppins-latin-500-normal.woff2)format("woff2");font-weight:500;font-style:normal;font-display:swap}
-@font-face{font-family:Poppins;src:url(/static/fonts/poppins-latin-600-normal.woff2)format("woff2");font-weight:600;font-style:normal;font-display:swap}
-@font-face{font-family:Poppins;src:url(/static/fonts/poppins-latin-700-normal.woff2)format("woff2");font-weight:700;font-style:normal;font-display:swap}
-
 @font-face{font-family:Lora;src:url(/static/fonts/lora-latin-400-normal.woff2)format("woff2");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:Lora;src:url(/static/fonts/lora-latin-400-italic.woff2)format("woff2");font-weight:400;font-style:italic;font-display:swap}
 @font-face{font-family:Lora;src:url(/static/fonts/lora-latin-500-normal.woff2)format("woff2");font-weight:500;font-style:normal;font-display:swap}
@@ -19,38 +14,10 @@
 @font-face{font-family:Lora;src:url(/static/fonts/lora-latin-700-normal.woff2)format("woff2");font-weight:700;font-style:normal;font-display:swap}
 @font-face{font-family:Lora;src:url(/static/fonts/lora-latin-700-italic.woff2)format("woff2");font-weight:700;font-style:italic;font-display:swap}
 
-@font-face{font-family:Figtree;src:url(/static/fonts/figtree-latin-variable-normal.ttf)format("truetype");font-weight:300 900;font-style:normal;font-display:swap}
-@font-face{font-family:Figtree;src:url(/static/fonts/figtree-latin-variable-italic.ttf)format("truetype");font-weight:300 900;font-style:italic;font-display:swap}
-
-@font-face{font-family:Satoshi;src:url(/static/fonts/satoshi-latin-variable-normal.woff2)format("woff2");font-weight:300 900;font-style:normal;font-display:swap}
-@font-face{font-family:Satoshi;src:url(/static/fonts/satoshi-latin-variable-italic.woff2)format("woff2");font-weight:300 900;font-style:italic;font-display:swap}
-
-@font-face{font-family:"EB Garamond";src:url(/static/fonts/ebgaramond-latin-variable-normal.ttf)format("truetype");font-weight:400 800;font-style:normal;font-display:swap}
-@font-face{font-family:"EB Garamond";src:url(/static/fonts/ebgaramond-latin-variable-italic.ttf)format("truetype");font-weight:400 800;font-style:italic;font-display:swap}
-
-@font-face{font-family:Inter;src:url(/static/fonts/inter-latin-400-normal.woff2)format("woff2");font-weight:400;font-style:normal;font-display:swap}
-@font-face{font-family:Inter;src:url(/static/fonts/inter-latin-400-italic.woff2)format("woff2");font-weight:400;font-style:italic;font-display:swap}
-@font-face{font-family:Inter;src:url(/static/fonts/inter-latin-500-normal.woff2)format("woff2");font-weight:500;font-style:normal;font-display:swap}
-@font-face{font-family:Inter;src:url(/static/fonts/inter-latin-600-normal.woff2)format("woff2");font-weight:600;font-style:normal;font-display:swap}
-@font-face{font-family:Inter;src:url(/static/fonts/inter-latin-700-normal.woff2)format("woff2");font-weight:700;font-style:normal;font-display:swap}
-
-@font-face{font-family:"Source Serif 4";src:url(/static/fonts/source-serif-4-latin-400-normal.woff2)format("woff2");font-weight:400;font-style:normal;font-display:swap}
-@font-face{font-family:"Source Serif 4";src:url(/static/fonts/source-serif-4-latin-400-italic.woff2)format("woff2");font-weight:400;font-style:italic;font-display:swap}
-@font-face{font-family:"Source Serif 4";src:url(/static/fonts/source-serif-4-latin-500-normal.woff2)format("woff2");font-weight:500;font-style:normal;font-display:swap}
-@font-face{font-family:"Source Serif 4";src:url(/static/fonts/source-serif-4-latin-600-normal.woff2)format("woff2");font-weight:600;font-style:normal;font-display:swap}
-@font-face{font-family:"Source Serif 4";src:url(/static/fonts/source-serif-4-latin-600-italic.woff2)format("woff2");font-weight:600;font-style:italic;font-display:swap}
-@font-face{font-family:"Source Serif 4";src:url(/static/fonts/source-serif-4-latin-700-normal.woff2)format("woff2");font-weight:700;font-style:normal;font-display:swap}
-
-@font-face{font-family:"JetBrains Mono";src:url(/static/fonts/jetbrains-mono-latin-400-normal.woff2)format("woff2");font-weight:400;font-style:normal;font-display:swap}
-@font-face{font-family:"JetBrains Mono";src:url(/static/fonts/jetbrains-mono-latin-400-italic.woff2)format("woff2");font-weight:400;font-style:italic;font-display:swap}
-@font-face{font-family:"JetBrains Mono";src:url(/static/fonts/jetbrains-mono-latin-500-normal.woff2)format("woff2");font-weight:500;font-style:normal;font-display:swap}
-@font-face{font-family:"JetBrains Mono";src:url(/static/fonts/jetbrains-mono-latin-700-normal.woff2)format("woff2");font-weight:700;font-style:normal;font-display:swap}
-
 /* ------------------------------------------------------- fixed app tokens */
 :root{
-  /* Interface face. Inter is a humanist grotesque, so the chrome reads like
-     native controls; Poppins stays available as a document heading face. */
-  --ui:Inter,-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+  /* Interface typography comes from the operating system. */
+  --ui:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
   --radius:10px;
   --sidebar-w:288px;
   --speed:.14s;
@@ -67,7 +34,7 @@
   --fw-body:400;
   --prose-body:var(--text);
   --prose-strong:var(--text);
-  --font-head:Poppins,-apple-system,sans-serif;
+  --font-head:Lora,serif;
   --font-mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
   --font-editor:var(--font-mono);
   --fs-body:16.5px;
@@ -663,27 +630,6 @@ html[data-mode=split] .prose{padding:28px 34px 28vh;font-size:calc(var(--fs-body
 /* The document title tunes its capital proportions independently of H1-H6. */
 .prose h1.doc-heading .cap-run{font-size:calc(1em * var(--title-cap-scale,1))}
 
-/* EB Garamond is a text serif whose display cuts look heavy under generic
-   sans weights and negative tracking, so relax those while preserving the
-   shared sizes and vertical rhythm. Its cap height is also shorter than the
-   sans faces (0.65 em vs ~0.70-0.74 em), so headings get a slight optical
-   scale bump; this preserves relative hierarchy because it applies to all
-   heading levels through the shared em-based sizes. Only the per-level
-   defaults change here — saved Settings overrides still win through the
-   shared rule above. */
-html[data-head=ebgaramond] .prose h1,
-html[data-head=ebgaramond] .prose h2,
-html[data-head=ebgaramond] .prose h3,
-html[data-head=ebgaramond] .prose h4,
-html[data-head=ebgaramond] .prose h5,
-html[data-head=ebgaramond] .prose h6{font-size:calc(var(--hs,1em) * var(--head-scale,1) * 1.08)}
-html[data-head=ebgaramond] .prose h1{--hw:640;--hlh:1.06;--hsp:-.006em}
-html[data-head=ebgaramond] .prose h2{--hw:620;--hlh:1.22;--hsp:-.012em}
-html[data-head=ebgaramond] .prose h3,
-html[data-head=ebgaramond] .prose h4,
-html[data-head=ebgaramond] .prose h5{--hw:600;--hsp:-.004em}
-html[data-head=ebgaramond] .prose h6{--hw:560;--hsp:.002em}
-html[data-head=ebgaramond] .prose h1.doc-heading{font-size:calc(var(--title-size,48px) * 1.08)}
 .prose p{margin:0 0 var(--para-gap)}
 .prose .md-blank-lines{display:block;height:calc(var(--blank-lines,0) * var(--lh-body) * 1em)}
 .prose a{color:var(--link);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--link) 40%,transparent)}
@@ -1488,3 +1434,5 @@ html:not([data-host]) #main{container:reader-pane / inline-size}
   html:not([data-host]) #toolbar .doc-title{flex:1 0 calc(100% - 160px)}
   html:not([data-host]) #toolbar > .spacer,html:not([data-host]) #toolbar > .tool-sep{display:none}
 }
+
+.set-font-note{font-size:.8125rem;line-height:1.5;color:var(--text-2);margin:1rem 0}

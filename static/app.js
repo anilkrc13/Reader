@@ -90,7 +90,7 @@ const DEFAULTS = {
      one can be large while the other stays compact. */
   uiScale: "medium",
   /* reading */
-  bodyFont: "lora", headFont: "poppins",
+  bodyFont: "lora", headFont: "lora",
   fontSize: 16.5, bodyWeight: 400, lineHeight: 1.75, measure: 65, paraGap: 1.1, listGap: .32,
   tableBorders: false,
   titleSize: 48, titleWeight: 700, titleLineHeight: 1.08,
@@ -256,31 +256,46 @@ const LINK = {light: "#1f5fbf", dark: "#8ab4f8"};
 const SANS_SYSTEM = '-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif';
 const MONO_SYSTEM = 'ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace';
 
-const BODY_FONTS = [
-  ["lora", "Lora — serif", 'Lora,Georgia,serif'],
-  ["sourceserif", "Source Serif 4 — serif", '"Source Serif 4",Georgia,serif'],
-  ["georgia", "Georgia — system serif", 'Georgia,"Times New Roman",serif'],
-  ["figtree", "Figtree — sans", 'Figtree,' + SANS_SYSTEM],
-  ["satoshi", "Satoshi — sans", 'Satoshi,' + SANS_SYSTEM],
-  ["inter", "Inter — sans", 'Inter,' + SANS_SYSTEM],
-  ["poppins", "Poppins — sans", 'Poppins,' + SANS_SYSTEM],
-  ["system", "System sans", SANS_SYSTEM],
-];
-const HEAD_FONTS = [
-  ["poppins", "Poppins", 'Poppins,' + SANS_SYSTEM],
-  ["figtree", "Figtree", 'Figtree,' + SANS_SYSTEM],
-  ["satoshi", "Satoshi", 'Satoshi,' + SANS_SYSTEM],
-  ["inter", "Inter", 'Inter,' + SANS_SYSTEM],
-  ["ebgaramond", "EB Garamond", '"EB Garamond",Georgia,serif'],
-  ["lora", "Lora", 'Lora,Georgia,serif'],
-  ["sourceserif", "Source Serif 4", '"Source Serif 4",Georgia,serif'],
-  ["system", "System sans", SANS_SYSTEM],
-  ["match", "Match body text", null],
-];
-const MONO_FONTS = [
-  ["system", "System monospace", MONO_SYSTEM],
-  ["jetbrains", "JetBrains Mono", '"JetBrains Mono",' + MONO_SYSTEM],
-];
+const BODY_FONTS = [["lora", "Lora — default", 'Lora,serif'], ["system", "System sans", SANS_SYSTEM]];
+const HEAD_FONTS = [...BODY_FONTS, ["match", "Match body text", null]];
+const MONO_FONTS = [["system", "System monospace", MONO_SYSTEM]];
+// Compatibility for saved keys, never an inventory of available choices.
+const LEGACY_FONT_NAMES = {poppins: "Poppins", figtree: "Figtree", satoshi: "Satoshi", inter: "Inter",
+  ebgaramond: "EB Garamond", sourceserif: "Source Serif 4", georgia: "Georgia", jetbrains: "JetBrains Mono"};
+const FONT_LISTS = {bodyFont: BODY_FONTS, headFont: HEAD_FONTS, monoFont: MONO_FONTS};
+let fontRequest = 0;
+async function nativeFontFamilies() {
+  if (EMBEDDED) return null;
+  if (SIDE) return host()?.fontFamilies() ?? null;
+  const bridge = nativeBridge();
+  return bridge ? bridge.postMessage({action: "fontFamilies"}) : null;
+}
+function fontChoice(list, key) {
+  const migrated = Object.hasOwn(LEGACY_FONT_NAMES, key) ? "font:" + LEGACY_FONT_NAMES[key] : key;
+  return list.some(item => item[0] === migrated) ? migrated : key;
+}
+async function refreshFontFamilies() {
+  const request = ++fontRequest;
+  try {
+    const families = await nativeFontFamilies();
+    if (request !== fontRequest) return;
+    if (families === null) {
+      document.querySelectorAll(".font-source").forEach(n => n.textContent = "Installed font browsing is available in the Mac app. This viewer uses Lora and system defaults.");
+      return;
+    }
+    if (!Array.isArray(families) || !families.every(name => typeof name === "string" && name.trim() && name.length <= 256 && !/[\u0000-\u001f\u007f]/.test(name))) throw new Error();
+    const options = [...new Set(families)].sort((a,b) => a.localeCompare(b)).map(name =>
+      ["font:" + name, name, JSON.stringify(name) + ",Lora,serif"]);
+    BODY_FONTS.splice(2, Infinity, ...options);
+    HEAD_FONTS.splice(3, Infinity, ...options);
+    MONO_FONTS.splice(1, Infinity, ...options.map(([key,name]) => [key,name,JSON.stringify(name) + "," + MONO_SYSTEM]));
+    for (const [key,list] of Object.entries(FONT_LISTS)) fillSelect(document.querySelector(`select[data-set="${key}"]`), list);
+    document.querySelectorAll(".font-source").forEach(n => n.textContent = "Installed Mac font families. Lora is bundled as the default. Reopen Settings to refresh the list.");
+    applySettings(); syncDialog();
+  } catch {
+    if (request === fontRequest) document.querySelectorAll(".font-source").forEach(n => n.textContent = "Could not refresh installed fonts. Existing choices are kept; unavailable fonts use the default.");
+  }
+}
 
 const PRESETS = {
   compact:     {fontSize: 15,   lineHeight: 1.55, measure: 60, paraGap: 0.85},
@@ -550,7 +565,7 @@ async function loadServerPrefs() {
   cacheLocally();
 }
 
-const fontStack = (list, key) => (list.find((f) => f[0] === key) || list[0])[2];
+const fontStack = (list, key) => (list.find((f) => f[0] === fontChoice(list, key)) || list[0])[2];
 
 /* Pick whichever of ink or white actually contrasts better against the accent,
    by WCAG relative luminance — not by eye and not by a guessed threshold. */
@@ -4084,7 +4099,16 @@ function syncDialog() {
     });
   });
   document.querySelectorAll("select[data-set]").forEach((sel) => {
-    sel.value = String(S[sel.dataset.set]);
+    const key = sel.dataset.set, list = FONT_LISTS[key];
+    sel.querySelectorAll("[data-unavailable]").forEach(option => option.remove());
+    const value = list ? fontChoice(list, S[key]) : String(S[key]);
+    if (list && !list.some(item => item[0] === value)) {
+      const option = document.createElement("option"); option.value = String(S[key]);
+      const name = Object.hasOwn(LEGACY_FONT_NAMES, S[key]) ? LEGACY_FONT_NAMES[S[key]] : String(S[key]).replace(/^font:/, "");
+      option.textContent = name + " (unavailable — using " + (key === "monoFont" ? "system monospace" : "Lora") + ")";
+      option.dataset.unavailable = ""; option.disabled = true; sel.append(option);
+    }
+    sel.value = value;
   });
   document.querySelectorAll('input[type=range][data-set]').forEach((r) => {
     const key = r.dataset.set;
@@ -4161,6 +4185,7 @@ function showCategory(name) {
 }
 
 function openSettings() {
+  void refreshFontFamilies();
   state.lastFocus = document.activeElement;
   syncDialog();
   el.scrim.hidden = false;
@@ -6436,6 +6461,7 @@ async function boot() {
 
   /* on-disk preferences win: they outlive a change of port */
   await loadServerPrefs();
+  await refreshFontFamilies();
   applySettings();
   syncDialog();
   drawRecents();
@@ -6535,7 +6561,7 @@ if (EMBEDDED) {
           const min = Number(control.min), max = Number(control.max), step = Number(control.step);
           if (Number.isFinite(value) && value >= min && value <= max) S[key] = Number((min + Math.round((value - min) / step) * step).toFixed(5));
         } else if (control.matches("select")) {
-          if ([...control.options].some(option => option.value === value)) S[key] = value;
+          if ([...control.options].some(option => option.value === value) || (FONT_LISTS[key] && typeof value === "string" && value.length <= 261 && (value.startsWith("font:") || Object.hasOwn(LEGACY_FONT_NAMES, value)))) S[key] = value;
         } else if (control.classList.contains("switch")) {
           if (typeof value === "boolean") S[key] = value;
         } else if ([...control.querySelectorAll("[data-value]")].some(option => option.dataset.value === value)) S[key] = value;
@@ -6562,6 +6588,7 @@ if (EMBEDDED) {
   return;
 }
 window.reader = {
+  fontFamilies: nativeFontFamilies,
   findDocument: findInDocument, findFile: fileFindOpen,
   goto: (p) => setRoot(p), open: (p) => openFile(p), openFromOS,
   /* The app's title bar buttons, and its full screen hand-back. */
