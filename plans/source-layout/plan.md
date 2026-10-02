@@ -1,49 +1,40 @@
-# Organize Reader by source owner
+# Proposed: one Reader source tree
 
-Before the extension, root `reader.py` and `reader_backend.py` held the local server
-and `static/` held application code, fonts, icons, and vendored libraries together.
-The extension added a standalone Node package that bundles the shared UI. It does
-not have a second implementation of that UI. Native and Python checks live under
-root tests; protocol and simulated-host tests belong to the extension package.
-The main confusion is mixed shared source/assets and accumulated plans, not a
-need to combine independent package dependencies.
-
-Use this structure:
+Reader shares one web interface. Local document operations and platform adapters
+have separate owners inside `src/reader`. The owner clarified that Mac and ChatGPT
+source should live beside the shared code. Settle all paths together.
 
 ```
-src/reader/server.py           local HTTP and server lifecycle
-src/reader/backend.py          document access and mutations
-src/reader/web/                shared HTML, CSS, JavaScript
-src/reader/web/assets/         fonts and icons
-src/reader/web/vendor/         vendored browser libraries
-reader.py, reader_backend.py   small compatible entry/import wrappers
-macos/                        native wrapper, metadata, assets, build tools
-extensions/chatgpt/           standalone adapter package and its tests
-scripts/                      repository checks and development tools
-tests/server/                 local server and tooling regressions
-tests/browser/                shared UI against the local server
-docs/                         permanent architecture, checks, acceptance
+src/reader/
+  server.py, backend.py         local document server and operations
+  web/                         shared interface, web assets, browser libraries
+  common/                      icon artwork used by Mac and ChatGPT builds
+  macos/                       Swift launcher and Mac icon recipe/assets
+  chatgpt/                     standalone Node adapter package and tests
+macos/                         native metadata and build/release scripts
+reader.py, reader_backend.py    compatible root entry/import wrappers
+tests/server/, tests/browser/  local server and shared UI checks
+build/Reader.app               generated native app
+build/chatgpt/                 generated extension package
 ```
 
-Keep the extension's `src/` inside its package. Its module type, pinned SDKs,
-standalone build, and install output remain intact. Moving that source outside its
-package would change dependency resolution for no product benefit. The shared
-Reader implementation remains in exactly one location.
+Move the complete ChatGPT package, flattening its old `src/` into its package root.
+Its pinned dependencies, module type, TypeScript compiler, and tests retain one
+package boundary. Keeping a Node package under `src` is supported; nesting by
+itself is not a dependency-resolution problem. Generated dependencies are ignored.
+Move Swift and native assets into the Mac adapter. Keep build commands and bundle
+metadata in `macos/`. Shared icon artwork is copied into the existing Icon Composer
+recipe during the build; do not introduce an image conversion pipeline.
 
-Root launch/import names remain compatible. Source and app bundle use the same
-`src/reader` layout. APP_DIR still identifies the repository or bundle resource
-root, so workspace authorization and preference locations are unchanged. Assets
-remain served through `/static/`; internal vendor and asset paths gain their
-explicit subdirectories. The extension builds from the new shared source owner.
-Update build scripts, imports, tests, documentation, and required build gate paths
-in the same change. Keep root CLI and installer commands unchanged.
+Select only Python package markers, server/backend modules, and web assets for the
+Mac resource tree. It must contain no Swift source, TypeScript, Node dependencies,
+or extension output. The extension builds from shared web plus its adapter and
+uses common artwork. Root launch commands and authorization/preferences roots
+remain unchanged. Update all build references, tests, CI, docs, and example
+marketplace paths together. Leave the owner's untracked marketplace catalog alone;
+record that an existing installation must select the new output path explicitly.
 
-Move lasting completed-plan decisions into architecture/testing docs and one host
-acceptance page. Remove closed reading-control, font, and viewer implementation
-plans after their decisions and remaining checks are preserved. An acceptance
-check can live permanently in docs instead of keeping a finished implementation
-plan open. Keep this plan only until its own source moves pass review and checks.
-
-The owner requested repository organization and removal of unnecessary plans.
-The owner also approved focused linting and using the build loop efficiently.
-Do not install, push, publish, alter host cache, or touch unrelated untracked files.
+The earlier shared-source move is retained. Revise its remaining paths in one
+change. Run affected server, browser, extension, lint, and native packaging checks.
+Review the frozen candidate before removing this plan. Git permits rollback;
+preferences and grants need no migration. No push, installation, or publication.
