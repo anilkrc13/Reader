@@ -8,7 +8,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 import reader
-from reader_backend import DocumentStore, FileAccessPolicy, WorkspaceError
+from src.reader.backend import DocumentStore, FileAccessPolicy, WorkspaceError
 
 
 class WorkspaceMutationAuthorizationTests(unittest.TestCase):

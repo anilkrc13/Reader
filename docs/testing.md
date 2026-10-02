@@ -79,7 +79,7 @@ separately from summed command durations: overlapping commands do not add that
 sum to the user's wait. Keep build prerequisites in order.
 
 The Mac build gate comes from `AGENTS.md`. Changes to `src/reader/`, `reader.py`,
-`reader_backend.py`, `VERSION`, launcher or icon sources, licenses, or bundle
+`VERSION`, launcher or icon sources, licenses, or bundle
 metadata require `./src/reader/macos/scripts/build-app.sh`, signature verification, and resource-copy
 checks. An extension-only runner or documentation change does not trigger that
 build requirement. Running native integration checks alone does not trigger it.
@@ -114,6 +114,10 @@ For Python, run `python3 -m venv build/lint-venv`, then
 On macOS install SwiftLint with `brew install swiftlint`; validation used 0.65.1.
 Run `npm run lint:changed` before committing. After committing, use
 `npm run lint:changed -- --base <previous-commit>` to check that same change.
+The three linter configurations live in `config/`. The runner supplies their
+paths explicitly. For direct invocation, pass `--config config/eslint.config.mjs`
+to ESLint, `--config config/ruff.toml` to Ruff, or
+`--config config/.swiftlint.yml` to SwiftLint.
 The runner uses Git's changed and untracked source paths. It skips generated
 outputs and minified vendors. ESLint checks JavaScript and TypeScript mistakes;
 TypeScript compilation still checks names and types. Ruff checks Python mistakes
@@ -129,7 +133,7 @@ a manual acceptance check through `install/Reader.command`.
 Server/tooling tests live in `tests/server/`; discovery from `tests` recurses into
 that package. Root entrypoint and isolated-resource-tree tests protect launch and
 import compatibility after source moves. The native bundle must contain identical Python package markers, server/backend
-modules, the web tree, and both root wrappers. Compare those selected resources
+modules, the web tree, and the root `reader.py` entry. Compare those selected resources
 after the mandated build. Verify that Mac/ChatGPT adapter source, Node dependencies,
 and extension output are absent. The extension output lives in `build/chatgpt`.
 

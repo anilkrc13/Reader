@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from reader_backend import DocumentStore, FileAccessPolicy, WorkspaceError
+from src.reader.backend import DocumentStore, FileAccessPolicy, WorkspaceError
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 

@@ -27,7 +27,7 @@ npm run test:webmcp
   meant to stay portable even though only the macOS app ships today.
 - Keep the server dependency-free. No `pip install`.
 - Keep the page free of inline script. The Content Security Policy forbids it.
-- If you change `src/reader/`, [`reader.py`](reader.py), [`reader_backend.py`](reader_backend.py), [`VERSION`](VERSION), or
+- If you change `src/reader/`, [`reader.py`](reader.py), [`VERSION`](VERSION), or
   anything under `src/reader/macos/`, rebuild the app with [`./src/reader/macos/scripts/build-app.sh`](src/reader/macos/scripts/build-app.sh) and check
   it still launches. The built bundle is not committed; CI builds it.
 
@@ -38,7 +38,7 @@ a green Windows CI run is not a claim that one exists. The server underneath
 the app is nevertheless meant to run correctly on all three, so that porting
 stays possible, and CI holds it to that: `python -m
 unittest discover -s tests` runs on macOS, Ubuntu and Windows for every pull
-request. A change to `reader.py` or `reader_backend.py` must keep the Windows
+request. A change to `src/reader/server.py` or `src/reader/backend.py` must keep the Windows
 run green, not only the platform you developed on.
 
 The seams where behavior forks by platform:
@@ -48,7 +48,7 @@ The seams where behavior forks by platform:
 - **The per-user data directory** (`reader.default_data_dir`): `~/Library/
   Application Support/Reader` on macOS, `%APPDATA%\Reader` on Windows,
   `$XDG_DATA_HOME/reader` (or `~/.local/share/reader`) elsewhere.
-- **Trash** (`reader_backend.DocumentStore.move_to_trash`): `~/.Trash` on
+- **Trash** (`src.reader.backend.DocumentStore.move_to_trash`): `~/.Trash` on
   macOS, the XDG Trash folder elsewhere, the real Recycle Bin on Windows via
   `SHFileOperationW`, and a Reader-owned Trash folder inside the platform data
   directory as the fallback when none of those are available. Every one of

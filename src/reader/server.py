@@ -160,7 +160,7 @@ def default_data_dir() -> Path:
     Used as a fallback when the script's own folder is not writable (an
     installed, read-only copy) and as the base for platform state that has
     nowhere else to live, such as the Windows Trash fallback in
-    reader_backend.move_to_trash. macOS keeps its historical path exactly;
+    backend.DocumentStore.move_to_trash. macOS keeps its historical path exactly;
     Windows and everything else follow their own conventions rather than
     reusing the macOS one, since neither has a "Library/Application Support".
     """

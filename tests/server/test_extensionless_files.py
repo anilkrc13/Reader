@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from reader_backend import DocumentStore, FileAccessPolicy, looks_binary
+from src.reader.backend import DocumentStore, FileAccessPolicy, looks_binary
 
 
 class ExtensionlessFileTests(unittest.TestCase):

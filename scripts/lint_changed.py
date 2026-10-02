@@ -28,13 +28,14 @@ def main():
     swift = [name for name in files if name.endswith(".swift")]
     commands = []
     if javascript:
-        commands.append([str(ROOT / "node_modules/.bin/eslint"), *javascript])
+        commands.append([str(ROOT / "node_modules/.bin/eslint"), "--config",
+                         str(ROOT / "config/eslint.config.mjs"), *javascript])
     if python:
         ruff = shutil.which("ruff") or str(ROOT / "build/lint-venv/bin/ruff")
-        commands.append([ruff, "check", *python])
+        commands.append([ruff, "check", "--config", str(ROOT / "config/ruff.toml"), *python])
     if swift:
         commands.append(["swiftlint", "lint", "--strict", "--no-cache", "--config",
-                         str(ROOT / ".swiftlint.yml"), *swift])
+                         str(ROOT / "config/.swiftlint.yml"), *swift])
     failed = False
     for command in commands:
         print("Running:", " ".join(command), flush=True)

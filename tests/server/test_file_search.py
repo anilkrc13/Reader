@@ -2,8 +2,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import reader_backend
-from reader_backend import DocumentStore, FileAccessPolicy
+from src.reader import backend
+from src.reader.backend import DocumentStore, FileAccessPolicy
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -164,19 +164,19 @@ class FileSearchTests(unittest.TestCase):
     def test_result_count_is_capped_and_says_so(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp).resolve()
-            for i in range(reader_backend.SEARCH_RESULTS + 15):
+            for i in range(backend.SEARCH_RESULTS + 15):
                 (home / f"notes-{i:03d}.md").write_text("a", encoding="utf-8")
 
             found = store_for(home).find_files(home, "notes")
 
-            self.assertEqual(len(found["matches"]), reader_backend.SEARCH_RESULTS)
+            self.assertEqual(len(found["matches"]), backend.SEARCH_RESULTS)
             self.assertTrue(found["truncated"])
 
     def test_depth_is_bounded(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp).resolve()
             deeper = home
-            for i in range(reader_backend.SEARCH_DEPTH + 3):
+            for i in range(backend.SEARCH_DEPTH + 3):
                 deeper = deeper / f"level{i}"
             deeper.mkdir(parents=True)
             (deeper / "notes.md").write_text("a", encoding="utf-8")

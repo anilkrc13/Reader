@@ -1,6 +1,6 @@
 import unittest
 
-from reader_backend import (
+from src.reader.backend import (
     EXTERNAL_APP_SUFFIXES,
     IMAGE_SUFFIXES,
     LISTABLE_SUFFIXES,

@@ -7,7 +7,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 import reader
-from reader_backend import DocumentStore, FileAccessPolicy
+from src.reader.backend import DocumentStore, FileAccessPolicy
 
 
 class MoveFileTests(unittest.TestCase):

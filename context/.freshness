@@ -1,7 +1,7 @@
 # owned by skills/repository-context/scripts/context_freshness.py -- do not hand-edit
 {
-  "aggregate": "b10757bddd18db50208ea10314fff3857d70f6b319dfb6aaefcb68ee3bd88228",
-  "commit": "706450d785a244fd114a05144347bc427e8396e8",
+  "aggregate": "5b8ba391944da0edda37f8b68e4aef7e0bf0f7ead55bab4431e6145babdb10b4",
+  "commit": "8a263726b701987e120b5007d3c8ea1749b809cf",
   "exclude": [],
   "files": {
     ".agents/plugins/marketplace.json": {
@@ -31,20 +31,14 @@
     ".github/workflows/tests.yml": {
       "executable": false,
       "kind": "file",
-      "length": 3432,
-      "sha256": "93d3baf5b170491e46f9f33d20dacea20ac22c505c02093388135322eddc61b5"
+      "length": 3420,
+      "sha256": "ede5fafce2946fa4ca79012e24b1ebe65fd3569e80473d0c2c0c9642210a3c31"
     },
     ".gitignore": {
       "executable": false,
       "kind": "file",
       "length": 831,
       "sha256": "e68d3a0a4bad8c3374e590f18a07435820fc9f4f54d41abed0b44e6447e70288"
-    },
-    ".swiftlint.yml": {
-      "executable": false,
-      "kind": "file",
-      "length": 72,
-      "sha256": "66f0348b1050cdc0118915d431a5bd00e10d2bb0a5437d137539265546d64c5a"
     },
     "CHANGELOG.md": {
       "executable": false,
@@ -55,8 +49,8 @@
     "CONTRIBUTING.md": {
       "executable": false,
       "kind": "file",
-      "length": 4293,
-      "sha256": "5e239d832092d357bafc5ffd00702594259da645c6734724a9c7b524ffe5c2aa"
+      "length": 4270,
+      "sha256": "7e91f5ac6577ceddb8764dd383bff0424c2aee3537e2178c4728726dc2937569"
     },
     "LICENSE": {
       "executable": false,
@@ -67,8 +61,8 @@
     "README.md": {
       "executable": false,
       "kind": "file",
-      "length": 21673,
-      "sha256": "c2d4fd644673c8e1a0e715378a993aa47e26b0e8dc71fa8d4f5ba45b74bba1e5"
+      "length": 21684,
+      "sha256": "b1a09a8aed941dd1a433710e6caba7fbf5fd276d3e492ed48dfbf02856bde3a3"
     },
     "SECURITY.md": {
       "executable": false,
@@ -82,11 +76,23 @@
       "length": 6,
       "sha256": "6693435eadb673dda297a0652d241e293e361200bc40db949cf2501d18dd01ee"
     },
-    "eslint.config.mjs": {
+    "config/.swiftlint.yml": {
+      "executable": false,
+      "kind": "file",
+      "length": 72,
+      "sha256": "66f0348b1050cdc0118915d431a5bd00e10d2bb0a5437d137539265546d64c5a"
+    },
+    "config/eslint.config.mjs": {
       "executable": false,
       "kind": "file",
       "length": 933,
       "sha256": "45968692b5a515207b302c8325082dbd22b35a8c37380dd6ef7de9a72daa6bf1"
+    },
+    "config/ruff.toml": {
+      "executable": false,
+      "kind": "file",
+      "length": 56,
+      "sha256": "06aa13f9c6e39bc1d9708d8f2a58ba2c82e59d556d8b4b575eefefcc7a2e2c04"
     },
     "install/Reader.command": {
       "executable": true,
@@ -112,23 +118,11 @@
       "length": 259,
       "sha256": "4baae630652c884f9c01868272038f6dc160d8e9fbaf1592afee70c38b6e6e66"
     },
-    "reader_backend.py": {
-      "executable": false,
-      "kind": "file",
-      "length": 161,
-      "sha256": "8e2a2a45b21a9103570619ab2cf272b6a4b14b7f1840140da8f1dc0b1b7f1dab"
-    },
     "requirements-dev.txt": {
       "executable": false,
       "kind": "file",
       "length": 14,
       "sha256": "802d9f284fb7ececaafc6fd551dec282da0213bed0bace78fb07cf1495d1e9a4"
-    },
-    "ruff.toml": {
-      "executable": false,
-      "kind": "file",
-      "length": 56,
-      "sha256": "06aa13f9c6e39bc1d9708d8f2a58ba2c82e59d556d8b4b575eefefcc7a2e2c04"
     },
     "scripts/build.py": {
       "executable": false,
@@ -139,14 +133,14 @@
     "scripts/lint_changed.py": {
       "executable": false,
       "kind": "file",
-      "length": 2145,
-      "sha256": "a1a3cee0087c72fdd87fcc881e8268f7fd6a4a3d5ef6327b978eddddaafba2ee"
+      "length": 2273,
+      "sha256": "8be875404962ef2b65abb210cd7298f4b18c42889244384ed2b1f069e08ee607"
     },
     "scripts/package_runtime.py": {
       "executable": false,
       "kind": "file",
-      "length": 1482,
-      "sha256": "6cf6a4de4cd04890a9fd3752c17e0191ea9608d28eb6c75d10d633a063d44f74"
+      "length": 1461,
+      "sha256": "3259a760ae03dc38c2356f18429da019ec1d687b5b81872814ff002455895dde"
     },
     "src/__init__.py": {
       "executable": false,
@@ -349,8 +343,8 @@
     "src/reader/server.py": {
       "executable": true,
       "kind": "file",
-      "length": 32561,
-      "sha256": "793efb802f3f58347fe4eb0f6e201e863e2b7ad909d5642beb6d06fccef78dbb"
+      "length": 32568,
+      "sha256": "ab104b25170510566dadbb6185a1137ca74a9a765190bb2a967ed5ebf9b331fc"
     },
     "src/reader/web/app.css": {
       "executable": false,
@@ -511,8 +505,8 @@
     "tests/server/test_create_document.py": {
       "executable": false,
       "kind": "file",
-      "length": 5954,
-      "sha256": "3339f3cd588543cab5144d967beb9828ec5f1bd00a66deb571bcbc3df2b6f592"
+      "length": 5958,
+      "sha256": "663ece0380a06274cad442de7b2258fff633d8454ac35e315207a2f661340c0b"
     },
     "tests/server/test_doc_links.py": {
       "executable": false,
@@ -523,20 +517,20 @@
     "tests/server/test_extensionless_files.py": {
       "executable": false,
       "kind": "file",
-      "length": 3013,
-      "sha256": "80307290686496d54f7ba632d583e3b16e90d14bab945cfca833e9ec1462efbf"
+      "length": 3017,
+      "sha256": "9b38235b7d69a00bb5b808801f1b4e6d3713d1947b66cdee601d614f4d33e3b6"
     },
     "tests/server/test_external_open.py": {
       "executable": false,
       "kind": "file",
-      "length": 2160,
-      "sha256": "31519b2ebb47814bc7467eadcfff14dd2f1f5e1765d33214570d224dc7c1bdf8"
+      "length": 2164,
+      "sha256": "d270f8135f751469da42c17886c77350937fe2ac421c66422fd2e06fc6ca6d60"
     },
     "tests/server/test_file_search.py": {
       "executable": false,
       "kind": "file",
-      "length": 8750,
-      "sha256": "2c74a2998c06f5b077f4cf88cfe9524bd7fe0f9f986eec2c47b9c62cd88301f2"
+      "length": 8742,
+      "sha256": "36cfd38df4d8a522bdd81f26ad63b55dfdc8eb7200f0dc4c534b7662371217fa"
     },
     "tests/server/test_fixture_cleanup.py": {
       "executable": false,
@@ -547,8 +541,8 @@
     "tests/server/test_lint_changed.py": {
       "executable": false,
       "kind": "file",
-      "length": 3409,
-      "sha256": "5e783bba73f25f4d482c9475f4de5ce51a848204f1bb375b58c759f2d766f098"
+      "length": 4168,
+      "sha256": "f89d45565ee22865bdffb9813863645ff2ece3259699c30483ee77888d71590e"
     },
     "tests/server/test_markdown_tasks.py": {
       "executable": false,
@@ -565,26 +559,26 @@
     "tests/server/test_move.py": {
       "executable": false,
       "kind": "file",
-      "length": 3373,
-      "sha256": "808a71c9952fbc6dcafdc7c979de62bf0fd16d962629c8c5ecfb854003b20496"
+      "length": 3377,
+      "sha256": "9dcbf466565f3cf3a8817a19d005710b15838cf741bf35f2ac8a4f6398b41f09"
     },
     "tests/server/test_portability.py": {
       "executable": false,
       "kind": "file",
-      "length": 11790,
-      "sha256": "9564b6fb228f375699ba835da6b087ad99f7cc59fee44c7dd0f0a2fde4158377"
+      "length": 11810,
+      "sha256": "c1e24426f2ed0de5d1967172451ea0f0ed2d93a358392ac2025333d1bd41bab1"
     },
     "tests/server/test_privacy_lifecycle.py": {
       "executable": false,
       "kind": "file",
-      "length": 1882,
-      "sha256": "154c685d04d14fee5b73db93ec876c41b085ba23d39240535b119be0a858cb06"
+      "length": 1886,
+      "sha256": "6a960bd2983647cf3489077de4a05534445b0077f7648546bc28b2aa70049164"
     },
     "tests/server/test_save_security.py": {
       "executable": false,
       "kind": "file",
-      "length": 6083,
-      "sha256": "6004fdf2073384f6a0a3fc1e17d15fa8cc078188d7c6b8b532890ff76ba99d18"
+      "length": 6082,
+      "sha256": "6a575f2f518425197e10f3b9b15778f575ef62490d653991463c6e9d103a065d"
     },
     "tests/server/test_server_bind_speed.py": {
       "executable": false,
@@ -595,14 +589,14 @@
     "tests/server/test_source_layout.py": {
       "executable": false,
       "kind": "file",
-      "length": 3379,
-      "sha256": "85864a160aa3f21829e75fceb5c2e46e17decb95c1ebeede470fdf93b02f2d5f"
+      "length": 3491,
+      "sha256": "739b55965db73fe2a220d2477bcbf65ab41147350aa6fc9567cf712f9d410a20"
     },
     "tests/server/test_workspace_authorization.py": {
       "executable": false,
       "kind": "file",
-      "length": 10003,
-      "sha256": "55177a2a9c46469c0028dcb02913103d2d398da815383f0f6d82f7a34bacd61f"
+      "length": 10007,
+      "sha256": "3ea4f689f91efb18750368f2fce1ca246ba9688450eb39c350e86b1ee7861483"
     }
   },
   "format": 2

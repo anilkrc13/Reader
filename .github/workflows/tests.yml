@@ -59,7 +59,7 @@ jobs:
           cmp VERSION build/Reader.app/Contents/Resources/VERSION
           cmp LICENSE build/Reader.app/Contents/Resources/LICENSE
           diff -qr src/reader/common/licenses build/Reader.app/Contents/Resources/licenses
-          cmp reader_backend.py build/Reader.app/Contents/Resources/reader_backend.py
+          test ! -e build/Reader.app/Contents/Resources/reader_backend.py
           cmp src/__init__.py build/Reader.app/Contents/Resources/src/__init__.py
           for file in __init__.py server.py backend.py; do
             cmp "src/reader/$file" "build/Reader.app/Contents/Resources/src/reader/$file"

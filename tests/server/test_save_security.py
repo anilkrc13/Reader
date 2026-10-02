@@ -8,8 +8,8 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 import reader
-import reader_backend
-from reader_backend import MAX_TEXT_BYTES, DocumentStore, FileAccessPolicy
+from src.reader import backend
+from src.reader.backend import MAX_TEXT_BYTES, DocumentStore, FileAccessPolicy
 
 
 class SaveAuthorizationTests(unittest.TestCase):
@@ -118,7 +118,7 @@ class SaveAuthorizationTests(unittest.TestCase):
     def test_two_saves_cannot_both_pass_one_mtime_precondition(self):
         expected_mtime = str(self.allowed.stat().st_mtime_ns)
         barrier = threading.Barrier(2)
-        original_replace = reader_backend.os.replace
+        original_replace = backend.os.replace
         outcomes = []
 
         def interleaved_replace(source, target):
@@ -135,7 +135,7 @@ class SaveAuthorizationTests(unittest.TestCase):
             except FileExistsError:
                 outcomes.append("conflict")
 
-        with mock.patch.object(reader_backend.os, "replace", side_effect=interleaved_replace):
+        with mock.patch.object(backend.os, "replace", side_effect=interleaved_replace):
             threads = [threading.Thread(target=save, args=(text,))
                        for text in ("first", "second")]
             for thread in threads:

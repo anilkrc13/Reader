@@ -22,7 +22,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import reader
-from reader_backend import DocumentStore, FileAccessPolicy, WorkspaceError
+from src.reader.backend import DocumentStore, FileAccessPolicy, WorkspaceError
 
 
 class DefaultDataDirTests(unittest.TestCase):
@@ -153,7 +153,7 @@ class RecycleBinTrashTests(unittest.TestCase):
         fake_windll = MagicMock()
         fake_windll.shell32.SHFileOperationW.return_value = 0
 
-        with patch("reader_backend.sys.platform", "win32"), \
+        with patch("src.reader.backend.sys.platform", "win32"), \
              patch("ctypes.windll", fake_windll, create=True):
             result = store.move_to_trash(self.note)
 
@@ -166,7 +166,7 @@ class RecycleBinTrashTests(unittest.TestCase):
     def test_windows_recycle_bin_failure_falls_back_to_reader_owned_trash(self):
         store = self._store()
 
-        with patch("reader_backend.sys.platform", "win32"), \
+        with patch("src.reader.backend.sys.platform", "win32"), \
              patch.object(DocumentStore, "_trash_via_recycle_bin", return_value=None):
             result = store.move_to_trash(self.note)
 
@@ -184,7 +184,7 @@ class RecycleBinTrashTests(unittest.TestCase):
             policy = FileAccessPolicy(self.project, [self.workspace],
                                        home=self.home, data_dir=outside_data_dir)
             store = DocumentStore(policy)
-            with patch("reader_backend.sys.platform", "win32"), \
+            with patch("src.reader.backend.sys.platform", "win32"), \
                  patch.object(DocumentStore, "_trash_via_recycle_bin", return_value=None):
                 with self.assertRaises(WorkspaceError):
                     store.move_to_trash(self.note)
@@ -195,7 +195,7 @@ class RecycleBinTrashTests(unittest.TestCase):
             shutil.rmtree(outside_data_dir, ignore_errors=True)
 
     def test_recycle_bin_helper_is_a_noop_off_windows(self):
-        with patch("reader_backend.sys.platform", "darwin"):
+        with patch("src.reader.backend.sys.platform", "darwin"):
             self.assertIsNone(DocumentStore._trash_via_recycle_bin(self.note))
 
 

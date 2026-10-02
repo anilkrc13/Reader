@@ -14,7 +14,8 @@ src/reader/
   macos/                     Swift launcher, metadata, and native icon assets
     scripts/                 native build, signing, and release commands
   chatgpt/                   Node adapter source and package configuration
-reader.py, reader_backend.py compatible launch and import names
+reader.py                    compatible launch and import name
+config/                      focused linter configuration
 scripts/                     development and repository tools
 tests/server/                local server and tooling checks
 tests/browser/               shared UI with the local server
@@ -46,9 +47,10 @@ platform builds. Native dock images and the Icon Composer recipe remain Mac
 assets. The build stages common artwork with that recipe in a temporary directory;
 it uses the existing compiler and leaves source artwork untouched.
 
-Root Python wrappers preserve existing commands and import names. Importing
-`reader` or `reader_backend` returns the canonical module, so functions and patch
-targets keep their identity. Both `./reader.py` and `python3 reader.py` work.
+The root `reader.py` entry preserves existing commands and its import name.
+Importing `reader` returns the canonical server module. Backend callers import
+`src.reader.backend` directly; the old `reader_backend.py` alias was removed.
+Both `./reader.py` and `python3 reader.py` work.
 APP_DIR remains the repository or bundle-resource root. Preferences and workspace
 authorization keep that root. `/static/` still serves only the web directory.
 
@@ -93,10 +95,10 @@ The adapter manifest owns its own runtime dependencies and module type.
 | `AGENTS.md`, `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md` | Project instructions, entry documentation, security policy, and release history. |
 | `LICENSE` | The project's required license. Both distributions copy it. |
 | `VERSION` | The only product version value. Builds and server read it. |
-| `reader.py`, `reader_backend.py` | Compatible Python launch and import names. The implementation lives under source. |
+| `reader.py` | Compatible Python launch and import name. The implementation lives under source. |
 | `package.json`, `package-lock.json` | Pinned repo-wide development tools and build/test commands; not a second application package. |
 | `requirements-dev.txt` | The pinned Python linter. Reader has no Python runtime dependency manifest. |
-| `eslint.config.mjs`, `ruff.toml`, `.swiftlint.yml` | Repo-wide focused linter rules. Standard root configuration makes direct tool invocation predictable. |
+| `config/` | ESLint, Ruff, and SwiftLint rules. The focused lint runner supplies each path explicitly. |
 | `playwright.config.js` | Shared test defaults and the local browser suite's output path. Adapter configuration lives beside its tests. |
 | `.github/`, `.gitignore`, `.git/` | CI and issue templates, generated/state exclusions, and Git data. |
 | `build/` | Mac app, extension package, release files, build staging, browser output, and ignored inspection/validation tools. |
@@ -158,3 +160,12 @@ is gone. The named Markdown folder was moved to macOS Trash, not deleted.
 All 97 Python checks, Bash syntax, focused lint, and all three builds passed.
 Native resources and required notices match source. The signed app, ZIP manifest,
 and mounted DMG checks passed. No installer or signing export/import was run.
+
+Linter rules now live under `config/`; the focused runner passes each path
+explicitly. `package.json`, its lockfile, and `reader.py` remain at root.
+Backend tests import and patch `src.reader.backend` directly. The removed
+`reader_backend.py` alias is absent from both Python runtime packages.
+All 97 Python checks, focused lint, direct ESLint/SwiftLint checks with the moved
+configs, and all three builds passed. Runtime source and required notices match.
+The linter configurations retain their original bytes. The server executable
+code is unchanged. No installation or push occurred.

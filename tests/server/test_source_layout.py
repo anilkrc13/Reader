@@ -7,9 +7,8 @@ import unittest
 from pathlib import Path
 
 import reader
-import reader_backend
 from scripts.package_runtime import package_runtime
-from src.reader import backend, server
+from src.reader import server
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -17,7 +16,6 @@ ROOT = Path(__file__).resolve().parents[2]
 class SourceLayoutTests(unittest.TestCase):
     def test_root_imports_return_canonical_modules_and_keep_authorization_root(self):
         self.assertIs(reader, server)
-        self.assertIs(reader_backend, backend)
         self.assertEqual(server.APP_DIR, ROOT)
         self.assertEqual(server.STATIC_DIR, ROOT / "src/reader/web")
 
@@ -33,10 +31,11 @@ class SourceLayoutTests(unittest.TestCase):
                                     cwd=resource, env=environment, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("--no-browser", result.stdout)
-            probe = "import reader, reader_backend; from pathlib import Path; assert reader.APP_DIR == Path.cwd(); assert reader.STATIC_DIR.is_dir(); assert reader_backend.DocumentStore"
+            probe = "import reader; from src.reader import backend; from pathlib import Path; assert reader.APP_DIR == Path.cwd(); assert reader.STATIC_DIR.is_dir(); assert backend.DocumentStore"
             result = subprocess.run([sys.executable, "-c", probe], cwd=resource,
                                     env=environment, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((resource / "reader_backend.py").exists())
             self.assertFalse((resource / ".reader-token").exists())
             self.assertFalse(list(resource.rglob("__pycache__")))
 
@@ -58,7 +57,8 @@ class SourceLayoutTests(unittest.TestCase):
 
     def test_root_has_no_legacy_source_or_generated_app_outputs(self):
         legacy = [name for name in ("macos", "static", "fonts", "builds", "test-results",
-                                    "manifest.json") if (ROOT / name).exists()]
+                                    "manifest.json", "reader_backend.py", "eslint.config.mjs",
+                                    "ruff.toml", ".swiftlint.yml") if (ROOT / name).exists()]
         legacy.extend(path.name for pattern in ("Reader-*.zip", "Reader-*.dmg")
                       for path in ROOT.glob(pattern))
         self.assertEqual(legacy, [], "Application source belongs in src; output belongs in build")
