@@ -182,9 +182,10 @@ jobs:
         shell: bash
         run: |
           # Reuse checkout's job-scoped credentials without putting a token in URLs.
+          READER_GIT_AUTH="$(git config --get http.https://github.com/.extraheader)"
           export GIT_CONFIG_COUNT=1
           export GIT_CONFIG_KEY_0='http.https://github.com/.extraheader'
-          export GIT_CONFIG_VALUE_0="$(git config --get http.https://github.com/.extraheader)"
+          export GIT_CONFIG_VALUE_0="$READER_GIT_AUTH"
           python3 scripts/plugin_release.py publish \
             --stage-dir build/plugin-marketplace \
             --checkout "$RUNNER_TEMP/reader-plugin-marketplace" \
