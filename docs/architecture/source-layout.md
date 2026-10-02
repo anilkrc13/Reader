@@ -19,9 +19,9 @@ scripts/                     server launcher, development and repository tools
 tests/server/                local server and tooling checks
 tests/browser/               shared UI with the local server
 tests/chatgpt/               adapter protocol and simulated-host checks
-plugins/reader-markdown/      tracked ready plugin generated from source
+plugins/reader-markdown/      tracked development plugin generated from source
 plugins/release.json          tracked package version and hashes
-.agents/plugins/marketplace.json public default-branch catalog
+.agents/plugins/marketplace.json development checkout / main catalog
 build/Reader.app             ignored native output
 build/chatgpt/               ignored extension output
 build/web/                   ignored portable browser/server runtime
@@ -108,8 +108,8 @@ The adapter manifest owns its own runtime dependencies and module type.
 | `__pycache__/`, `.ruff_cache/`, `.pytest_cache/` | Ignored Python/tool caches. These are local tooling, not application source or release output. |
 | `.reader-token`, `preferences.json` | Existing local authorization and preferences. Preserved without reading their contents. |
 | `AGENTS.md` | Ignored machine-local agent instructions. Preserved locally; contributor guidance lives in `CONTRIBUTING.md` and `docs/testing.md`. |
-| `.agents/plugins/marketplace.json` | Public default-branch catalog pointing to `./plugins/reader-markdown`. Other `.agents` files remain ignored private state. |
-| `plugins/` | Generated ready plugin and hash manifest. User-approved distribution output on `main`; never an editable source tree. |
+| `.agents/plugins/marketplace.json` | Development checkout / main catalog pointing to `./plugins/reader-markdown`. Other `.agents` files remain ignored private state. |
+| `plugins/` | Generated ready plugin and hash manifest. Generated development output on `main`; never an editable source tree. |
 | `.claude/`, `.playwright-cli/`, `.DS_Store` | Existing local assistant settings, CLI diagnostics, and Finder metadata. Preserved. |
 | `plans/` | Temporary only during active work; removed when decisions and checks have permanent homes. |
 
@@ -236,19 +236,25 @@ safety. Earlier Git history still contains the instruction file.
 
 ## Plugin release ownership
 
-The public root catalog and ready plugin live on `main`. A plain repository URL
-fetches `.agents/plugins/marketplace.json`, which points to
-`./plugins/reader-markdown`. This folder contains generated server/viewer files,
-portable manifests, artwork, and licenses. The owner approved tracking this
-ready package so installation requires no branch selection or local build.
-Editable source remains in `src/reader`; dependencies are never copied here.
-Other `.agents` state and root `AGENTS.md` stay ignored.
+Editable plugin source remains in `src/reader/chatgpt`; shared runtime stays in
+its existing source owners. `build/chatgpt` has production manifests. The checkout
+and `main` track a development catalog (`reader-dev`, displayed as Reader-Dev),
+`plugins/reader-markdown` with manifest/MCP key `reader-markdown-dev`, and
+`plugins/release.json` with development hashes. `sync` derives those manifests
+without modifying the production build. `check` compares the derived package
+read only. Other `.agents` state and root `AGENTS.md` stay ignored.
 
-`scripts/plugin_release.py sync` refreshes the owned package, public catalog, and
-`plugins/release.json` hash manifest. Source PRs include the generated changes.
-CI rebuilds with pinned dependencies and uses the read-only `check` command to
-reject stale bytes, versions, paths, licenses, or hashes. Release jobs perform
-the same check and create archives under `build`. They make no Git changes.
-The legacy `plugin-marketplace` branch is retained but unused. This correction
-moves the identical 2.6.0 package, so it needs no version bump or release tag.
-Details and commands live in [releasing](../releasing.md).
+`stage` writes a separate production catalog (`reader-github`, displayed as
+Reader), complete `reader-markdown` plugin, provenance/hash record, and ZIP under
+`build`. Runtime files and legal notices match development. CI validates both
+channels; release jobs upload artifacts and make no Git branch changes.
+
+The proposed production source is `https://github.com/anilkrc13/Reader` at the
+explicit `reader-release` ref. It must contain the complete validated staging
+tree because Git installation executes no build. This branch has not been
+created or published. Main remains development, and the legacy
+`plugin-marketplace` branch is unused. Distinct identities separate discovery;
+existing host registrations and installed caches are not migrated by generation.
+Publication and real host verification remain pending. Automatic installed
+updates are not verified. See [releasing](../releasing.md) for commands,
+registration migration, provenance requirements, and publication boundaries.

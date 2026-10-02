@@ -28,28 +28,37 @@ node build/chatgpt/server.mjs
 
 It waits for MCP messages on stdin. It does not print a web URL. The integration test connects a real MCP client to this exact bundle and verifies its Markdown entrypoint and UI resource. The browser tests use the real App SDK with a simulated host. They prove protocol wiring and rendering, not desktop routing.
 
-## GitHub marketplace installation
+## Development and production installation
 
-Add `https://github.com/anilkrc13/Reader` in the desktop marketplace UI. The
-root catalog and ready plugin are on the default `main` branch. The CLI route is:
+The checkout catalog displays **Reader-Dev** and installs
+`reader-markdown-dev@reader-dev`. The build under `build/chatgpt` has production
+manifests; `scripts/plugin_release.py sync` derives the tracked development
+package. Both channels share identical runtime files.
+
+Production displays **Reader** with the stable identity
+`reader-markdown@reader-github`. Its proposed Git source is
+`https://github.com/anilkrc13/Reader` at `reader-release`. This branch has not been
+published. After publication, the CLI route would be:
 
 ```sh
-codex plugin marketplace add https://github.com/anilkrc13/Reader
+codex plugin marketplace add https://github.com/anilkrc13/Reader --ref reader-release
 codex plugin add reader-markdown@reader-github
 ```
 
-No branch selection or source build is needed. Node 22 or newer must be on the
-host path. Refresh the catalog with
-`codex plugin marketplace upgrade reader-github`. See
+Node 22 or newer must be on the host path. Git installation needs the complete
+ready production package on the selected branch; it runs no source build. `main`
+contains development, so production needs explicit branch selection. See
 [release distribution](../../../docs/releasing.md#plugin-package-and-git-marketplace)
-for package generation, freshness checks, and ZIP contents.
+for generation, local development, registration migration, and freshness checks.
+A Git catalog refresh does not establish an installed update; automatic installed
+updates and real host routing remain unverified.
 
 ## Desktop acceptance
 
 The supported CLI can discover, install, and connect the stdio plugin. Actual
 file routing still needs these checks in the desktop host:
 
-1. Install Reader Markdown from the GitHub marketplace. Start a local Codex
+1. After production publication, install Reader from its GitHub marketplace. Start a local Codex
    conversation with it enabled. Record any connection error.
 2. Ask the assistant to create a short Markdown file and return an ordinary file
    link. Click it. Confirm Reader opens in the conversation side panel. Record
@@ -110,8 +119,8 @@ its permission. The native Mac app supplies installed families through AppKit.
 
 The adapter source lives at this package root. Shared UI lives beside it in
 `src/reader/web`. The package builds into `build/chatgpt` and uses common icon
-artwork. The public catalog points to the generated `plugins/reader-markdown`
-package on `main`. Editable source and dependencies stay in their original owners.
+artwork. The development catalog points to the generated `plugins/reader-markdown`
+package on `main`; production staging has its own catalog and package. Editable source and dependencies stay in their original owners.
 
 Adapter tests live in `tests/chatgpt`, outside application source. Its browser
 runner configuration lives there too. The protocol client uses this package's

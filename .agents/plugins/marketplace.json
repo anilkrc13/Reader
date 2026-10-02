@@ -1,11 +1,11 @@
 {
-  "name": "reader-github",
+  "name": "reader-dev",
   "interface": {
-    "displayName": "Reader GitHub"
+    "displayName": "Reader-Dev"
   },
   "plugins": [
     {
-      "name": "reader-markdown",
+      "name": "reader-markdown-dev",
       "source": {
         "source": "local",
         "path": "./plugins/reader-markdown"

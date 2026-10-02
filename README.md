@@ -41,21 +41,23 @@ turning Reader into a browser app.
 
 ### Codex Markdown viewer
 
-Add `https://github.com/anilkrc13/Reader` in the plugin marketplace UI, then
-install **Reader Markdown** from **Reader GitHub**. The default `main` branch
-contains the catalog and ready package. No branch selection or source build is
-needed. Node 22 or newer must be on the host path.
+The checkout catalog is **Reader-Dev**, with the separate development identity
+`reader-markdown-dev@reader-dev`. Production is **Reader**, with the stable
+identity `reader-markdown@reader-github`. Node 22 or newer must be on the host path.
 
-The CLI equivalent is:
+The proposed production source is `https://github.com/anilkrc13/Reader`, explicitly
+selecting the `reader-release` branch. That branch has not been published. After
+publication, the CLI installation would be:
 
 ```sh
-codex plugin marketplace add https://github.com/anilkrc13/Reader
+codex plugin marketplace add https://github.com/anilkrc13/Reader --ref reader-release
 codex plugin add reader-markdown@reader-github
 ```
 
 This read-only viewer uses the shared Reader interface. See the
 [adapter guide](src/reader/chatgpt/README.md) for its limits and host acceptance
-checks. The Mac app keeps its own installation path.
+checks and [distribution guide](docs/releasing.md#plugin-package-and-git-marketplace)
+for local development and updates. The Mac app keeps its own installation path.
 
 ## Using it
 

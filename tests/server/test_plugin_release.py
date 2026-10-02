@@ -21,7 +21,10 @@ class PluginReleaseTests(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(f"Fixture {name}\n")
         (self.plugin / "plugin.json").write_text(json.dumps({
-            "name": "reader-markdown", "version": "2.6.0"}))
+            "name": "reader-markdown", "version": "2.6.0",
+            "extensions": {"com.openai": {"interface": {"displayName": "Reader"}}}}))
+        (self.plugin / "mcp.json").write_text(json.dumps({
+            "mcpServers": {"reader-markdown": {"command": "node"}}}))
         self.version = self.root / "VERSION"
         self.version.write_text("2.6.0")
         self.repository = self.root / "repository"
@@ -51,8 +54,8 @@ class PluginReleaseTests(unittest.TestCase):
         self.check()
         self.assertEqual(self.snapshot(), before)
         self.assertEqual(catalog.read_bytes(), release.json_bytes({
-            "name": "reader-github", "interface": {"displayName": "Reader GitHub"},
-            "plugins": [{"name": "reader-markdown", "source": {
+            "name": "reader-dev", "interface": {"displayName": "Reader-Dev"},
+            "plugins": [{"name": "reader-markdown-dev", "source": {
                 "source": "local", "path": "./plugins/reader-markdown"},
                 "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
                 "category": "Productivity"}]}))
@@ -149,6 +152,28 @@ class PluginReleaseTests(unittest.TestCase):
                     self.sync()
                 self.assertEqual(before, self.snapshot())
 
+    def test_legacy_catalog_label_only_is_migrated_and_extra_settings_are_preserved(self):
+        catalog = self.repository / ".agents/plugins/marketplace.json"
+        catalog.parent.mkdir(parents=True)
+        for interface in ({"displayName": "Reader GitHub"},
+                          {"displayName": "Reader - Dev"},
+                          {"displayName": "Reader"},
+                          {"displayName": "Reader - Dev", "custom": True},
+                          {}, None, "Reader - Dev", {"displayName": None}):
+            with self.subTest(interface=interface):
+                legacy = release.marketplace("plugins/reader-markdown")
+                legacy["interface"] = interface
+                catalog.write_text(json.dumps(legacy))
+                before = self.snapshot()
+                if (isinstance(interface, dict) and set(interface) == {"displayName"}
+                        and isinstance(interface["displayName"], str)):
+                    self.sync()
+                    self.check()
+                else:
+                    with self.assertRaises(ValueError):
+                        self.sync()
+                    self.assertEqual(before, self.snapshot())
+
     def test_version_and_manifest_mismatch_fail_before_writes(self):
         self.version.write_text("2.7.0")
         with self.assertRaises(ValueError):
@@ -183,6 +208,40 @@ class PluginReleaseTests(unittest.TestCase):
         self.assertIsNone(dispatch["tag"])
         self.assertEqual(dispatch["source_commit"], "b" * 40)
 
+    def test_dev_and_production_have_separate_ids_and_staging_preserves_checkout(self):
+        catalog = self.repository / ".agents/plugins/marketplace.json"
+        catalog.parent.mkdir(parents=True)
+        legacy = release.marketplace("plugins/reader-markdown")
+        legacy["interface"]["displayName"] = "Reader - Dev"
+        catalog.write_text(json.dumps(legacy))
+        self.sync()
+        before = self.snapshot()
+        source_before = {name: (self.plugin / name).read_bytes() for name in release.FILES}
+        output = self.root / "production"
+        release.stage(self.plugin, self.version, None, "c" * 40, URL,
+                      output, self.root / "archives")
+        release.validate_stage(output)
+        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(source_before, release.package_bytes(self.plugin))
+        dev = release.read_json(catalog)
+        prod = release.read_json(output / ".agents/plugins/marketplace.json")
+        self.assertEqual(dev["name"], "reader-dev")
+        self.assertEqual(prod["name"], "reader-github")
+        self.assertEqual(dev["interface"]["displayName"], "Reader-Dev")
+        self.assertEqual(prod["interface"]["displayName"], "Reader")
+        self.assertNotEqual(dev["plugins"][0]["name"], prod["plugins"][0]["name"])
+        dev_root = self.repository / dev["plugins"][0]["source"]["path"]
+        prod_root = output / prod["plugins"][0]["source"]["path"]
+        self.assertEqual(release.read_json(dev_root / "plugin.json")["name"], "reader-markdown-dev")
+        self.assertEqual(set(release.read_json(dev_root / "mcp.json")["mcpServers"]), {"reader-markdown-dev"})
+        self.assertEqual(release.read_json(prod_root / "plugin.json")["name"], "reader-markdown")
+        self.assertEqual(set(release.read_json(prod_root / "mcp.json")["mcpServers"]), {"reader-markdown"})
+        self.check()
+        with self.assertRaises(ValueError):
+            release.stage(dev_root, self.version, None, "d" * 40, URL,
+                          self.root / "invalid", self.root / "invalid-archives")
+        self.assertFalse((self.root / "invalid").exists())
+
     def test_stage_wrong_tag_and_missing_license_fail_before_writes(self):
         for change in ("tag", "license"):
             with self.subTest(change=change):
@@ -193,3 +252,27 @@ class PluginReleaseTests(unittest.TestCase):
                                   "v2.5.0" if change == "tag" else "v2.6.0",
                                   "a" * 40, URL, self.root / "stage", self.root / "archives")
                 self.assertFalse((self.root / "stage").exists())
+
+    def test_stage_rejects_existing_and_symlinked_destinations_without_writes(self):
+        outside = self.root / "outside"
+        outside.mkdir()
+        (outside / "keep").write_text("unrelated state")
+        link = self.root / "linked"
+        link.symlink_to(outside, target_is_directory=True)
+        archive_dir = self.root / "archives"
+        archive_dir.mkdir()
+        archive = archive_dir / "Reader-plugin-2.6.0.zip"
+        archive.write_text("existing archive")
+        for output, archives in ((outside, self.root / "new-archives"),
+                                 (link / "stage", self.root / "new-archives"),
+                                 (self.root / "stage", link),
+                                 (self.root / "stage", archive_dir)):
+            with self.subTest(output=output, archives=archives):
+                before = {path.relative_to(self.root): path.read_bytes()
+                          for path in self.root.rglob("*") if path.is_file()}
+                with self.assertRaises(ValueError):
+                    release.stage(self.plugin, self.version, None, "a" * 40,
+                                  URL, output, archives)
+                after = {path.relative_to(self.root): path.read_bytes()
+                         for path in self.root.rglob("*") if path.is_file()}
+                self.assertEqual(before, after)

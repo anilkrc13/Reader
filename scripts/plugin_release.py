@@ -1,4 +1,4 @@
-"""Sync and verify the public Reader plugin; stage ephemeral release archives."""
+"""Derive the Reader development plugin and stage production distribution files."""
 import argparse
 import hashlib
 import json
@@ -8,6 +8,8 @@ import zipfile
 from pathlib import Path
 
 PLUGIN = "reader-markdown"
+DEV_PLUGIN = "reader-markdown-dev"
+DEV_MARKETPLACE = "reader-dev"
 FILES = {
     "plugin.json", "mcp.json", "server.mjs", "session.mjs", "viewer.html",
     "LICENSE", "assets/reader.png", "licenses/npm-notices.txt",
@@ -54,9 +56,33 @@ def safe_tree(root, expected, allow_missing=False):
                          f"unexpected={sorted(found - expected)}")
 
 
-def file_hashes(root):
-    return {name: hashlib.sha256((root / name).read_bytes()).hexdigest()
-            for name in sorted(FILES)}
+def package_bytes(root, development=False):
+    files = {name: (root / name).read_bytes() for name in sorted(FILES)}
+    if development:
+        manifest = read_json(root / "plugin.json")
+        manifest["name"] = DEV_PLUGIN
+        manifest["extensions"]["com.openai"]["interface"]["displayName"] = "Reader-Dev"
+        files["plugin.json"] = json_bytes(manifest)
+        mcp = read_json(root / "mcp.json")
+        server = mcp["mcpServers"].pop(PLUGIN)
+        mcp["mcpServers"][DEV_PLUGIN] = server
+        files["mcp.json"] = json_bytes(mcp)
+    return files
+
+
+def file_hashes(root, development=False):
+    return {name: hashlib.sha256(data).hexdigest()
+            for name, data in package_bytes(root, development).items()}
+
+
+def validate_identity(root, version):
+    manifest = read_json(root / "plugin.json")
+    interface = manifest.get("extensions", {}).get("com.openai", {}).get("interface", {})
+    if (manifest.get("name") != PLUGIN or manifest.get("version") != version
+            or interface.get("displayName") != "Reader"):
+        raise ValueError("Production plugin must have Reader identity and release version")
+    if set(read_json(root / "mcp.json").get("mcpServers", {})) != {PLUGIN}:
+        raise ValueError("Production MCP server must have Reader identity")
 
 
 def validate_provenance(source_commit, repository_url):
@@ -74,9 +100,7 @@ def stage(plugin_dir, version_file, tag, source_commit, repository_url,
         raise ValueError("Release tag must match VERSION")
     validate_provenance(source_commit, repository_url)
     safe_tree(plugin_dir, FILES)
-    manifest = read_json(plugin_dir / "plugin.json")
-    if manifest.get("name") != PLUGIN or manifest.get("version") != version:
-        raise ValueError("Plugin manifest name/version must match Reader release")
+    validate_identity(plugin_dir, version)
     # Never remove an existing path or follow a destination link.
     if output_dir.exists() or output_dir.is_symlink():
         raise ValueError("Stage directory must not already exist")
@@ -92,6 +116,7 @@ def stage(plugin_dir, version_file, tag, source_commit, repository_url,
                 "repository_url": repository_url, "files": file_hashes(plugin_dir)}
     write_json(output_dir / "release.json", metadata)
     write_json(output_dir / ".agents/plugins/marketplace.json", marketplace(plugin_path))
+    validate_stage(output_dir)
     archive_dir.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
         for name in sorted(FILES):
@@ -99,9 +124,10 @@ def stage(plugin_dir, version_file, tag, source_commit, repository_url,
     return archive
 
 
-def marketplace(plugin_path):
-    return {"name": "reader-github", "interface": {"displayName": "Reader GitHub"},
-            "plugins": [{"name": PLUGIN,
+def marketplace(plugin_path, development=False):
+    return {"name": DEV_MARKETPLACE if development else "reader-github",
+            "interface": {"displayName": "Reader-Dev" if development else "Reader"},
+            "plugins": [{"name": DEV_PLUGIN if development else PLUGIN,
                          "source": {"source": "local", "path": f"./{plugin_path}"},
                          "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
                          "category": "Productivity"}]}
@@ -117,9 +143,8 @@ def validate_stage(root):
     expected.update({"release.json", ".agents/plugins/marketplace.json"})
     safe_tree(root, expected)
     plugin = root / plugin_path
-    manifest = read_json(plugin / "plugin.json")
-    if (manifest.get("version") != version or manifest.get("name") != PLUGIN
-            or metadata["files"] != file_hashes(plugin)
+    validate_identity(plugin, version)
+    if (metadata["files"] != file_hashes(plugin)
             or metadata["tag"] not in (None, f"v{version}")):
         raise ValueError("Staged plugin does not match release metadata")
     catalog = read_json(root / ".agents/plugins/marketplace.json")
@@ -138,9 +163,7 @@ def validate_input(plugin_dir, version_file, repository_url):
     version_parts(version)
     validate_provenance("0" * 40, repository_url)
     safe_tree(plugin_dir, FILES)
-    manifest = read_json(plugin_dir / "plugin.json")
-    if manifest.get("name") != PLUGIN or manifest.get("version") != version:
-        raise ValueError("Plugin manifest name/version must match Reader release")
+    validate_identity(plugin_dir, version)
     return {"version": version, "repository_url": repository_url,
             "files": file_hashes(plugin_dir)}
 
@@ -165,9 +188,15 @@ def json_bytes(value):
     return (json.dumps(value, indent=2) + "\n").encode("utf-8")
 
 
-def sync(plugin_dir, version_file, repository_root, repository_url):
-    """Update only the public catalog, Reader plugin, and its hash record."""
+def development_metadata(plugin_dir, version_file, repository_url):
     metadata = validate_input(plugin_dir, version_file, repository_url)
+    metadata["files"] = file_hashes(plugin_dir, development=True)
+    return metadata
+
+
+def sync(plugin_dir, version_file, repository_root, repository_url):
+    """Derive the development catalog/package without modifying production input."""
+    metadata = development_metadata(plugin_dir, version_file, repository_url)
     plugin, record, catalog = distribution_paths(repository_root)
     if plugin.exists():
         safe_tree(plugin, FILES, allow_missing=True)
@@ -181,27 +210,34 @@ def sync(plugin_dir, version_file, repository_root, repository_url):
             {"name": "reader-local", "interface": {"displayName": "Reader Local"},
              "plugins": []},
         )
-        owned_public = previous == marketplace(f"plugins/{PLUGIN}")
-        if not (empty_local or owned_public):
+        # Accept only the owned legacy structure; a user's label edit is harmless.
+        normalized = dict(previous)
+        interface = previous.get("interface")
+        label_only = (isinstance(interface, dict) and set(interface) == {"displayName"}
+                      and isinstance(interface["displayName"], str))
+        normalized["interface"] = {"displayName": "Reader"}
+        owned_public = label_only and normalized == marketplace(f"plugins/{PLUGIN}")
+        owned_dev = previous == marketplace(f"plugins/{PLUGIN}", development=True)
+        if not (empty_local or owned_public or owned_dev):
             raise ValueError("Existing marketplace is not owned by the Reader generator")
-    for name in sorted(FILES):
-        write_if_changed(plugin / name, (plugin_dir / name).read_bytes())
+    for name, data in package_bytes(plugin_dir, development=True).items():
+        write_if_changed(plugin / name, data)
     write_if_changed(record, json_bytes(metadata))
-    write_if_changed(catalog, json_bytes(marketplace(f"plugins/{PLUGIN}")))
+    write_if_changed(catalog, json_bytes(marketplace(f"plugins/{PLUGIN}", development=True)))
     return repository_root
 
 
 def check(plugin_dir, version_file, repository_root, repository_url):
-    """Verify all public package bytes without changing any file."""
-    metadata = validate_input(plugin_dir, version_file, repository_url)
+    """Verify the derived development package without changing any file."""
+    metadata = development_metadata(plugin_dir, version_file, repository_url)
     plugin, record, catalog = distribution_paths(repository_root)
     safe_tree(plugin, FILES)
     if record.read_bytes() != json_bytes(metadata):
         raise ValueError("Public release metadata differs from the built plugin")
-    if catalog.read_bytes() != json_bytes(marketplace(f"plugins/{PLUGIN}")):
+    if catalog.read_bytes() != json_bytes(marketplace(f"plugins/{PLUGIN}", development=True)):
         raise ValueError("Public marketplace differs from the generated catalog")
-    for name in sorted(FILES):
-        if (plugin / name).read_bytes() != (plugin_dir / name).read_bytes():
+    for name, data in package_bytes(plugin_dir, development=True).items():
+        if (plugin / name).read_bytes() != data:
             raise ValueError(f"Public plugin differs from built file: {name}")
     return repository_root
 

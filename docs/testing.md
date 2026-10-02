@@ -166,7 +166,7 @@ native launcher already sets both. A bare Python probe can create state or
 bytecode inside the sealed resources and invalidate the signature. Regenerate
 the app after such a probe; do not repair signed resources by hand.
 
-## Default-branch plugin package
+## Development and production plugin packages
 
 After `npm run build:chatgpt`, run:
 
@@ -176,8 +176,15 @@ python3 scripts/plugin_release.py check \
   --repository-root . --repository-url https://github.com/anilkrc13/Reader
 ```
 
-This read-only gate compares the tracked `plugins/reader-markdown` package,
-public catalog, version, and file hashes with the rebuilt source. Missing, extra,
+This read-only gate compares the tracked development `plugins/reader-markdown`
+package, `reader-dev` catalog, version, and file hashes with the derived build. Missing, extra,
 changed, or symlinked package files fail. The adapter CI and release workflow run
 this check. Packaging unit tests live in `tests/server/test_plugin_release.py`.
-They also protect private state from the development `sync` command.
+They also protect label-only legacy migration, distinct catalog/plugin/MCP
+identities, staging isolation, immutable source input, unsafe output rejection,
+and private state preservation. Production `stage` validates the ready
+`reader-markdown@reader-github` tree before archiving it; CI runs both commands.
+See [releasing](releasing.md#generate-development-and-stage-production) for staging
+commands and the clean-commit provenance requirement. Local checks prove generated
+separation; installed discovery, registration migration, and automatic updates are
+not established without real host acceptance.

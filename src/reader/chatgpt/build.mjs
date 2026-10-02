@@ -39,7 +39,7 @@ await cp(resolve(here, '../common/ReaderIcon-1024.png'), resolve(output, 'assets
 await writeFile(resolve(output, 'plugin.json'), JSON.stringify({
   $schema: 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json',
   name: 'reader-markdown', version, description: 'Read Markdown files in Reader in the desktop conversation panel.',
-  'extensions': {'com.openai': {interface: {displayName: 'Reader Markdown', shortDescription: 'Read-only Markdown viewer', logo: './assets/reader.png', composerIcon: './assets/reader.png'}}}
+  'extensions': {'com.openai': {interface: {displayName: 'Reader', shortDescription: 'Read-only Markdown viewer', logo: './assets/reader.png', composerIcon: './assets/reader.png'}}}
 }, null, 2) + '\n');
 await writeFile(resolve(output, 'mcp.json'), JSON.stringify({
   $schema: 'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json',
