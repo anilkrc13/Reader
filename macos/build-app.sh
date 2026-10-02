@@ -8,7 +8,8 @@ BUILD_DIR="$ROOT_DIR/build"
 APP_BUNDLE="$BUILD_DIR/Reader.app"
 RESOURCES_DIR="$APP_BUNDLE/Contents/Resources"
 MACOS_BIN_DIR="$APP_BUNDLE/Contents/MacOS"
-WORK_DIR="$(mktemp -d "$ROOT_DIR/.reader-build.XXXXXX")"
+mkdir -p "$BUILD_DIR"
+WORK_DIR="$(mktemp -d "$BUILD_DIR/.reader-build.XXXXXX")"
 ICON_PARTIAL_PLIST="$WORK_DIR/ReaderIcon-PartialInfo.plist"
 
 trap 'rm -rf "$WORK_DIR"' EXIT
@@ -17,25 +18,12 @@ ARCHS_STRING="${ARCHS:-arm64}"
 SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
 MIN_MACOS="13.0"
 
-mkdir -p "$BUILD_DIR"
 rm -rf "$APP_BUNDLE"
 mkdir -p "$RESOURCES_DIR" "$MACOS_BIN_DIR"
 
-cp "$ROOT_DIR/reader.py" "$RESOURCES_DIR/reader.py"
-cp "$ROOT_DIR/VERSION" "$RESOURCES_DIR/VERSION"
-cp "$ROOT_DIR/reader_backend.py" "$RESOURCES_DIR/reader_backend.py"
-mkdir -p "$RESOURCES_DIR/src/reader"
-cp "$ROOT_DIR/src/__init__.py" "$RESOURCES_DIR/src/__init__.py"
-for source_file in __init__.py server.py backend.py; do
-  cp "$ROOT_DIR/src/reader/$source_file" "$RESOURCES_DIR/src/reader/$source_file"
-done
-ditto "$ROOT_DIR/src/reader/web" "$RESOURCES_DIR/src/reader/web"
-find "$RESOURCES_DIR/src" -type d -name __pycache__ -prune -exec rm -rf {} +
+python3 "$ROOT_DIR/scripts/package_runtime.py" "$RESOURCES_DIR"
 cp "$MACOS_SOURCE_DIR/Assets/ReaderDockIcon-Light.png" "$RESOURCES_DIR/ReaderDockIcon-Light.png"
 cp "$MACOS_SOURCE_DIR/Assets/ReaderDockIcon-Dark.png" "$RESOURCES_DIR/ReaderDockIcon-Dark.png"
-if [ -d "$ROOT_DIR/licenses" ]; then
-  ditto "$ROOT_DIR/licenses" "$RESOURCES_DIR/licenses"
-fi
 
 ICON_SOURCE="$WORK_DIR/ReaderIcon.icon"
 mkdir -p "$ICON_SOURCE/Assets"
@@ -84,7 +72,7 @@ else
   lipo -create "${OBJECTS[@]}" -output "$MACOS_BIN_DIR/ReaderLauncher"
 fi
 
-cp "$MACOS_DIR/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
+cp "$MACOS_SOURCE_DIR/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
 # The VERSION file is the single source of truth; stamp it into the bundle so
 # the launcher, the server and the About panel all report the same number.
 APP_VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"

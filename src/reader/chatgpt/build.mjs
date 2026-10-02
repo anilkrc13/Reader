@@ -1,5 +1,5 @@
 import { build } from 'esbuild';
-import { readFile, mkdir, writeFile, cp, readdir } from 'node:fs/promises';
+import { readFile, mkdir, writeFile, cp, readdir, rm } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
@@ -7,6 +7,7 @@ const source = resolve(here, '../web');
 const output = resolve(here, '../../../build/chatgpt');
 const version = (await readFile(resolve(here, '../../../VERSION'), 'utf8')).trim();
 const define = {__READER_VERSION__: JSON.stringify(version)};
+await rm(output, {recursive: true, force: true});
 await mkdir(output, {recursive: true});
 const app = await build({entryPoints: [resolve(here, 'app.ts')], bundle: true, metafile: true, define, format: 'esm', target: 'es2022', write: false});
 const server = await build({entryPoints: [resolve(here, 'server.ts')], bundle: true, metafile: true, platform: 'node', format: 'esm', define, banner: {js: "import {createRequire} from 'node:module'; const require = createRequire(import.meta.url);"}, outfile: resolve(output, 'server.mjs')});
@@ -46,7 +47,7 @@ await writeFile(resolve(output, 'mcp.json'), JSON.stringify({
 }, null, 2) + '\n');
 
 // Retain the licenses of the shared assets and each npm package used by the bundles.
-await cp(resolve(here, '../../../licenses'), resolve(output, 'licenses'), {recursive: true});
+await cp(resolve(here, '../common/licenses'), resolve(output, 'licenses'), {recursive: true});
 await cp(resolve(here, '../../../LICENSE'), resolve(output, 'LICENSE'));
 const packages = new Set();
 for (const input of [...Object.keys(app.metafile.inputs), ...Object.keys(server.metafile.inputs)]) {

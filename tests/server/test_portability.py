@@ -129,6 +129,7 @@ class RecycleBinTrashTests(unittest.TestCase):
 
     def setUp(self):
         self.tempdir = tempfile.TemporaryDirectory(prefix="reader-trash-portability-")
+        self.addCleanup(self.tempdir.cleanup)
         root = Path(self.tempdir.name)
         self.workspace = root / "workspace"
         self.project = root / "reader-project"
@@ -141,9 +142,6 @@ class RecycleBinTrashTests(unittest.TestCase):
             folder.mkdir(parents=True, exist_ok=True)
         self.note = self.workspace / "note.md"
         self.note.write_text("trash me", encoding="utf-8")
-
-    def tearDown(self):
-        self.tempdir.cleanup()
 
     def _store(self):
         policy = FileAccessPolicy(self.project, [self.workspace, self.home],

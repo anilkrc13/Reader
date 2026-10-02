@@ -101,6 +101,10 @@ updater to read:
 | `url` | Direct download URL for the release's zip. |
 | `sha256` | SHA-256 of the zip, to verify the download before unzipping it over an existing install. |
 | `size` | Size of the zip in bytes, for a progress bar. |
-| `minimum_macos` | The lowest macOS version the app declares support for (`LSMinimumSystemVersion` in [`Info.plist`](../macos/Info.plist)). |
+| `minimum_macos` | The lowest macOS version the app declares support for (`LSMinimumSystemVersion` in [`Info.plist`](../src/reader/macos/Info.plist)). |
 | `published_at` | When the release was built, in ISO 8601 UTC. |
 | `signing_identity` | The common name of the certificate that signed the app, or `"ad-hoc"` if none was configured. An updater can refuse to install a build whose identity does not match the one it already trusts. |
+
+Local release files and their manifest are generated under `build/releases/`.
+Published asset names and updater URLs are unchanged. Native build and DMG
+staging also stay under `build`. Nothing is published by these local scripts.

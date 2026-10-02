@@ -27,3 +27,11 @@ boundaries, actual bundle output, and legal copies. Write the root ownership tab
 into permanent source-layout docs. Keep root LICENSE. Do not introduce another
 output directory or a second source/test implementation. No installed app update,
 plugin installation, publication, push, PR, or Skill Repo changes.
+
+The owner additionally authorized one project-level build command, removal of
+known obsolete temporary files, and cleanup of test-owned scratch. Use one
+Python build dispatcher behind npm run build with web/macos/chatgpt/all targets.
+Use one shared runtime packager for web/native, rather than copying build logic.
+Register fixture cleanup before setup failure and keep test images in owned
+output. Remove only old generated diagnostics with task provenance, not unknown
+Markdown or local state.

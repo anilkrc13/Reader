@@ -13,6 +13,7 @@ from reader_backend import DocumentStore, FileAccessPolicy
 class MoveFileTests(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.TemporaryDirectory(prefix="reader-move-tests-")
+        self.addCleanup(self.tempdir.cleanup)
         root = Path(self.tempdir.name)
         self.workspace = root / "workspace"
         self.project = self.workspace / "reader-project"
@@ -38,7 +39,6 @@ class MoveFileTests(unittest.TestCase):
         self.server.shutdown()
         self.server.server_close()
         self.server_thread.join(timeout=2)
-        self.tempdir.cleanup()
 
     def post_move(self, path, target_dir):
         body = json.dumps({"path": str(path), "targetDir": str(target_dir)}).encode("utf-8")

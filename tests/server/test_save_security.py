@@ -22,6 +22,7 @@ class SaveAuthorizationTests(unittest.TestCase):
 
     def setUp(self):
         self.tempdir = tempfile.TemporaryDirectory(prefix="reader-save-tests-")
+        self.addCleanup(self.tempdir.cleanup)
         root = Path(self.tempdir.name)
         self.workspace = root / "workspace"
         self.project = self.workspace / "reader-project"
@@ -48,7 +49,6 @@ class SaveAuthorizationTests(unittest.TestCase):
         self.server.shutdown()
         self.server.server_close()
         self.server_thread.join(timeout=2)
-        self.tempdir.cleanup()
 
     def post_save(self, path: Path, text: str):
         body = json.dumps({"path": str(path), "text": text}).encode("utf-8")

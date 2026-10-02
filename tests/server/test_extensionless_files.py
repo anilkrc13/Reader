@@ -11,6 +11,7 @@ from reader_backend import DocumentStore, FileAccessPolicy, looks_binary
 class ExtensionlessFileTests(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.TemporaryDirectory(prefix="reader-extensionless-")
+        self.addCleanup(self.tempdir.cleanup)
         root = Path(self.tempdir.name)
         self.workspace = root / "workspace"
         self.home = root / "home"
@@ -24,9 +25,6 @@ class ExtensionlessFileTests(unittest.TestCase):
         (self.workspace / "photo.png").write_bytes(b"\x89PNG\r\n")
         policy = FileAccessPolicy(root / "project", [self.workspace], home=self.home)
         self.store = DocumentStore(policy)
-
-    def tearDown(self):
-        self.tempdir.cleanup()
 
     def test_extensionless_files_are_listed_as_ordinary_documents(self):
         listing = self.store.list_dir(self.workspace)

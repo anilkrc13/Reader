@@ -29,7 +29,7 @@ class MermaidRenderingTests(unittest.TestCase):
         self.assertIn(".mermaid-error", css)
 
     def test_mermaid_license_is_present(self):
-        license_text = (ROOT / "licenses/mermaid-LICENSE").read_text("utf-8")
+        license_text = (ROOT / "src/reader/common/licenses/mermaid-LICENSE").read_text("utf-8")
         self.assertIn("MIT License", license_text)
 
     def test_local_images_get_a_new_cache_key_when_a_document_is_reloaded(self):

@@ -2,6 +2,7 @@ const {defineConfig} = require("@playwright/test");
 
 module.exports = defineConfig({
   testDir: "./tests/browser",
+  outputDir: "./build/browser-test-results",
   fullyParallel: false,
   workers: 1,
   timeout: 30_000,

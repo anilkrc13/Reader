@@ -42,7 +42,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: webmcp-test-results
-          path: test-results/
+          path: build/browser-test-results/
           if-no-files-found: ignore
 
   macos-app:
@@ -57,6 +57,8 @@ jobs:
           codesign --verify --deep --strict build/Reader.app
           cmp reader.py build/Reader.app/Contents/Resources/reader.py
           cmp VERSION build/Reader.app/Contents/Resources/VERSION
+          cmp LICENSE build/Reader.app/Contents/Resources/LICENSE
+          diff -qr src/reader/common/licenses build/Reader.app/Contents/Resources/licenses
           cmp reader_backend.py build/Reader.app/Contents/Resources/reader_backend.py
           cmp src/__init__.py build/Reader.app/Contents/Resources/src/__init__.py
           for file in __init__.py server.py backend.py; do
@@ -77,10 +79,16 @@ jobs:
           node-version: "22"
       - run: npm ci
       - run: npm ci --prefix src/reader/chatgpt --ignore-scripts
-      - run: npm --prefix src/reader/chatgpt run build
+      - run: npm run build:chatgpt
+      - name: Verify shared notices
+        run: |
+          cmp LICENSE build/chatgpt/LICENSE
+          for notice in src/reader/common/licenses/*; do
+            cmp "$notice" "build/chatgpt/licenses/$(basename "$notice")"
+          done
       - run: npm run test:chatgpt
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:embedded
+      - run: npx playwright test --config tests/chatgpt/playwright.config.cjs
         env:
           READER_PLAYWRIGHT_CHANNEL: chromium
       - name: Keep the failure context

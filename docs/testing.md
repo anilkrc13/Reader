@@ -139,3 +139,21 @@ resolve the adapter's pinned SDK through Node createRequire anchored to its
 manifest. CI builds that package and runs both suites. The source-layout guard
 rejects committed tests or generated output under `src`; ignored package-local
 Node dependencies remain build tooling.
+
+Local browser output is under `build/browser-test-results`; adapter browser output
+is under `build/embedded-test-results`. Shared notices come from
+`src/reader/common/licenses` and must match both distributions. Both bundles also
+include the root project LICENSE. CI reuses its extension build for browser tests.
+
+The project build entry is `npm run build -- <web|macos|chatgpt>`; plain
+`npm run build` builds all variants on a Mac. Web and native resource packaging
+share `scripts/package_runtime.py`. Python fixture cleanup is registered before
+setup can fail. The failure regression proves real scratch directories are gone.
+The protocol fixture registers cleanup immediately after mkdtemp. Local browser
+teardown removes owned scratch in finally, and screenshots use test output paths.
+
+For CLI/import probes inside a signed bundle, use an owned temporary
+`READER_DATA_DIR` outside the bundle and set `PYTHONDONTWRITEBYTECODE=1`. The
+native launcher already sets both. A bare Python probe can create state or
+bytecode inside the sealed resources and invalidate the signature. Regenerate
+the app after such a probe; do not repair signed resources by hand.

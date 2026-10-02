@@ -76,6 +76,9 @@ existing launch/import names. Native build scripts stay in `macos/`; the standal
 conversation adapter lives in `src/reader/chatgpt/`. The Mac launcher and its
 assets live in `src/reader/macos/`. Both builds use artwork from `src/reader/common/`. See
 [source ownership](docs/architecture/source-layout.md) for the history and test map.
+Build everything on a Mac with `npm run build`. Select a variant with
+`npm run build -- web`, `npm run build -- macos`, or `npm run build -- chatgpt`.
+All application output goes under `build/`.
 
 ## Settings
 
@@ -242,7 +245,7 @@ preview beside the editor. The editor shows the source, where a link is just tex
 
 ## Third-party components
 
-Bundled locally in `src/reader/web/`, licences in `licenses/`:
+Bundled locally in `src/reader/web/`, licences in `src/reader/common/licenses/`:
 [marked](https://marked.js.org) (markdown), [DOMPurify](https://github.com/cure53/DOMPurify)
 (sanitising), [highlight.js](https://highlightjs.org) (code), [Mermaid](https://mermaid.js.org)
 (diagrams), and the [Lora](https://fonts.google.com/specimen/Lora) default typeface

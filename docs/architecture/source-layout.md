@@ -10,17 +10,21 @@ src/reader/
   web/                       shared HTML, CSS, JavaScript
     assets/                  web icons and fonts
     vendor/                  browser libraries
-  common/                    artwork used by Mac and ChatGPT builds
-  macos/                     Swift launcher and native icon recipe/assets
+  common/                    shared artwork and third-party notices
+  macos/                     Swift launcher, metadata, and native icon assets
   chatgpt/                   Node adapter source and package configuration
 reader.py, reader_backend.py compatible launch and import names
-macos/                       native metadata and build/release scripts
+macos/                       existing build, signing, and release commands
 scripts/                     development and repository tools
 tests/server/                local server and tooling checks
 tests/browser/               shared UI with the local server
 tests/chatgpt/               adapter protocol and simulated-host checks
 build/Reader.app             ignored native output
 build/chatgpt/               ignored extension output
+build/web/                   ignored portable browser/server runtime
+build/browser-test-results/  ignored local browser output
+build/embedded-test-results/ ignored adapter browser output
+build/releases/              ignored release archives and manifest
 docs/                        permanent contracts and acceptance guidance
 ```
 
@@ -37,7 +41,7 @@ Node resolution still finds its own dependencies. Nesting a package does not
 require combining its dependencies with the local Python or Mac app.
 
 The web base owns rendering, reading styles, settings, browser libraries, fonts,
-and web-specific icons. `common` holds only the icon artwork consumed by both
+and web-specific icons. `common` holds icon artwork and third-party notices consumed by both
 platform builds. Native dock images and the Icon Composer recipe remain Mac
 assets. The build stages common artwork with that recipe in a temporary directory;
 it uses the existing compiler and leaves source artwork untouched.
@@ -93,3 +97,60 @@ app's signature/resource checks passed. The structural guard rejects the previou
 misplaced-test tree when run against an isolated temporary Git index. Independent
 review also reran all three layout checks successfully. Application behavior was
 unchanged; unrelated native/browser and server suites were not repeated.
+
+## Root ownership
+
+The root is the project entry and tool configuration area. Application code belongs
+in `src/reader`; tests belong in `tests`. Python uses only the standard library.
+It runs through the existing script and needs no separate install package. The
+root Node manifest supplies development tools and named platform build commands.
+The adapter manifest owns its own runtime dependencies and module type.
+
+| Root item | Owner and reason |
+| --- | --- |
+| `src/` | Shared application and platform adapter source, assets, metadata, notices. |
+| `tests/` | All tests, adapter runner configuration, and manual test helpers. |
+| `macos/` | Existing build, signing, and release commands. Retained for installer and command compatibility; no native application source remains here. |
+| `scripts/` | Project build command, shared runtime packager, and focused lint runner. |
+| `install/` | The user-facing source installer and update command. |
+| `docs/`, `context/` | Architecture, contributor checks, and document integrity contracts. |
+| `AGENTS.md`, `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md` | Project instructions, entry documentation, security policy, and release history. |
+| `LICENSE` | The project's required license. Both distributions copy it. |
+| `VERSION` | The only product version value. Builds and server read it. |
+| `reader.py`, `reader_backend.py` | Compatible Python launch and import names. The implementation lives under source. |
+| `package.json`, `package-lock.json` | Pinned repo-wide development tools and build/test commands; not a second application package. |
+| `requirements-dev.txt` | The pinned Python linter. Reader has no Python runtime dependency manifest. |
+| `eslint.config.mjs`, `ruff.toml`, `.swiftlint.yml` | Repo-wide focused linter rules. Standard root configuration makes direct tool invocation predictable. |
+| `playwright.config.js` | Shared test defaults and the local browser suite's output path. Adapter configuration lives beside its tests. |
+| `.github/`, `.gitignore`, `.git/` | CI and issue templates, generated/state exclusions, and Git data. |
+| `build/` | Mac app, extension package, release files, build staging, browser output, and ignored inspection/validation tools. |
+| `node_modules/` | Ignored repo-wide development dependencies. The adapter's ignored dependencies stay at its package boundary. |
+| `__pycache__/`, `.ruff_cache/`, `.pytest_cache/` | Ignored Python/tool caches. These are local tooling, not application source or release output. |
+| `.reader-token`, `preferences.json` | Existing local authorization and preferences. Preserved without reading their contents. |
+| `.agents/` | Existing local plugin catalog. Reader's source path is `./build/chatgpt`; policy and other fields were preserved. |
+| `.claude/`, `.playwright-cli/`, `.DS_Store` | Existing local assistant settings, CLI diagnostics, and Finder metadata. Preserved. |
+| `tmp-markdown-8S7rWN/` | Unknown user files. Preserved; not treated as disposable build output. |
+| `plans/` | Temporary only during active work; removed when decisions and checks have permanent homes. |
+
+`static`, root `fonts`, and `builds` are absent from the audited checkout. Shared
+notices moved byte-for-byte from root `licenses` into `src/reader/common/licenses`.
+Native metadata moved byte-for-byte into `src/reader/macos`. Both builds copy the
+notices; the extension also writes notices for its bundled Node dependencies.
+The known generated browser screenshots were moved under `build` before rerunning
+the suite. No unknown file was deleted to make the root look cleaner.
+
+Use `npm run build` to build all variants on a Mac. Select one with
+`npm run build -- web`, `npm run build -- macos`, or `npm run build -- chatgpt`.
+The web target emits a portable server/runtime tree under `build/web`. Its Python
+code needs no compilation. Mac and web builds use one runtime packager, so their
+source and notice selection cannot drift. Non-Mac hosts select web or chatgpt.
+Use `npm run start:web` or `python3 reader.py` to run the checkout. Native builds regenerate `build/Reader.app`. Extension
+builds clear only their owned `build/chatgpt` output before regenerating it.
+Release scripts write archives and the manifest to `build/releases`. The public
+asset filenames and updater URL fields remain unchanged.
+
+Eight obsolete settings/link diagnostic folders were removed from `build` after
+identifying them as output of earlier checks in this task. Current suites keep
+their screenshots inside their own output directories. Document scratch uses
+owned temporary directories with registered teardown, including setup failures.
+Unknown local Markdown files and assistant state remain preserved.

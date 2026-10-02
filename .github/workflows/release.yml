@@ -105,8 +105,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "v$VERSION" \
-            "Reader-$VERSION.zip" \
-            "Reader-$VERSION.dmg" \
-            manifest.json \
+            "build/releases/Reader-$VERSION.zip" \
+            "build/releases/Reader-$VERSION.dmg" \
+            build/releases/manifest.json \
             --title "Reader $VERSION" \
             --notes-file "$RUNNER_TEMP/release-notes.md"

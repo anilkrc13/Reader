@@ -7,7 +7,7 @@
 #
 #   ./macos/write-release-manifest.sh 2.1.0
 #
-# Leaves Reader-<version>.zip and manifest.json at the repository root.
+# Leaves Reader-<version>.zip and manifest.json under build/releases/.
 
 set -euo pipefail
 
@@ -15,7 +15,9 @@ VERSION="${1:?usage: write-release-manifest.sh <version>}"
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_BUNDLE="$ROOT_DIR/build/Reader.app"
 ZIP_NAME="Reader-$VERSION.zip"
-ZIP_PATH="$ROOT_DIR/$ZIP_NAME"
+RELEASE_DIR="$ROOT_DIR/build/releases"
+mkdir -p "$RELEASE_DIR"
+ZIP_PATH="$RELEASE_DIR/$ZIP_NAME"
 
 if [ ! -d "$APP_BUNDLE" ]; then
   echo "Missing $APP_BUNDLE; run ./macos/build-app.sh first." >&2
@@ -41,7 +43,7 @@ SIGNING_IDENTITY="${SIGNING_IDENTITY:-ad-hoc}"
 
 URL="https://github.com/anilkrc13/Reader/releases/download/v$VERSION/$ZIP_NAME"
 
-cat > "$ROOT_DIR/manifest.json" <<JSON
+cat > "$RELEASE_DIR/manifest.json" <<JSON
 {
   "version": "$VERSION",
   "url": "$URL",

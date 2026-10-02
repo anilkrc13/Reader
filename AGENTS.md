@@ -62,7 +62,7 @@ the user actually runs.
 ## Versioning
 
 [`VERSION`](VERSION) at the repo root is the only place the version number lives. The
-server reads it at startup and the build script stamps it into [`Info.plist`](macos/Info.plist).
+server reads it at startup and the build script stamps it into [`Info.plist`](src/reader/macos/Info.plist).
 Bump it and add a [`CHANGELOG.md`](CHANGELOG.md) entry in the same change as a release.
 
 ## Extension prototype and checks
@@ -81,3 +81,8 @@ Bump it and add a [`CHANGELOG.md`](CHANGELOG.md) entry in the same change as a r
   in the root `playwright.config.js`. Review the actual source/test tree
   before delivery; passing behavior tests do not prove files have the right owner.
   Do not commit generated output or dependencies under `src`.
+
+- Keep generated app, extension, browser, and release output under `build/`.
+  Shared third-party notices live in `src/reader/common/licenses` and must ship
+  in both bundles alongside the root project LICENSE. Keep a reason for each
+  root item in the source ownership guide; do not remove unknown user state.

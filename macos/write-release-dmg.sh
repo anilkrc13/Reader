@@ -5,7 +5,7 @@
 #
 #   ./macos/write-release-dmg.sh 2.1.0
 #
-# Leaves Reader-<version>.dmg at the repository root, beside the zip and
+# Leaves Reader-<version>.dmg under build/releases/, beside the zip and
 # manifest.json write-release-manifest.sh writes. The zip stays the in-app
 # updater's format (it verifies the zip's sha256 and code signature, then
 # unpacks it with ditto -x -k) -- this script only adds a second artifact for
@@ -17,7 +17,9 @@ VERSION="${1:?usage: write-release-dmg.sh <version>}"
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_BUNDLE="$ROOT_DIR/build/Reader.app"
 DMG_NAME="Reader-$VERSION.dmg"
-DMG_PATH="$ROOT_DIR/$DMG_NAME"
+RELEASE_DIR="$ROOT_DIR/build/releases"
+mkdir -p "$RELEASE_DIR"
+DMG_PATH="$RELEASE_DIR/$DMG_NAME"
 VOLUME_NAME="Reader $VERSION"
 
 if [ ! -d "$APP_BUNDLE" ]; then
@@ -25,7 +27,7 @@ if [ ! -d "$APP_BUNDLE" ]; then
   exit 1
 fi
 
-STAGE_DIR="$(mktemp -d "$ROOT_DIR/.reader-dmg.XXXXXX")"
+STAGE_DIR="$(mktemp -d "$ROOT_DIR/build/.reader-dmg.XXXXXX")"
 trap 'rm -rf "$STAGE_DIR"' EXIT
 
 # Everything that goes inside the image lives under one payload folder, and

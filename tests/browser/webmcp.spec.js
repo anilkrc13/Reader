@@ -107,11 +107,15 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  if (server && server.exitCode == null) {
-    server.kill("SIGTERM");
-    await new Promise((resolve) => server.once("exit", resolve));
+  try {
+    if (server && server.exitCode == null) {
+      const stopped = new Promise((resolve) => server.once("exit", resolve));
+      server.kill("SIGTERM");
+      await stopped;
+    }
+  } finally {
+    if (runRoot) await fs.rm(runRoot, {recursive: true, force: true});
   }
-  if (runRoot) await fs.rm(runRoot, {recursive: true, force: true});
 });
 
 test.beforeEach(async ({context, page}) => {
@@ -396,7 +400,7 @@ test("client saves are serialized and preserve edits made in flight", async ({pa
   });
   await firstSeen;
   await expect(page.locator("#save-status")).toHaveText("Saving…");
-  await page.screenshot({path: "build/reading-controls/saving.png"});
+  await page.screenshot({path: test.info().outputPath("saving.png")});
   await invoke(page, "reader_replace_document_text", {text: "# Second\n"});
   await page.evaluate(() => {
     window.__secondReaderSave = window.__readerWebMCPTools.reader_save_document.execute({});
@@ -1325,7 +1329,7 @@ test('file search has its own command and document find targets the active side 
   await expect(page.locator('#findbar')).toBeHidden();
   await side.locator('#find-q').fill('Third');
   await expect(side.locator('#find-count')).toHaveText('1 of 1');
-  await page.screenshot({path:'build/reading-controls/compare-find.png'});
+  await page.screenshot({path: test.info().outputPath("compare-find.png")});
 });
 
 test('heading outline reveals folded sections and paged headings without permanent chrome', async ({page}) => {
@@ -1338,7 +1342,7 @@ test('heading outline reveals folded sections and paged headings without permane
   await page.locator('#btn-outline').click();
   await expect(page.locator('#heading-outline')).toBeVisible();
   await expect(page.locator('#outline-list button')).toHaveCount(3);
-  await page.screenshot({path:'build/reading-controls/outline-light.png'});
+  await page.screenshot({path: test.info().outputPath("outline-light.png")});
   await page.locator('#outline-list button').filter({hasText:'Nested heading'}).click();
   await expect(page.locator('#heading-outline')).toBeHidden();
   await expect(page.locator('#nested-heading')).not.toHaveClass(/fold-hidden/);
@@ -1351,7 +1355,7 @@ test('heading outline reveals folded sections and paged headings without permane
   await expect(page.locator('html')).toHaveAttribute('data-paged', 'yes');
   await invoke(page, 'reader_set_preferences', {changes:{theme:'dark'}});
   await page.locator('#btn-outline').click();
-  await page.screenshot({path:'build/reading-controls/outline-dark-paged.png'});
+  await page.screenshot({path: test.info().outputPath("outline-dark-paged.png")});
   await page.locator('#outline-list button').filter({hasText:'Nested heading'}).click();
   await expect.poll(() => page.locator('#nested-heading').evaluate(n => {
     const r = n.getBoundingClientRect(), pane = document.querySelector('#previewpane').getBoundingClientRect();
@@ -1381,7 +1385,7 @@ test('save status reports failure and conflict without claiming edits are saved'
   await expect(invoke(page, 'reader_save_document')).rejects.toThrow(/Disk full/);
   await expect(page.locator('#save-status')).toHaveText('Save failed');
   expect((await state(page)).dirty).toBe(true);
-  await page.screenshot({path:'build/reading-controls/save-failed.png'});
+  await page.screenshot({path: test.info().outputPath("save-failed.png")});
   await page.unroute('**/api/save');
   let releaseRetry, sawRetry;
   const retryReleased = new Promise(resolve => {releaseRetry = resolve;});
@@ -1402,7 +1406,7 @@ test('save status reports failure and conflict without claiming edits are saved'
   expect(await fs.readFile(file, 'utf8')).toBe('# External edit\n');
   await invoke(page, 'reader_resolve_external_change', {action:'reload'});
   await expect(page.locator('#save-status')).toHaveText('Saved');
-  await page.screenshot({path:'build/reading-controls/saved.png'});
+  await page.screenshot({path: test.info().outputPath("saved.png")});
 });
 
 

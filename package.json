@@ -5,7 +5,12 @@
     "test:webmcp": "playwright test",
     "test:embedded": "npm --prefix src/reader/chatgpt run build && playwright test --config tests/chatgpt/playwright.config.cjs",
     "lint:changed": "python3 scripts/lint_changed.py",
-    "test:chatgpt": "npm --prefix src/reader/chatgpt test"
+    "test:chatgpt": "npm --prefix src/reader/chatgpt test",
+    "build:macos": "python3 scripts/build.py macos",
+    "build:chatgpt": "python3 scripts/build.py chatgpt",
+    "start:web": "python3 reader.py",
+    "build": "python3 scripts/build.py",
+    "build:web": "python3 scripts/build.py web"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",

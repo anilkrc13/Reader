@@ -34,8 +34,9 @@ test('the bundled stdio server advertises only Markdown and serves its self-cont
 });
 
 
-test('real server confines local links to the host-opened directory and returns no contents', async () => {
+test('real server confines local links to the host-opened directory and returns no contents', async (t) => {
   const root=await mkdtemp(join(tmpdir(),'reader-link-security-'));
+  t.after(() => rm(root, {recursive:true, force:true}));
   const base=join(root,'opened'), outside=join(root,'opened-other');
   await mkdir(base); await mkdir(outside); await mkdir(join(base,'child')); await mkdir(join(base,'directory.md'));
   const opened=join(base,'index.md'), allowed=join(base,'linked file.md'), child=join(base,'child','nested.MD');
@@ -70,7 +71,7 @@ test('real server confines local links to the host-opened directory and returns 
     const untrusted=await client.callTool({name:'reader_resolve_local_link',arguments:{href:'safe.md',basePath:opened,file:{path:opened}}});
     assert.equal(untrusted.isError,true);
     assert.equal(await readFile(allowed,'utf8'),'private document bytes');
-  } finally {await client.close();await rm(root,{recursive:true,force:true});}
+  } finally {await client.close();}
 });
 
 test('packaged branding uses existing Reader artwork and both manifest assets exist', async () => {
