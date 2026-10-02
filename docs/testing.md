@@ -25,6 +25,12 @@ tool belongs to the open page and disappears when that page is closed, which is
 what makes the suite deterministic. The regression cases the suite is built
 from are listed in [`testing-regression-cases.md`](testing-regression-cases.md).
 
+The browser suite also checks document search after Files focus and in Edit mode,
+file search as a separate command, native-command routing to the active comparison
+pane, outline navigation through folds and two-page reading, and save status during
+queued saves, stale responses, failures, conflicts, and read-only opens. Reading-control
+screenshots are written under `build/reading-controls/`.
+
 ## The native app
 
 The bundle has no automated tests. After [`./macos/build-app.sh`](../macos/build-app.sh):

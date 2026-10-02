@@ -1325,7 +1325,7 @@ html[data-theme=dark] .mermaid-diagram{--diagram-bg:color-mix(in srgb,var(--pane
   #dragbar{display:none}
 }
 @media print{
-  #sidebar,#dragbar,#toolbar,#diskbar,#editorpane,#gutter,#scrim{display:none!important}
+  #sidebar,#dragbar,#toolbar,#diskbar,#editorpane,#gutter,#scrim,#heading-outline{display:none!important}
   /* paper gets the whole document: a collapsed section is a reading state, and
      a printout silently missing it is a trap */
   .prose .fold-hidden{display:revert}
@@ -1467,4 +1467,24 @@ html[data-paged=yes] #preview img{max-height:var(--page-height);object-fit:conta
   #toolbar{gap:.25rem;padding-left:.5rem;padding-right:.5rem}
   #toolbar .seg{padding-left:.5rem;padding-right:.5rem}
   #toolbar .toolbar-group{gap:.125rem}
+}
+
+/* Quiet document state and optional navigation inside the reading pane. */
+#save-status{font: .6875rem var(--ui);color:var(--text-3);white-space:nowrap;flex:none}
+#save-status[hidden]{display:none}
+#main{position:relative}
+#heading-outline{position:absolute;z-index:25;top:52px;right:16px;width:min(300px,calc(100% - 32px));max-height:calc(100% - 76px);overflow:auto;
+  background:var(--paper);color:var(--text);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);padding:8px;font:13px var(--ui)}
+#heading-outline[hidden]{display:none}
+.outline-head{display:flex;align-items:center;justify-content:space-between;padding:4px 8px 8px;border-bottom:1px solid var(--border)}
+#outline-list{list-style:none;padding:4px 0 0;margin:0}
+#outline-list button{width:100%;text-align:left;padding:8px 12px;border-radius:5px;line-height:1.4;color:var(--text-2)}
+#outline-list button:hover,#outline-list button:focus-visible{background:var(--panel-hi);color:var(--text)}
+
+/* Each comparison pane needs its own toolbar width, rather than the window's. */
+html:not([data-host]) #main{container:reader-pane / inline-size}
+@container reader-pane (max-width:700px){
+  html:not([data-host]) #toolbar{flex-wrap:wrap;height:auto;min-height:46px;padding:6px 10px;row-gap:6px}
+  html:not([data-host]) #toolbar .doc-title{flex:1 0 calc(100% - 160px)}
+  html:not([data-host]) #toolbar > .spacer,html:not([data-host]) #toolbar > .tool-sep{display:none}
 }

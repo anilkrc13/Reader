@@ -4,6 +4,16 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- A heading outline opens on demand inside each local Markdown document pane.
+  It navigates to folded sections and headings in two-page reading.
+- Quiet save status shows Saving, Saved, Unsaved, or Read-only. Failures and
+  conflicts stay visible. Live still describes disk watching.
+- Two-page reading uses a book icon. Comparing documents and editor preview
+  have separate icons.
+- Command-F searches the active document after Files-panel focus and in Edit
+  mode. The native Edit menu and toolbar expose document search. Find a File
+  uses Command-Shift-O and a separate Search files field. Command-P is untouched.
+
 - The embedded viewer follows Codex’s theme. Find and Refresh use icons.
   A Settings gear offers text size, line spacing, content width, and reading
   layout. Headings have more room in narrow panels. Native controls are unchanged.

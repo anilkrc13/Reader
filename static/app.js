@@ -303,11 +303,7 @@ const state = {
   trail: [], trailAt: -1,
   /* undo history for the open document, reset when a different one is opened */
   past: [], pastAt: -1,
-  /* Which half of the window the reader last acted in, so ⌘F knows whether it
-     was asked to search the document or the file panel. Live focus cannot
-     answer this: clicking a row redraws the tree, which removes the very
-     button that had focus and leaves document.activeElement as <body>. */
-  surface: "document",
+  saving: null, saveError: "",
   /* Headings collapsed in the open document, held by slug. Kept across
      re-renders and reloads of the same file, dropped when another opens. */
   folded: new Set(),
@@ -1229,6 +1225,7 @@ function render(text) {
   /* Whatever this render produces, the find marks in the old document are gone
      with it, so the search is laid back over the new one. */
   queueMicrotask(findRefresh);
+  queueMicrotask(refreshOutline);
   const kind = state.file ? state.file.kind : "md";
   root.dataset.json = "off";
   if (kind === "code") {
@@ -2005,7 +2002,17 @@ function setDirty(on) {
   state.dirty = documentIsWritable() && on;
   el.dirty.hidden = !state.dirty;
   el.save.disabled = !state.dirty;
+  updateSaveStatus();
   document.title = (state.dirty ? "• " : "") + (state.file ? state.file.name : "Reader");
+}
+
+function updateSaveStatus() {
+  const label = $("save-status");
+  label.hidden = !state.file || EMBEDDED;
+  if (!state.dirty) state.saveError = "";
+  label.textContent = !state.file ? "" : !documentIsWritable() ? "Read-only"
+    : state.saving && sessionIsCurrent(state.saving.session, state.saving.path) ? "Saving…"
+      : state.saveError || (state.dirty ? "Unsaved" : "Saved");
 }
 
 function beginDocumentSession(targetPath) {
@@ -2013,6 +2020,9 @@ function beginDocumentSession(targetPath) {
   if (state.documentController) state.documentController.abort();
   state.documentController = new AbortController();
   state.documentSession += 1;
+  state.saving = null; state.saveError = "";
+  updateSaveStatus();
+  closeOutline(false);
   state.polling = null;
   clearInterval(watchTimer);
   watchTimer = null;
@@ -2222,6 +2232,8 @@ async function saveSnapshot(snapshot, {auto = false, conflict = "prompt", quiet 
     setDirty(el.editor.value !== state.saved);
     return {status: "unchanged"};
   }
+  state.saving = snapshot;
+  updateSaveStatus();
   try {
     const res = await api("/api/save", {
       method: "POST",
@@ -2240,6 +2252,7 @@ async function saveSnapshot(snapshot, {auto = false, conflict = "prompt", quiet 
     return {status: "saved", path: snapshot.path, mtime: res.mtime};
   } catch (err) {
     if (!sessionIsCurrent(snapshot.session, snapshot.path)) return {status: "stale"};
+    state.saveError = /changed on disk/i.test(err.message) ? "Save blocked" : "Save failed";
     if (/changed on disk/i.test(err.message)) {
       /* The file moved under us. An automatic save says so in the disk bar and
          leaves the choice alone -- overwriting on a timer is not its call. */
@@ -2278,6 +2291,10 @@ async function saveSnapshot(snapshot, {auto = false, conflict = "prompt", quiet 
     if (throwOnError) throw err;
     if (!quiet) toast(err.message, true);
     return {status: "error", message: err.message};
+  } finally {
+    if (sessionIsCurrent(snapshot.session, snapshot.path) && state.saving === snapshot) {
+      state.saving = null; updateSaveStatus();
+    }
   }
 }
 
@@ -3217,6 +3234,7 @@ async function doRename() {
     state.file.dir = state.file.path.split("/").slice(0, -1).join("/") || "/";
     state.file.name = state.file.path.split("/").pop();
     el.docname.textContent = state.file.name;
+    updateSaveStatus();
     document.title = (state.dirty ? "• " : "") + state.file.name;
     S.lastFile = state.file.path;
   }
@@ -3267,6 +3285,7 @@ async function moveFileToFolder(path, targetDir, {quiet = false, throwOnError = 
     state.file.dir = parentPath(to);
     state.file.name = to.split("/").pop();
     el.docname.textContent = state.file.name;
+    updateSaveStatus();
     document.title = (state.dirty ? "• " : "") + state.file.name;
   }
   syncTrailButtons();
@@ -3893,11 +3912,14 @@ function setMode(mode) {
   S.mode = mode;
   root.dataset.mode = mode;
   syncEditPreview();
+  findRefresh(); refreshOutline();
   invalidateSyncMaps();
   syncPreviewLayout(anchor);
   savePrefs();
   hideFmtBar();
-  if (mode !== "preview") setTimeout(() => el.editor.focus({preventScroll: true}), 0);
+  if (mode !== "preview") setTimeout(() => {
+    if (!find.open && root.dataset.mode === mode) el.editor.focus({preventScroll: true});
+  }, 0);
   else focusReading();
 }
 function syncEditPreview() {
@@ -4434,6 +4456,8 @@ document.querySelectorAll("#toolbar .seg").forEach((b) => {
 });
 $("btn-edit-preview").onclick = () => setMode(root.dataset.mode === "split" ? "edit" : "split");
 $("btn-save").onclick = saveFile;
+$("btn-find").onclick = findInDocument;
+$("btn-file-find").onclick = fileFindOpen;
 
 /* Copy the whole document, keeping its formatting. The clipboard carries two
    flavours at once: rich targets (Word, Docs, Slack, mail) take the rendered
@@ -4539,6 +4563,7 @@ document.addEventListener("keydown", (ev) => {
   }
   /* 1. Escape closes the topmost open surface. */
   if (ev.key === "Escape") {
+    if (!$("heading-outline").hidden) { ev.preventDefault(); closeOutline(); return; }
     if (fileFind.open) { ev.preventDefault(); fileFindCloseBar(); return; }
     if (find.open) { ev.preventDefault(); findCloseBar(); return; }
     if (!el.fmtbar.hidden) { ev.preventDefault(); hideFmtBar(); return; }
@@ -4555,14 +4580,11 @@ document.addEventListener("keydown", (ev) => {
 
   /* 2. Find. Claimed before the native-text bail below so it still works while
      the caret is sitting in the find field. ⌃⌘F is full screen and stays so. */
-  if (meta && !ev.ctrlKey && ev.key.toLowerCase() === "f" && !ev.altKey && !overlayOpen()) {
-    /* Which search you get depends on what you were working in. Focus inside
-       the file panel -- including its own search field -- means "find a file";
-       anywhere else means "find in this document". */
-    if (state.surface === "panel" || fileFind.open) {
-      ev.preventDefault(); fileFindOpen(); return;
-    }
-    if (findOpen()) { ev.preventDefault(); return; }
+  if (meta && !(ev.ctrlKey && ev.metaKey) && ev.key.toLowerCase() === "f" && !ev.altKey && !overlayOpen()) {
+    ev.preventDefault(); findInDocument(); return;
+  }
+  if (meta && ev.shiftKey && !ev.altKey && ev.key.toLowerCase() === "o" && !overlayOpen()) {
+    ev.preventDefault(); (SIDE ? host()?.findFile() : fileFindOpen()); return;
   }
   if (meta && ev.key.toLowerCase() === "g" && find.open) {
     ev.preventDefault(); findStep(ev.shiftKey ? -1 : 1); return;
@@ -4703,18 +4725,13 @@ document.addEventListener("keydown", (ev) => {
    result says so rather than quietly pretending to be the whole answer.
    ========================================================================== */
 
-function noteSurface(ev) {
-  const node = ev.target;
-  if (!(node instanceof Node)) return;
-  state.surface = el.sidebar.contains(node) ? "panel" : "document";
-}
-document.addEventListener("pointerdown", noteSurface, true);
-document.addEventListener("focusin", noteSurface, true);
-
 const fileFind = {open: false, results: [], at: -1, seq: 0};
 let fileFindTimer = null;
 
 function fileFindOpen() {
+  if (EMBEDDED) return;
+  if (find.open) findCloseBar();
+  if (S.hidden) toggleSidebar();
   fileFind.open = true;
   el.fileFind.hidden = false;
   el.fileFindQ.focus();
@@ -4978,7 +4995,7 @@ function findWrap(needle) {
 function findPaint() {
   el.preview.querySelectorAll("mark.find-hit.is-current")
     .forEach((mark) => mark.classList.remove("is-current"));
-  if (find.at >= 0 && find.hits[find.at]) {
+  if (!find.inEditor && find.at >= 0 && find.hits[find.at]) {
     find.hits[find.at].forEach((mark) => mark.classList.add("is-current"));
   }
   const typed = el.findQ.value.trim();
@@ -4994,13 +5011,30 @@ function findRun({keepPlace = false} = {}) {
   const needle = el.findQ.value.trim().toLowerCase();
   // Folded parts of a JSON view are not built yet; open them to be searched.
   if (needle && root.dataset.json === "on") jsonExpandAll();
-  if (needle) find.hits = findWrap(needle);
+  find.inEditor = root.dataset.mode === "edit";
+  if (needle && find.inEditor) {
+    const text = el.editor.value.toLowerCase();
+    for (let at = text.indexOf(needle); at !== -1; at = text.indexOf(needle, at + needle.length)) {
+      find.hits.push({start: at, end: at + needle.length});
+    }
+  } else if (needle) find.hits = findWrap(needle);
   find.at = find.hits.length ? Math.min(Math.max(was, 0), find.hits.length - 1) : -1;
   findPaint();
   if (!keepPlace && find.hits.length) findReveal();
 }
 
 function findReveal() {
+  if (find.inEditor) {
+    const hit = find.hits[find.at];
+    if (!hit) return;
+    const focus = document.activeElement;
+    el.editor.focus({preventScroll: true});
+    el.editor.setSelectionRange(hit.start, hit.end);
+    const caret = editorCaretPoint(hit.start);
+    el.editor.scrollTop += caret.top - el.editor.getBoundingClientRect().top - el.editor.clientHeight / 2;
+    if (focus === el.findQ) el.findQ.focus({preventScroll: true});
+    return;
+  }
   const mark = find.hits[find.at] && find.hits[find.at][0];
   if (!mark) return;
   /* a match under a collapsed heading opens it: being told there are matches
@@ -5016,15 +5050,55 @@ function findStep(delta) {
   findReveal();
 }
 
-/* Only meaningful where there is a rendered document to search: in Edit mode
-   the preview is not on screen, so the key is left to the browser. */
+/* Preview searches rendered text; Edit searches the document source. */
 function findAvailable() {
-  return !!state.file && state.file.kind !== "pdf" &&
-         root.dataset.mode !== "edit" && root.dataset.empty !== "yes";
+  return !!state.file && state.file.kind !== "pdf" && root.dataset.empty !== "yes";
+}
+
+function closeOutline(restoreFocus = true) {
+  $("heading-outline").hidden = true;
+  $("btn-outline").setAttribute("aria-expanded", "false");
+  if (restoreFocus) $("btn-outline").focus({preventScroll: true});
+}
+function refreshOutline() {
+  const available = state.file?.kind === "md" && root.dataset.mode !== "edit";
+  const heads = available ? [...el.preview.querySelectorAll("h1,h2,h3,h4,h5,h6")] : [];
+  $("btn-outline").disabled = !heads.length;
+  if (!heads.length) { closeOutline(false); return; }
+  if ($("heading-outline").hidden) return;
+  $("outline-list").replaceChildren(...heads.map(head => {
+    const li = document.createElement("li");
+    const button = document.createElement("button");
+    button.textContent = head.textContent;
+    button.style.paddingLeft = (12 + (headLevel(head) - 1) * 12) + "px";
+    button.onclick = () => { jumpToAnchor(head.id); closeOutline(false); focusReading(); };
+    li.append(button); return li;
+  }));
+}
+function toggleOutline() {
+  if (!$("heading-outline").hidden) { closeOutline(); return; }
+  $("heading-outline").hidden = false;
+  $("btn-outline").setAttribute("aria-expanded", "true");
+  refreshOutline();
+  $("outline-list").querySelector("button")?.focus();
+}
+new ResizeObserver(() => {
+  $("heading-outline").style.top = ($("toolbar").offsetHeight + 6) + "px";
+}).observe($("toolbar"));
+$("btn-outline").onclick = toggleOutline;
+$("outline-close").onclick = () => closeOutline();
+$("heading-outline").addEventListener("keydown", ev => {
+  if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); closeOutline(); }
+});
+
+function findInDocument() {
+  if (!SIDE && splitActive() === "side") return sideReader()?.findDocument();
+  return findOpen();
 }
 
 function findOpen() {
   if (!findAvailable()) return false;
+  if (fileFind.open) fileFindCloseBar();
   find.open = true;
   el.findbar.hidden = false;
   el.findQ.focus();
@@ -6427,6 +6501,7 @@ if (EMBEDDED) {
   return;
 }
 window.reader = {
+  findDocument: findInDocument, findFile: fileFindOpen,
   goto: (p) => setRoot(p), open: (p) => openFile(p), openFromOS,
   /* The app's title bar buttons, and its full screen hand-back. */
   chrome: (command) => {

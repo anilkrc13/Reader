@@ -397,6 +397,17 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate {
         addEditCommand("Copy", "copy:", "c")
         addEditCommand("Paste", "paste:", "v")
         addEditCommand("Select All", "selectAll:", "a")
+        editMenu.addItem(.separator())
+        let findDocumentItem = NSMenuItem(title: "Find in Document…",
+                                          action: #selector(findDocumentFromMenu(_:)), keyEquivalent: "f")
+        findDocumentItem.target = self
+        findDocumentItem.keyEquivalentModifierMask = .command
+        editMenu.addItem(findDocumentItem)
+        let findFileItem = NSMenuItem(title: "Find a File…",
+                                      action: #selector(findFileFromMenu(_:)), keyEquivalent: "O")
+        findFileItem.target = self
+        findFileItem.keyEquivalentModifierMask = [.command, .shift]
+        editMenu.addItem(findFileItem)
 
         /* Registered as the windows menu, AppKit adds the tab commands to it:
            Show Previous and Next Tab, Move Tab to New Window, Merge All Windows. */
@@ -1406,6 +1417,14 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate {
         updateProgressSheet = nil
         updateProgressBar = nil
         updateProgressLabel = nil
+    }
+
+    @objc private func findDocumentFromMenu(_ sender: Any?) {
+        keyPage?.callPage("findDocument", [])
+    }
+
+    @objc private func findFileFromMenu(_ sender: Any?) {
+        keyPage?.callPage("findFile", [])
     }
 
     // -- File menu -----------------------------------------------------------

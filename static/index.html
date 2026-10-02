@@ -34,6 +34,9 @@
            far edge. -->
       <span class="trail-nav" id="trail-panel"></span>
       <span class="side-title">Files</span>
+      <button class="icon-btn" id="btn-file-find" title="Find a File (⇧⌘O)" aria-label="Find a File" data-kbd>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.8" cy="8.8" r="5.4"/><path d="M12.8 12.8 17 17"/></svg>
+      </button>
     </div>
 
     <!-- pinned folders ---------------------------------------------------- -->
@@ -75,11 +78,11 @@
     </div>
 
     <!-- Find a file by name, anywhere below the folder being browsed. Opened
-         with ⌘F while the panel has focus; the tree returns when it closes. -->
+         with ⇧⌘O; the tree returns when it closes. -->
     <div id="filefind" hidden>
       <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.3"/><path d="M10.2 10.2 13.6 13.6"/></svg>
-      <input id="filefind-q" type="text" placeholder="Find a file"
-             aria-label="Find a file by name" autocomplete="off" spellcheck="false"
+      <input id="filefind-q" type="text" placeholder="Search files"
+             aria-label="Search files" autocomplete="off" spellcheck="false"
              role="combobox" aria-expanded="false" aria-controls="filefind-list">
       <button class="icon-mini" id="filefind-close" title="Close (Esc)" aria-label="Close file search">
         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.6 4.6l6.8 6.8M11.4 4.6l-6.8 6.8"/></svg>
@@ -122,11 +125,18 @@
         <span id="docname">No document open</span>
         <span class="dot" id="dirty" title="Unsaved changes" hidden></span>
       </div>
+      <span id="save-status" role="status" aria-live="polite" hidden></span>
       <span class="live" id="livetag" title="Watching this file for changes on disk">Live</span>
 
       <div class="spacer"></div>
 
       <div class="toolbar-group" role="group" aria-label="Document actions">
+      <button class="icon-btn" id="btn-find" title="Find in Document (⌘F)" aria-label="Find in Document" data-kbd>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.8" cy="8.8" r="5.4"/><path d="M12.8 12.8 17 17"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-outline" title="Heading outline" aria-label="Heading outline" aria-expanded="false" aria-controls="heading-outline">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 5h10M9 10h8M11 15h6M3 5h1M5 10h1M7 15h1"/></svg>
+      </button>
       <button class="icon-btn accent" id="btn-save" title="Save (⌘S)" aria-label="Save" disabled data-kbd>
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.8v9.4"/><path d="M6.2 8.6 10 12.4l3.8-3.8"/><path d="M3.6 13.4v2.2a1.2 1.2 0 0 0 1.2 1.2h10.4a1.2 1.2 0 0 0 1.2-1.2v-2.2"/></svg>
       </button>
@@ -147,7 +157,7 @@
       <!-- Editing either shows the preview beside the editor or does not. -->
       <div id="edit-preview" class="segmented" role="group" aria-label="Editor layout">
       <button class="icon-btn layout-choice" id="btn-edit-preview" title="Show preview beside the editor" aria-label="Show preview beside the editor" aria-pressed="false">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="1.6"/><path d="M10 3.5v13"/><path d="M12.4 7.2h2.8M12.4 10h2.8M12.4 12.8h1.8"/></svg>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="1.6"/><path d="M10 3.5v13M4.5 7l2-1.5L4.5 4M4.5 12l2 1.5-2 1.5M12.4 7.2h2.8M12.4 10h2.8M12.4 12.8h1.8"/></svg>
       </button>
       </div>
 
@@ -166,7 +176,7 @@
           <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="5.5" y="3" width="9" height="14" rx="1.2"/></svg>
         </button>
         <button class="icon-btn layout-choice" data-layout="spread" title="Two-page layout" aria-label="Two-page layout" aria-pressed="false">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="3" width="7" height="14" rx="1.2"/><rect x="11" y="3" width="7" height="14" rx="1.2"/></svg>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4.5C7.8 3 4.5 3 2 4v12c2.5-1 5.8-1 8 .5 2.2-1.5 5.5-1.5 8-.5V4c-2.5-1-5.8-1-8 .5ZM10 4.5v12M4 7h3M4 10h3M13 7h3M13 10h3"/></svg>
         </button>
       </div>
       </div>
@@ -179,7 +189,7 @@
       <span class="tool-sep" aria-hidden="true"></span>
       <div class="toolbar-group" role="group" aria-label="App controls">
       <button class="icon-btn" id="btn-split" title="Show two documents side by side (⌥⌘\)" aria-label="Split" data-kbd>
-        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="1.6"/><path d="M10 3.5v13"/></svg>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="1.5" y="4" width="6.5" height="12" rx="1"/><rect x="12" y="4" width="6.5" height="12" rx="1"/><path d="M9 8h2M9 12h2M3.5 7h2.5M14 10h2.5"/></svg>
       </button>
       <button class="icon-btn" id="btn-theme" title="Appearance: match system" aria-label="Switch theme">
         <svg class="ic-auto" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="6.4"/><path d="M10 3.6v12.8" class="fillhalf"/></svg>
@@ -204,13 +214,16 @@
       <button class="mini-btn primary" id="disk-reload">Reload from disk</button>
     </div>
 
-    <!-- Find in the document. Summoned with ⌘F and closed with Esc; it has no
-         button in the toolbar on purpose. It sits outside #previewpane so it
-         does not scroll away with the text it is searching. -->
+    <nav id="heading-outline" aria-label="Heading outline" hidden>
+      <div class="outline-head"><b>On this page</b><button class="icon-mini" id="outline-close" aria-label="Close heading outline">×</button></div>
+      <ol id="outline-list"></ol>
+    </nav>
+
+    <!-- Find stays outside the scrolling document. -->
     <div id="findbar" hidden>
       <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.8" cy="8.8" r="5.4"/><path d="M12.8 12.8 17 17"/></svg>
-      <input id="find-q" type="text" placeholder="Find in document"
-             aria-label="Find in document" autocomplete="off" spellcheck="false">
+      <input id="find-q" type="text" placeholder="Search this document"
+             aria-label="Search this document" autocomplete="off" spellcheck="false">
       <span class="find-count" id="find-count" role="status" aria-live="polite"></span>
       <button class="mini-btn" id="find-prev" title="Previous match (⇧⌘G)" aria-label="Previous match" data-kbd>
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 12.2 10 7.7l4.5 4.5"/></svg>
@@ -841,7 +854,7 @@
             <table class="keys">
               <tbody>
                 <tr><td>Show or hide the panel</td><td><kbd class="k" data-kbd>⌘\</kbd></td></tr>
-                <tr><td>Find a file by name (with the panel focused)</td><td><kbd class="k" data-kbd>⌘F</kbd></td></tr>
+                <tr><td>Find a file by name</td><td><kbd class="k" data-kbd>⇧⌘O</kbd></td></tr>
                 <tr><td>Show or hide hidden files and folders</td><td><kbd class="k" data-kbd>⇧⌘.</kbd></td></tr>
               </tbody>
             </table>

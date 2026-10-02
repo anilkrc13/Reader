@@ -328,6 +328,7 @@ test("an external OS-open on a reused server is explicitly read-only", async ({p
   const current = await state(page);
   expect(current.activeDocument.path).toBe(external);
   expect(current.activeDocument.writable).toBe(false);
+  await expect(page.locator("#save-status")).toHaveText("Read-only");
   await expect(page.locator("#editor")).toHaveAttribute("readonly", "");
   await expect(invoke(page, "reader_replace_document_text", {text: "changed"}))
     .rejects.toThrow(/read-only/);
@@ -394,6 +395,8 @@ test("client saves are serialized and preserve edits made in flight", async ({pa
     window.__firstReaderSave = window.__readerWebMCPTools.reader_save_document.execute({});
   });
   await firstSeen;
+  await expect(page.locator("#save-status")).toHaveText("Saving…");
+  await page.screenshot({path: "build/reading-controls/saving.png"});
   await invoke(page, "reader_replace_document_text", {text: "# Second\n"});
   await page.evaluate(() => {
     window.__secondReaderSave = window.__readerWebMCPTools.reader_save_document.execute({});
@@ -404,6 +407,7 @@ test("client saves are serialized and preserve edits made in flight", async ({pa
   releaseFirst();
   await page.evaluate(() => Promise.all([window.__firstReaderSave, window.__secondReaderSave]));
   expect(await fs.readFile(alpha, "utf8")).toBe("# Second\n");
+  await expect(page.locator("#save-status")).toHaveText("Saved");
   expect((await state(page)).dirty).toBe(false);
 });
 
@@ -432,6 +436,7 @@ test("a delayed save response cannot mutate a newer document session", async ({p
   const result = await page.evaluate(() => window.__staleReaderSave);
 
   expect(result.status).toBe("stale");
+  await expect(page.locator("#save-status")).toHaveText("Saved");
   const current = await state(page);
   expect(current.activeDocument.path).toBe(gamma);
   expect(current.sourceText).toContain("Third document");
@@ -1265,4 +1270,125 @@ test.describe("two-page Preview", () => {
     await expect(page.locator('html')).toHaveAttribute('data-paged', 'yes');
   });
 
+});
+
+test('document find keeps its meaning after Files focus and in Edit mode', async ({page}) => {
+  await open(page, path.join(workspace, 'alpha.md'));
+  await page.locator('#loc-name').focus();
+  await page.keyboard.press('Meta+f');
+  await expect(page.locator('#find-q')).toBeFocused();
+  await expect(page.locator('#filefind')).toBeHidden();
+  await page.locator('#find-q').fill('Alpha');
+  await expect(page.locator('#find-count')).toHaveText('1 of 1');
+  await page.keyboard.press('Escape');
+  await page.locator('[data-mode=edit]').click();
+  if (await page.locator('html').getAttribute('data-mode') === 'split') await page.locator('#btn-edit-preview').click();
+  await expect(page.locator('html')).toHaveAttribute('data-mode', 'edit');
+  await page.locator('#editor').focus();
+  await page.keyboard.press('Meta+f');
+  await expect(page.locator('#find-q')).toBeFocused();
+  await page.locator('#find-q').fill('Alpha');
+  await expect(page.locator('#find-count')).toHaveText('1 of 1');
+  expect(await page.locator('#editor').evaluate(e => e.value.slice(e.selectionStart, e.selectionEnd))).toBe('Alpha');
+});
+
+
+test('file search has its own command and document find targets the active side pane', async ({page}) => {
+  await open(page, path.join(workspace, 'alpha.md'));
+  await page.locator('#btn-file-find').click();
+  await expect(page.getByRole('combobox', {name: 'Search files'})).toBeFocused();
+  await page.locator('#filefind-q').fill('known phrase');
+  await expect(page.locator('#filefind-list')).toContainText('known phrase beta.md');
+  await page.keyboard.press('Meta+f');
+  await expect(page.getByRole('textbox', {name: 'Search this document'})).toBeFocused();
+  await expect(page.locator('#filefind')).toBeHidden();
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => window.reader.chrome('panel'));
+  await page.keyboard.press('Meta+Shift+o');
+  await expect(page.locator('#filefind-q')).toBeFocused();
+  await expect(page.locator('html')).toHaveAttribute('data-sidebar', 'shown');
+  const printClaimed = await page.evaluate(() => {
+    const event = new KeyboardEvent('keydown', {key:'p', metaKey:true, bubbles:true, cancelable:true});
+    document.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  expect(printClaimed).toBe(false);
+  await page.keyboard.press('Escape');
+  await page.evaluate(file => window.reader.openSplit({path: file}), path.join(workspace, 'gamma.md'));
+  const side = page.frameLocator('#side-pane iframe');
+  await expect(side.locator('#docname')).toHaveText('gamma.md');
+  await side.locator('[data-mode=edit]').click();
+  await page.locator('#loc-name').focus();
+  // This is the public command the native Edit menu invokes in the key window.
+  await page.evaluate(() => window.reader.findDocument());
+  await expect(side.locator('#find-q')).toBeFocused();
+  await expect(page.locator('#findbar')).toBeHidden();
+  await side.locator('#find-q').fill('Third');
+  await expect(side.locator('#find-count')).toHaveText('1 of 1');
+  await page.screenshot({path:'build/reading-controls/compare-find.png'});
+});
+
+test('heading outline reveals folded sections and paged headings without permanent chrome', async ({page}) => {
+  await page.setViewportSize({width:1400, height:850});
+  const file = path.join(workspace, 'outline.md');
+  await fs.writeFile(file, '# Long document\n\n' + 'Opening passage.\n\n'.repeat(60) + '## Later section\n\nBody.\n\n### Nested heading\n\nDestination.\n');
+  await open(page, file);
+  await expect(page.locator('#heading-outline')).toBeHidden();
+  await page.locator('#later-section .fold-toggle').click();
+  await page.locator('#btn-outline').click();
+  await expect(page.locator('#heading-outline')).toBeVisible();
+  await expect(page.locator('#outline-list button')).toHaveCount(3);
+  await page.screenshot({path:'build/reading-controls/outline-light.png'});
+  await page.locator('#outline-list button').filter({hasText:'Nested heading'}).click();
+  await expect(page.locator('#heading-outline')).toBeHidden();
+  await expect(page.locator('#nested-heading')).not.toHaveClass(/fold-hidden/);
+  await expect.poll(() => page.locator('#nested-heading').evaluate(n => {
+    const r = n.getBoundingClientRect(), pane = document.querySelector('#previewpane').getBoundingClientRect();
+    return r.top >= pane.top - 1 && r.bottom <= pane.bottom;
+  })).toBe(true);
+  await page.evaluate(() => window.reader.chrome('panel'));
+  await page.getByRole('button', {name:'Two-page layout', exact:true}).click();
+  await expect(page.locator('html')).toHaveAttribute('data-paged', 'yes');
+  await invoke(page, 'reader_set_preferences', {changes:{theme:'dark'}});
+  await page.locator('#btn-outline').click();
+  await page.screenshot({path:'build/reading-controls/outline-dark-paged.png'});
+  await page.locator('#outline-list button').filter({hasText:'Nested heading'}).click();
+  await expect.poll(() => page.locator('#nested-heading').evaluate(n => {
+    const r = n.getBoundingClientRect(), pane = document.querySelector('#previewpane').getBoundingClientRect();
+    return r.left >= pane.left - 1 && r.right <= pane.right && r.top >= pane.top - 1 && r.bottom <= pane.bottom;
+  })).toBe(true);
+  await page.locator('#btn-outline').click();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#btn-outline')).toBeFocused();
+  await page.locator('[data-mode=edit]').click();
+  if (await page.locator('html').getAttribute('data-mode') === 'split') await page.locator('#btn-edit-preview').click();
+  await expect(page.locator('#btn-outline')).toBeDisabled();
+  await expect(page.locator('#heading-outline')).toBeHidden();
+  await fs.writeFile(path.join(workspace, 'no-headings.md'), 'Just text.');
+  await open(page, path.join(workspace, 'no-headings.md'));
+  await page.locator('[data-mode=preview]').click();
+  await expect(page.locator('#btn-outline')).toBeDisabled();
+});
+
+test('save status reports failure and conflict without claiming edits are saved', async ({page}) => {
+  const file = path.join(workspace, 'alpha.md');
+  await open(page, file);
+  await invoke(page, 'reader_set_preferences', {changes:{autoSave:false}});
+  await expect(page.locator('#save-status')).toHaveText('Saved');
+  await invoke(page, 'reader_replace_document_text', {text:'# Unsaved draft\n'});
+  await expect(page.locator('#save-status')).toHaveText('Unsaved');
+  await page.route('**/api/save', route => route.fulfill({status:500, contentType:'application/json', body:JSON.stringify({error:'Disk full'})}));
+  await expect(invoke(page, 'reader_save_document')).rejects.toThrow(/Disk full/);
+  await expect(page.locator('#save-status')).toHaveText('Save failed');
+  expect((await state(page)).dirty).toBe(true);
+  await page.screenshot({path:'build/reading-controls/save-failed.png'});
+  await page.unroute('**/api/save');
+  await fs.writeFile(file, '# External edit\n');
+  const result = await invoke(page, 'reader_save_document');
+  expect(result.status).toBe('conflict');
+  await expect(page.locator('#save-status')).toHaveText('Save blocked');
+  expect(await fs.readFile(file, 'utf8')).toBe('# External edit\n');
+  await invoke(page, 'reader_resolve_external_change', {action:'reload'});
+  await expect(page.locator('#save-status')).toHaveText('Saved');
+  await page.screenshot({path:'build/reading-controls/saved.png'});
 });

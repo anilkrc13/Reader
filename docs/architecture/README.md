@@ -11,3 +11,14 @@ flowchart LR
 ```
 
 The local and embedded boot paths have different owners for document access. The local server enforces workspace grants and atomic saves. The embedded panel reads only the opaque resource supplied by the host. It cannot save. See [the document contract](../../context/document-integrity.md) before changing local I/O. See [the extension design](chatgpt-viewer.md) for the embedded boundary. Desktop routing is still unverified.
+
+Local document navigation and save feedback stay in the shared interface. Each pane
+owns its optional heading outline and document search. The native Edit menu calls the
+page’s Find in Document command, which forwards to the active comparison pane. Find a
+File belongs to the Files panel and uses Command-Shift-O. Command-P stays unclaimed.
+
+The save label describes the current pane’s document and in-flight save. Dirty text
+remains Unsaved until a save succeeds. A failed or conflicting save keeps the dirty
+text and reports its outcome. Late saves cannot change another document’s label.
+Live remains a separate disk-watch indicator. None of these controls adds write grants.
+The embedded viewer retains its read-only status and its own toolbar controls.
