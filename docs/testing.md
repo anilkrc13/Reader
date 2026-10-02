@@ -29,7 +29,7 @@ The browser suite also checks document search after Files focus and in Edit mode
 file search as a separate command, native-command routing to the active comparison
 pane, outline navigation through folds and two-page reading, and save status during
 queued saves, stale responses, failures, conflicts, and read-only opens. Reading-control
-screenshots are written under `build/reading-controls/`.
+screenshots are written under `build/browser-test-results/`.
 
 ## The native app
 
@@ -78,7 +78,7 @@ checks can run alongside the native browser and Python checks. Report wall time
 separately from summed command durations: overlapping commands do not add that
 sum to the user's wait. Keep build prerequisites in order.
 
-The Mac build gate comes from `AGENTS.md`. Changes to `src/reader/`, `scripts/reader.py`,
+Changes to `src/reader/`, `scripts/reader.py`,
 `VERSION`, launcher or icon sources, licenses, or bundle
 metadata require `./src/reader/macos/scripts/build-app.sh`, signature verification, and resource-copy
 checks. An extension-only runner or documentation change does not trigger that

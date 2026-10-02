@@ -4,10 +4,14 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- A successful conflict overwrite clears the blocked-save label. Newer edits
+  entered during that save remain Unsaved.
+
 - Keep shared, Mac, and ChatGPT adapter source in one tree and separate build output.
 
 - Shared implementation is organized under `src/reader/`. Web assets and vendored
-  libraries have named folders. Root launch/import commands remain compatible.
+  libraries have named folders. Start the server with `python3 scripts/reader.py`
+  or `npm run start:web`. Python callers import `src.reader.server` directly.
   Server tests have one area. Completed plans are replaced by permanent source
   ownership and host acceptance docs.
 

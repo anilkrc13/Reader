@@ -1404,6 +1404,22 @@ test('save status reports failure and conflict without claiming edits are saved'
   expect(result.status).toBe('conflict');
   await expect(page.locator('#save-status')).toHaveText('Save blocked');
   expect(await fs.readFile(file, 'utf8')).toBe('# External edit\n');
+  let releaseOverwrite, sawOverwrite;
+  const overwriteReleased = new Promise(resolve => {releaseOverwrite = resolve;});
+  const overwriteSeen = new Promise(resolve => {sawOverwrite = resolve;});
+  await page.route('**/api/save', async route => {
+    if (route.request().postDataJSON().mtime !== undefined) return route.continue();
+    sawOverwrite(); await overwriteReleased; await route.continue();
+  });
+  await page.evaluate(() => {window.__overwriteSave = window.__readerWebMCPTools.reader_save_document.execute({onConflict:'overwrite'});});
+  await overwriteSeen;
+  await invoke(page, 'reader_replace_document_text', {text:'# Edits after overwrite started\n'});
+  releaseOverwrite();
+  expect((await page.evaluate(() => window.__overwriteSave)).status).toBe('saved');
+  await expect(page.locator('#save-status')).toHaveText('Unsaved');
+  expect((await state(page)).dirty).toBe(true);
+  expect(await fs.readFile(file, 'utf8')).toBe('# Newer draft\n');
+  await page.unroute('**/api/save');
   await invoke(page, 'reader_resolve_external_change', {action:'reload'});
   await expect(page.locator('#save-status')).toHaveText('Saved');
   await page.screenshot({path: test.info().outputPath("saved.png")});

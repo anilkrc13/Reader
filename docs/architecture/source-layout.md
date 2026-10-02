@@ -92,7 +92,7 @@ The adapter manifest owns its own runtime dependencies and module type.
 | `scripts/` | Server launcher, project build command, shared runtime packager, and focused lint runner. |
 | `install/` | The user-facing source installer and update command. |
 | `docs/`, `context/` | Architecture, contributor checks, and document integrity contracts. |
-| `AGENTS.md`, `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md` | Project instructions, entry documentation, security policy, and release history. |
+| `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md` | Project instructions, entry documentation, security policy, and release history. |
 | `LICENSE` | The project's required license. Both distributions copy it. |
 | `VERSION` | The only product version value. Builds and server read it. |
 | `package.json`, `package-lock.json` | Pinned repo-wide development tools and build/test commands; not a second application package. |
@@ -103,6 +103,7 @@ The adapter manifest owns its own runtime dependencies and module type.
 | `node_modules/` | Ignored repo-wide development dependencies. The adapter's ignored dependencies stay at its package boundary. |
 | `__pycache__/`, `.ruff_cache/`, `.pytest_cache/` | Ignored Python/tool caches. These are local tooling, not application source or release output. |
 | `.reader-token`, `preferences.json` | Existing local authorization and preferences. Preserved without reading their contents. |
+| `AGENTS.md` | Ignored machine-local agent instructions. Preserved locally; contributor guidance lives in `CONTRIBUTING.md` and `docs/testing.md`. |
 | `.agents/` | Ignored local plugin catalog. Reader's source path is `./build/chatgpt`; policy and other fields are preserved. |
 | `.claude/`, `.playwright-cli/`, `.DS_Store` | Existing local assistant settings, CLI diagnostics, and Finder metadata. Preserved. |
 | `plans/` | Temporary only during active work; removed when decisions and checks have permanent homes. |
@@ -222,3 +223,8 @@ discover the same tests and keep one and two workers respectively. Four source
 layout checks, the documentation link check, and focused ESLint/Ruff passed.
 No application or packaging source changed, so this follow-up did not rebuild
 the Mac app. No installation or push occurred.
+
+The owner requested keeping `AGENTS.md` local. It is untracked and covered by
+the root-scoped `/AGENTS.md` ignore rule. The local instructions are preserved.
+Public contributor guidance links to source ownership, testing, and document
+safety. Earlier Git history still contains the instruction file.

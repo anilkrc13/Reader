@@ -1,11 +1,15 @@
 """Protect changed-file lint scope and failure reporting."""
+import importlib.util
+import io
 import json
-import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from unittest import mock
 
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "lint_changed.py"
 
@@ -24,20 +28,31 @@ class FocusedLintTests(unittest.TestCase):
         subprocess.run(["git", "-c", "user.name=Test", "-c", "user.email=test@example.com",
                         "commit", "-qm", "base"], cwd=self.root, check=True)
         self.base = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=self.root).decode().strip()
-        for name in ("node_modules/.bin/eslint", "bin/ruff", "bin/swiftlint"):
-            tool = self.root / name
-            tool.parent.mkdir(parents=True, exist_ok=True)
-            tool.write_text("#!/usr/bin/env python3\nimport json, os, sys\nfrom pathlib import Path\nwith Path(os.environ['LINT_RECORD']).open('a') as record:\n record.write(json.dumps([Path(sys.argv[0]).name, *sys.argv[1:]]) + '\\n')\nsys.exit(int(os.environ.get('LINT_FAIL', '0')))\n")
-            tool.chmod(0o755)
         (self.root / ".gitignore").write_text("node_modules/\nbin/\nrecord.json\n")
         self.record = self.root / "record.json"
 
     def run_lint(self, **extra):
-        return subprocess.run(["python3", str(self.root / "scripts" / SCRIPT.name),
-                               "--base", self.base], cwd=self.root,
-                              env={**os.environ, "PATH": str(self.root / "bin") + os.pathsep + os.environ["PATH"],
-                                   "LINT_RECORD": str(self.record), **extra},
-                              capture_output=True, text=True)
+        # Exercise real Git discovery and command dispatch without requiring
+        # Unix executable-script support from the host running these tests.
+        spec = importlib.util.spec_from_file_location("fixture_lint", self.root / "scripts" / SCRIPT.name)
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        original_run = subprocess.run
+
+        def run_command(command, **kwargs):
+            if command[0] == "git":
+                return original_run(command, **kwargs)
+            with self.record.open("a") as record:
+                record.write(json.dumps([Path(command[0]).name, *command[1:]]) + "\n")
+            return subprocess.CompletedProcess(command, int(extra.get("LINT_FAIL", "0")))
+
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with mock.patch.object(sys, "argv", [str(self.root / "scripts" / SCRIPT.name), "--base", self.base]), \
+                mock.patch.object(runner.shutil, "which", return_value=str(self.root / "bin/ruff")), \
+                mock.patch.object(runner.subprocess, "run", side_effect=run_command), \
+                redirect_stdout(stdout), redirect_stderr(stderr):
+            status = runner.main()
+        return subprocess.CompletedProcess(sys.argv, status, stdout.getvalue(), stderr.getvalue())
 
     def test_changed_and_untracked_sources_are_checked_without_old_or_deleted_files(self):
         (self.root / "changed.js").write_text("changed")

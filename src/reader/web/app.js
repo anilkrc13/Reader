@@ -2295,6 +2295,7 @@ async function saveSnapshot(snapshot, {auto = false, conflict = "prompt", quiet 
           state.file.mtime = res.mtime;
           state.diskSeen = res.mtime;
           state.saved = snapshot.text;
+          state.saveError = "";
           setDirty(el.editor.value !== snapshot.text);
           if (state.dirty) scheduleAutosave();
           hideDiskBar();

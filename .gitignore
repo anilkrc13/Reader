@@ -4,7 +4,8 @@
 .mdview-token
 preferences.json
 
-# Machine-local assistant catalogs and settings
+# Machine-local assistant instructions, catalogs, and settings
+/AGENTS.md
 /.agents/
 .claude/
 

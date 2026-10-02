@@ -1,7 +1,7 @@
 # owned by skills/repository-context/scripts/context_freshness.py -- do not hand-edit
 {
-  "aggregate": "ea771f22ec3c6a4486f9d5b73db3034be488ed71f594805ff2632c35ce878aa2",
-  "commit": "a8ae88bf975a19eb33b958866bc49bbc6db47cfb",
+  "aggregate": "4892924c53533809310b87268513266da03ce1038679d982be59fba1610c3c53",
+  "commit": "4fa3458516dbc8d64e2a2ca897d5c1ab3859e9d8",
   "exclude": [],
   "files": {
     ".github/ISSUE_TEMPLATE/bug_report.md": {
@@ -31,20 +31,20 @@
     ".gitignore": {
       "executable": false,
       "kind": "file",
-      "length": 860,
-      "sha256": "2e880cec818163886ccae430e7de52268184fdd8dea0447d1c772a696b87705d"
+      "length": 886,
+      "sha256": "39da550724fd24ffd215c2413bf60a74fba639e814e15ae077667d0bb1b2707e"
     },
     "CHANGELOG.md": {
       "executable": false,
       "kind": "file",
-      "length": 18587,
-      "sha256": "24506c6c38a59c09adadb0732e06243cf8130480bad120ecd7ee0ff21b2e8266"
+      "length": 18789,
+      "sha256": "5a690a28d7297768094b6e411c63eaa7bd917bfcd22bbc61f10ce6c2042b3e78"
     },
     "CONTRIBUTING.md": {
       "executable": false,
       "kind": "file",
-      "length": 4294,
-      "sha256": "0e2f56d4685a0355590869b6809a68d0d32317e823f556d67d94434831180430"
+      "length": 4385,
+      "sha256": "90a083e3e960a2871525945eb13ecdae54f0ec27fd12260c723da80968197d04"
     },
     "LICENSE": {
       "executable": false,
@@ -343,8 +343,8 @@
     "src/reader/web/app.js": {
       "executable": false,
       "kind": "file",
-      "length": 273942,
-      "sha256": "2f2e4c510120ba1149463ae04c4cca99491f49bad44501a54011fa4e7f3878f3"
+      "length": 273974,
+      "sha256": "c66ca8913c3be1c8b8fec154f6551ac1f76c223ff77a5a89f6e1233a40d12227"
     },
     "src/reader/web/assets/app-icon.png": {
       "executable": false,
@@ -451,8 +451,8 @@
     "tests/browser/webmcp.spec.js": {
       "executable": false,
       "kind": "file",
-      "length": 78183,
-      "sha256": "a40624d25c688e9a74238436f767b4c912980e20a8f5df31edfd72c6ded1948a"
+      "length": 79177,
+      "sha256": "b76d140f221cab21564982435fc7f009ad8e156f24f9ea449a96fa5640eef3b0"
     },
     "tests/chatgpt/browser/embedded.spec.mjs": {
       "executable": false,
@@ -535,8 +535,8 @@
     "tests/server/test_lint_changed.py": {
       "executable": false,
       "kind": "file",
-      "length": 4168,
-      "sha256": "f89d45565ee22865bdffb9813863645ff2ece3259699c30483ee77888d71590e"
+      "length": 4698,
+      "sha256": "2c0cedecda9f06470f1c29e32f82026d17ba288b08a81363b265e7cc2781f325"
     },
     "tests/server/test_markdown_tasks.py": {
       "executable": false,

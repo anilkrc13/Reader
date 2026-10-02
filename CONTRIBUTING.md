@@ -43,9 +43,9 @@ run green, not only the platform you developed on.
 
 The seams where behavior forks by platform:
 
-- **Opening a file in its default app** (`reader.open_with_default_app`):
+- **Opening a file in its default app** (`src.reader.server.open_with_default_app`):
   `open` on macOS, `os.startfile` on Windows, `xdg-open` elsewhere.
-- **The per-user data directory** (`reader.default_data_dir`): `~/Library/
+- **The per-user data directory** (`src.reader.server.default_data_dir`): `~/Library/
   Application Support/Reader` on macOS, `%APPDATA%\Reader` on Windows,
   `$XDG_DATA_HOME/reader` (or `~/.local/share/reader`) elsewhere.
 - **Trash** (`src.reader.backend.DocumentStore.move_to_trash`): `~/.Trash` on
@@ -54,7 +54,7 @@ The seams where behavior forks by platform:
   directory as the fallback when none of those are available. Every one of
   these is still a mutation destination and goes through
   `assert_mutation_allowed`, per `context/document-integrity.md`.
-- **Token file permissions** (`reader._rewrite_token`): `0o600` protects the
+- **Token file permissions** (`src.reader.server._rewrite_token`): `0o600` protects the
   file on POSIX; NTFS ignores that mode, so Windows also runs `icacls` as a
   best-effort second step.
 - **The keyboard modifier glyph**: labels are authored with `⌘` throughout
@@ -85,7 +85,8 @@ number being released.
 
 Maintainers cutting a release should read [`docs/releasing.md`](docs/releasing.md).
 
-## Agent instructions
+## Project guidance
 
-[`AGENTS.md`](AGENTS.md) and `context/` are instructions for AI coding agents working in this
-repository. They are not the contributor guide; this file is.
+Read [source ownership](docs/architecture/source-layout.md) before moving files.
+[Testing](docs/testing.md) records the required checks.
+The [document contract](context/document-integrity.md) covers document safety.
