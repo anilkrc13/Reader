@@ -169,3 +169,15 @@ All 97 Python checks, focused lint, direct ESLint/SwiftLint checks with the move
 configs, and all three builds passed. Runtime source and required notices match.
 The linter configurations retain their original bytes. The server executable
 code is unchanged. No installation or push occurred.
+
+Independent whole-repository review passed at `588bf60` on October 2, 2026,
+covering the reorganization from `de2eb8a`. The reviewer checked tracked,
+untracked, and ignored files against the cleanup requirements. Source, adapters,
+tests, configs, native scripts, output, and notices match their owners.
+Seven focused layout, lint-runner, and setup-failure cleanup checks passed.
+Full-range lint, all seven native script syntax checks, Markdown links, runtime
+resource equality, legal copies, and final app signature checks also passed.
+The earlier 97 Python checks and all-variant build evidence apply to this frozen
+candidate. UI suites were not repeated because executable UI files are unchanged.
+Only the existing `.agents` catalog remains untracked. No installation, push,
+or publication occurred.
