@@ -8,7 +8,7 @@ declare global {
       loading(name: string): void;
       show(text: string, file: {name: string; resourceUri: string}): void;
       preferences(values?: Record<string, unknown>): Record<string, unknown>;
-      find(): void; error(message: string): void;
+      find(): void; settings(): void; error(message: string): void;
     };
     readerEmbeddedHost: {openLink(href: string): Promise<void>};
   }
@@ -54,15 +54,11 @@ window.readerEmbeddedHost = {
 };
 // Host theme is never saved as a reading preference.
 const key = "reader.chatgpt.reading.v1";
-const readingKeys = ["fontSize", "lineHeight", "measure", "previewLayout"];
-const readingOnly = (values: Record<string, unknown>) => Object.fromEntries(readingKeys.map(key => [key, values[key]]));
-let prefs: Record<string, unknown> = {};
-try { prefs = readingOnly(reader.preferences(readingOnly(JSON.parse(localStorage.getItem(key) || "{}")))); }
-catch { prefs = readingOnly(reader.preferences()); }
-function change(values: Record<string, unknown>) {
-  prefs = readingOnly(reader.preferences({...prefs, ...values}));
-  try { localStorage.setItem(key, JSON.stringify(prefs)); } catch { /* keep this panel's in-memory choice */ }
-}
+try { const {theme: _savedTheme, ...display} = JSON.parse(localStorage.getItem(key) || "{}"); reader.preferences(display); }
+catch { /* keep validated defaults when storage is unavailable or malformed */ }
+window.addEventListener("reader-embedded-preferences-changed", () => {
+  try { localStorage.setItem(key, JSON.stringify(reader.preferences())); } catch { /* keep this panel's choices in memory */ }
+});
 function followHostTheme() {
   const theme = app.getHostContext()?.theme;
   if (theme === "light" || theme === "dark") reader.preferences({theme});
@@ -81,48 +77,42 @@ function iconButton(label: string, source: string, action: () => void, parent: H
 iconButton("Find", "#findbar > svg", () => reader.find());
 iconButton("Refresh", "#btn-refresh svg", () => void session?.refresh());
 
-const settings = document.createElement("dialog");
-settings.id = "embedded-reading-settings";
-settings.setAttribute("aria-labelledby", "embedded-reading-title");
-const header = document.createElement("div"); header.className = "embedded-settings-header";
-const title = document.createElement("h2"); title.id = "embedded-reading-title"; title.textContent = "Reading preferences";
-header.append(title);
-iconButton("Close reading preferences", "#find-close svg", () => settings.close(), header);
-settings.append(header);
-const controls: Array<() => void> = [];
-function range(label: string, key: string, min: number, max: number, step: number, unit: string) {
-  const row = document.createElement("label"); row.className = "embedded-setting";
-  const name = document.createElement("span"); name.textContent = label;
-  const output = document.createElement("output");
-  const input = document.createElement("input");
-  input.type = "range"; input.min = String(min); input.max = String(max); input.step = String(step);
-  input.setAttribute("aria-label", label);
-  const sync = () => { input.value = String(prefs[key]); output.textContent = input.value + unit; };
-  input.addEventListener("input", () => {change({[key]: Number(input.value)}); sync();});
-  row.append(name, output, input); settings.append(row); controls.push(sync);
+// Reuse Reader's own settings tabs and controls. Local-only sections explain their limits.
+const settings = document.getElementById("settings")!;
+const themeRow = settings.querySelector('[data-set="theme"]')!.closest(".set-row")!;
+themeRow.querySelector(".set-label span")!.textContent = "Light and dark mode follow Codex. Choose a page tone below.";
+themeRow.querySelector(".set-control")!.textContent = "Follows Codex";
+for (const key of ["glass", "side"]) settings.querySelector(`[data-set="${key}"]`)!.closest(".set-row")!.remove();
+settings.querySelector('[data-set="uiScale"]')!.closest(".set-row")!.querySelector(".set-label span")!.textContent = "Size of Reader's toolbar and this settings panel. Document text has its own size on the Reading page.";
+const notices: Record<string, string> = {
+  editor: "Editing settings are unavailable here because this viewer is read only. Use the Mac app to edit documents. Code-block typography is available under Code.",
+  files: "Files, disk watching, and app updates belong to local Reader. This panel has no folder browser or save access. The host supplies the document and live updates; Refresh reads it again.",
+  about: `Reader ${__READER_VERSION__}. This is the read-only conversation viewer. Native installation paths and update controls belong to the Mac app.`,
+};
+for (const [category, notice] of Object.entries(notices)) {
+  const panel = settings.querySelector(`[data-panel="${category}"]`)!;
+  const group = document.createElement("div"); group.className = "group";
+  const note = document.createElement("p"); note.className = "embedded-settings-note"; note.textContent = notice;
+  group.append(note); panel.replaceChildren(group);
 }
-range("Text size", "fontSize", 13, 26, .5, " px");
-range("Line spacing", "lineHeight", 1.2, 2.2, .05, "×");
-range("Content width", "measure", 50, 100, 1, "%");
-const layoutLabel = document.createElement("label"); layoutLabel.className = "embedded-setting"; layoutLabel.textContent = "Reading layout";
-const layout = document.createElement("select"); layout.setAttribute("aria-label", "Reading layout");
-for (const [value, label] of [["single", "Single column"], ["spread", "Two-page layout"]]) {
-  const option = document.createElement("option"); option.value = value; option.textContent = label; layout.append(option);
+// Keep only the native shortcut rows that this viewer implements.
+const shortcuts = settings.querySelector('[data-panel="keys"]')!;
+for (const row of Array.from(shortcuts.querySelectorAll("tr"))) {
+  if (!["Scroll the document", "Find in the document", "Next / previous match", "Settings"].includes(row.querySelector("td")!.textContent!)) row.remove();
 }
-layout.addEventListener("change", () => change({previewLayout: layout.value}));
-controls.push(() => {layout.value = String(prefs.previewLayout);});
-layoutLabel.append(layout); settings.append(layoutLabel);
-const note = document.createElement("p"); note.className = "embedded-settings-note";
-note.textContent = "Theme follows Codex. Two-page layout uses one column in small panels.";
-settings.append(note); document.body.append(settings);
-const settingsButton = iconButton("Reading preferences", "#btn-settings svg", () => {
-  controls.forEach(sync => sync()); settings.showModal();
-});
-settingsButton.setAttribute("aria-haspopup", "dialog");
-settings.addEventListener("click", event => {if (event.target === settings) {
-  const rect = settings.getBoundingClientRect();
-  if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) settings.close();
-}});
+for (const group of Array.from(shortcuts.querySelectorAll(".group"))) if (!group.querySelector("tr")) group.remove();
+const layoutRow = document.createElement("div"); layoutRow.className = "set-row";
+const layoutLabel = document.createElement("div"); layoutLabel.className = "set-label";
+const layoutTitle = document.createElement("b"); layoutTitle.textContent = "Reading layout";
+const layoutNote = document.createElement("span"); layoutNote.textContent = "Two-page layout uses one column in small panels.";
+layoutLabel.append(layoutTitle, layoutNote);
+const layoutControls = document.createElement("div"); layoutControls.className = "set-control";
+layoutControls.append(document.getElementById("preview-layout")!);
+layoutRow.append(layoutLabel, layoutControls);
+settings.querySelector('[data-panel="reading"] .group')!.append(layoutRow);
+const reset = document.getElementById("btn-reset")!;
+settings.querySelector(".set-head")!.insertBefore(reset, document.getElementById("set-close"));
+iconButton("Settings", "#btn-settings svg", () => reader.settings()).setAttribute("aria-haspopup", "dialog");
 try {
   await app.connect();
   connected = true;

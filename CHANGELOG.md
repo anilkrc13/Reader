@@ -19,8 +19,10 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
   uses Command-Shift-O and a separate Search files field. Command-P is untouched.
 
 - The embedded viewer follows Codex’s theme. Find and Refresh use icons.
-  A Settings gear offers text size, line spacing, content width, and reading
-  layout. Headings have more room in narrow panels. Native controls are unchanged.
+  A Settings gear opens Reader’s shared Appearance, Reading, and Code controls.
+  Page tones, typography, percentage content width, and code styles persist
+  independently of Mac preferences. Unsupported settings explain their limits.
+  Headings have more room in narrow panels. Native controls are unchanged.
 
 - Add a read-only Markdown conversation viewer prototype that shares Reader’s
   rendering and reading controls. Desktop installation and file-link routing

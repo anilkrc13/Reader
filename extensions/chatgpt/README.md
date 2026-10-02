@@ -1,6 +1,6 @@
 # Reader Markdown viewer prototype
 
-This package opens host-provided Markdown in the shared Reader interface. It is read only. It has no document save, filesystem tool, local server connection, native menu, or folder browser. The theme follows Codex, including changes while the panel is open. Find and Refresh use icon buttons. The Settings gear opens text size, line spacing, content width, and reading layout preferences. These reading choices use a separate storage key with an in-memory fallback. Narrow panels use wider content and smaller document titles. The Python browser and Mac app keep their existing boot path.
+This package opens host-provided Markdown in the shared Reader interface. It is read only. It has no document save, filesystem tool, local server connection, native menu, or folder browser. The theme follows Codex, including changes while the panel is open. Find and Refresh use icon buttons. The Settings gear opens Reader’s shared settings panel. Appearance includes four light papers and three dark surfaces; Codex controls light/dark mode. Reading includes typography, headings, spacing, percentage content width, table borders, presets, and reading layout. Code includes highlighting, typeface, size, and wrapping. These display choices use a separate storage key with an in-memory fallback. Reset affects only supported embedded display preferences. Editor, Files & watching, and About explain features that belong to the Mac app. Shortcuts lists supported embedded commands. Narrow panels use wider content and smaller document titles. The Python browser and Mac app keep their existing boot path.
 
 The local build and protocol tests work. Desktop installation, default viewer selection, ordinary file-link routing, and assistant-edit refresh have not been observed in the real host. Do not call this integration delivered until those checks pass. Editing needs a separate approved save design.
 
@@ -45,7 +45,7 @@ Each panel reads and subscribes only to the URI supplied by the host. Switching 
 
 Same-document anchors work. Images without embedded supported raster data show an unavailable placeholder. Relative file links and system schemes report unavailable. HTTP and HTTPS links use the host open-link capability. If it is absent, the viewer reports that limitation. Markdown HTML remains sanitized. Checkboxes stay disabled even when the host advertises a writable document.
 
-The prototype exposes Find, Refresh, and the reading preferences under Settings. Native app features do not carry over automatically. No preference synchronization is promised.
+The prototype exposes Find, Refresh, and shared display preferences under Settings. Native app features do not carry over automatically. No preference synchronization is promised.
 
 ## Link diagnosis and Layout controls
 

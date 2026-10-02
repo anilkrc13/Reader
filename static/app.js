@@ -484,7 +484,7 @@ function loadTabState() {
    the theme can be applied before the first paint. */
 let prefsTimer = null;
 function savePrefs() {
-  if (EMBEDDED) return;
+  if (EMBEDDED) { window.dispatchEvent(new Event("reader-embedded-preferences-changed")); return; }
   cacheLocally();
   clearTimeout(prefsTimer);
   prefsTimer = setTimeout(() => {
@@ -4555,7 +4555,7 @@ function adjustTextSize(delta) {
 
 function embeddedReadingKey(ev) {
   if (!state.file || ev.metaKey || ev.ctrlKey || ev.altKey || editingText() ||
-      document.querySelector("dialog[open]")) return false;
+      overlayOpen() || document.querySelector("dialog[open]")) return false;
   const key = ev.key;
   if (!["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(key) ||
       (ev.shiftKey && key !== " ")) return false;
@@ -4579,12 +4579,15 @@ function embeddedReadingKey(ev) {
 
 document.addEventListener("keydown", (ev) => {
   if (EMBEDDED) {
+    if (settingsOpen()) { if (ev.key === "Escape") { ev.preventDefault(); closeSettings(); } return; }
     if (document.querySelector("dialog[open]")) return;
     if (embeddedReadingKey(ev)) return;
     const mod = ev.metaKey || ev.ctrlKey;
     const link = ev.target.closest?.("a[data-embedded-link]");
     if (link && ev.key === "Enter") { ev.preventDefault(); window.readerEmbeddedHost?.openLink(link.dataset.embeddedLink); return; }
     if (mod && ev.key.toLowerCase() === "f") { ev.preventDefault(); findOpen(); }
+    else if (mod && ev.key.toLowerCase() === "g" && find.open) { ev.preventDefault(); findStep(ev.shiftKey ? -1 : 1); }
+    else if (mod && ev.key === ",") { ev.preventDefault(); openSettings(); }
     else if (ev.key === "Escape") findCloseBar();
     else if (mod && !["c", "a"].includes(ev.key.toLowerCase())) ev.preventDefault();
     return;
@@ -6484,7 +6487,7 @@ async function openFromOS(path) {
 /* small automation hook (same-origin pages only) — used by the test suite */
 if (EMBEDDED) {
   S.autoSave = false; S.autoRefresh = false; S.hidden = true; S.mode = "preview";
-  S.theme = "light"; S.measure = 90;
+  S.theme = "light"; S.measure = 90; S.titleLineHeight = 1.2; S.titleSpacing = -.025;
   root.dataset.empty = "yes";
   const status = document.createElement("div");
   status.id = "embedded-status"; status.setAttribute("role", "status");
@@ -6492,7 +6495,15 @@ if (EMBEDDED) {
   $("toolbar").after(status);
   applySettings();
   el.editor.readOnly = true;
-  const keys = ["theme", "fontSize", "lineHeight", "measure", "previewLayout"];
+  const displayControls = [...document.querySelectorAll(
+    '.panel[data-panel="appearance"] [data-set],.panel[data-panel="reading"] [data-set],.panel[data-panel="code"] [data-set]')]
+    .filter(node => !["theme", "side", "glass"].includes(node.dataset.set));
+  const keys = [...new Set(displayControls.map(node => node.dataset.set)), "previewLayout"];
+  const embeddedDefaults = Object.fromEntries(keys.map(key => [key, S[key]]));
+  $("btn-reset").onclick = () => {
+    // Sandboxed hosts may block browser confirmation dialogs. Only display choices reset here.
+    Object.assign(S, embeddedDefaults); applySettings(); savePrefs(); syncDialog();
+  };
   window.readerEmbedded = {
     loading(name) {
       state.file = null;
@@ -6517,14 +6528,23 @@ if (EMBEDDED) {
     },
     preferences(values = {}) {
       if (["auto", "light", "dark"].includes(values.theme)) S.theme = values.theme;
-      if (Number.isFinite(values.fontSize) && values.fontSize >= 13 && values.fontSize <= 26) S.fontSize = values.fontSize;
-      if (Number.isFinite(values.lineHeight) && values.lineHeight >= 1.2 && values.lineHeight <= 2.2) S.lineHeight = values.lineHeight;
-      if (Number.isFinite(values.measure) && values.measure >= 50 && values.measure <= 100) S.measure = values.measure;
+      for (const control of displayControls) {
+        const key = control.dataset.set, value = values[key];
+        if (control.matches('input[type="range"]')) {
+          if (value === null && control.closest(".slider")?.dataset.nullmin === key) { S[key] = null; continue; }
+          const min = Number(control.min), max = Number(control.max), step = Number(control.step);
+          if (Number.isFinite(value) && value >= min && value <= max) S[key] = Number((min + Math.round((value - min) / step) * step).toFixed(5));
+        } else if (control.matches("select")) {
+          if ([...control.options].some(option => option.value === value)) S[key] = value;
+        } else if (control.classList.contains("switch")) {
+          if (typeof value === "boolean") S[key] = value;
+        } else if ([...control.querySelectorAll("[data-value]")].some(option => option.dataset.value === value)) S[key] = value;
+      }
       if (["single", "spread"].includes(values.previewLayout)) S.previewLayout = values.previewLayout;
-      applySettings();
+      applySettings(); syncDialog();
       return Object.fromEntries(keys.map(key => [key, S[key]]));
     },
-    find: () => findOpen(),
+    find: () => findOpen(), settings: () => openSettings(),
     error: message => { $("embedded-status").textContent = message; toast(message, true); },
   };
   bootDone();
