@@ -51,3 +51,18 @@ artwork equality passed. The documented validation/open race remains outside the
 prototype's guarantees. Actual host metadata, file routing, and icon display
 remain unobserved. Back/Forward still lacks a complete same-thread history API.
 The checkpoint is ready for owner inspection; no publication or installation occurred.
+
+## Adaptive embedded Settings
+
+Independent review of frozen `5d5fde8..c48b549e9ed56a137de625d86ad9835ee8d20008`
+passed with no concrete findings. The reviewer independently reran the focused
+resize regression: one passed. Review checked actual iframe width and height,
+full-pane Back and section picker, reachable scrolling controls, focus retention,
+preferences, and restoration of the reading passage. Native styles, markup,
+launcher, and server behavior are unchanged. The bridge is inside embedded boot.
+
+Evidence shows 18 embedded, 34 local browser, nine protocol, and 90 Python checks
+passing. The Mac bundle was rebuilt, its signature verified, and source resources
+compared. The reviewer inspected narrow/short, large-interface compact, and resized
+modal screenshots. Actual Codex-host acceptance remains pending. No installation,
+publication, or push occurred.

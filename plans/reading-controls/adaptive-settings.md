@@ -57,3 +57,13 @@ Logs are `/tmp/reader-adaptive-final-{embedded,native,protocol,python,build}.log
 Rendered evidence is under `build/embedded-test-results/`, including the four
 pane-size cases, light/dark settings, and live-resize screenshots. The generated
 bundle was not installed or launched. Real host acceptance remains pending.
+
+## Independent review
+
+Frozen `5d5fde8..c48b549e9ed56a137de625d86ad9835ee8d20008` passed with no
+concrete findings. The existing reviewer independently reran the resize regression:
+one passed. Review checked iframe width/height switching, compact navigation,
+scrolling controls, resize focus, retained choices, passage restoration, and the
+embedded-only bridge. Narrow/short, large-interface, and resized modal screenshots
+were inspected. The change is ready for user inspection. Real host acceptance
+remains pending.

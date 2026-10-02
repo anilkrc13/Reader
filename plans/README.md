@@ -8,4 +8,4 @@ Keep a change's approved design and verification plan together here while work i
 
 [Scoped embedded links](reading-controls/scoped-links.md): passed independent review at `1661704`; real-host metadata, routing, and icon display remain unobserved.
 
-[Adaptive embedded settings](reading-controls/adaptive-settings.md): implementation complete; regression gates and independent review in progress.
+[Adaptive embedded settings](reading-controls/adaptive-settings.md): passed independent review at `c48b549`; 151 automated checks passed. Real-host acceptance remains pending.
