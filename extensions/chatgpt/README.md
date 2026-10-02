@@ -46,3 +46,9 @@ Each panel reads and subscribes only to the URI supplied by the host. Switching 
 Same-document anchors work. Images without embedded supported raster data show an unavailable placeholder. Relative file links and system schemes report unavailable. HTTP and HTTPS links use the host open-link capability. If it is absent, the viewer reports that limitation. Markdown HTML remains sanitized. Checkboxes stay disabled even when the host advertises a writable document.
 
 The initial prototype exposes only theme, reading size, find, layout, and refresh. Native app features do not carry over automatically. No preference synchronization is promised.
+
+## Link diagnosis and Layout controls
+
+The user reports that the custom Reader viewer opens. The reported failing link's URL and type have not been supplied. A permitted simulated-host check confirms that same-document anchors scroll to a distant heading in both reading layouts. HTTP and HTTPS links issue a host open-link request when that capability is available. Relative document paths, absolute filesystem paths, and `file://` links remain unavailable under the approved design. These checks do not establish that the actual host honors its link-opening request.
+
+The native and local browser interface has two icon buttons under Preview layout: **Single column** (`single`) and **Two-page layout** (`spread`). The embedded **Layout** text button toggles those same settings. Two-page layout falls back to one column when the panel is too narrow or short.

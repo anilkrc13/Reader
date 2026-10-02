@@ -104,3 +104,56 @@ test('supported external links use the host and refresh preserves the reading of
   expect(requests.filter(url=>url!=='http://reader.test/')).toEqual([]);
   expect(errors).toEqual([]);
 });
+
+test('same-document anchors reveal a distant heading in single-column and two-page layouts', async ({page}) => {
+  const {frame, requests, errors}=await host(page,{links:true});
+  await expect(frame.locator('#preview h1')).toHaveText('Reader');
+  await page.evaluate(()=>{
+    window.host.text='# Anchor check\n\n[Go to destination](#destination)\n\n'+('Filler paragraph with enough words to require scrolling.\n\n'.repeat(100))+'## Destination\n\n[Return to top](#anchor-check)\n';
+    window.host.frames[0].contentWindow.postMessage({jsonrpc:'2.0',method:'notifications/resources/updated',params:{uri:'host:demo'}},'*');
+  });
+  await expect(frame.locator('#preview h1')).toHaveText('Anchor check');
+  const destination=frame.locator('#destination');
+  const visibleInPane=()=>destination.evaluate(node=>{
+    const target=node.getBoundingClientRect(), pane=document.getElementById('previewpane').getBoundingClientRect();
+    return target.top>=pane.top-2 && target.bottom<=pane.bottom+2 && target.left>=pane.left-2 && target.right<=pane.right+2;
+  });
+  expect(await visibleInPane()).toBeFalsy();
+  await frame.getByRole('link',{name:'Go to destination'}).click();
+  await expect.poll(visibleInPane).toBeTruthy();
+  await expect.poll(()=>frame.locator('#previewpane').evaluate(node=>node.scrollTop)).toBeGreaterThan(1000);
+  await frame.getByRole('link',{name:'Return to top'}).click();
+  await expect.poll(()=>frame.locator('#previewpane').evaluate(node=>node.scrollTop)).toBeLessThan(200);
+  await frame.getByRole('button',{name:'Layout',exact:true}).click();
+  await expect(frame.locator('html')).toHaveAttribute('data-paged','yes');
+  await frame.getByRole('link',{name:'Go to destination'}).click();
+  await expect.poll(visibleInPane).toBeTruthy();
+  const calls=await page.evaluate(()=>window.host.calls);
+  expect(calls.some(call=>call.method==='ui/open-link')).toBeFalsy();
+  expect(requests.filter(url=>url!=='http://reader.test/')).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test('HTTP and HTTPS use host opening while filesystem document links stay unavailable', async ({page}) => {
+  const {frame,requests,errors}=await host(page,{links:true});
+  await expect(frame.locator('#preview h1')).toHaveText('Reader');
+  await page.evaluate(()=>{
+    window.host.text='# Link categories\n\n[Relative](./linked.md)\n\n[Absolute](/Users/example/linked.md)\n\n[File URI](file:///Users/example/linked.md)\n\n[HTTP](http://example.com/read)\n\n[HTTPS](https://example.com/read)\n';
+    window.host.frames[0].contentWindow.postMessage({jsonrpc:'2.0',method:'notifications/resources/updated',params:{uri:'host:demo'}},'*');
+  });
+  await expect(frame.locator('#preview h1')).toHaveText('Link categories');
+  for (const label of ['Relative','Absolute','File URI']) {
+    await frame.getByText(label,{exact:true}).click();
+    await expect(frame.locator('#embedded-status')).toContainText('unavailable in the embedded viewer');
+    await expect(frame.locator('#preview h1')).toHaveText('Link categories');
+  }
+  for (const [label,url] of [['HTTP','http://example.com/read'],['HTTPS','https://example.com/read']]) {
+    await frame.getByRole('link',{name:label,exact:true}).click();
+    await expect.poll(()=>page.evaluate(url=>window.host.calls.some(call=>call.method==='ui/open-link' && call.params.url===url),url)).toBeTruthy();
+  }
+  const calls=await page.evaluate(()=>window.host.calls);
+  expect(calls.filter(call=>call.method==='ui/open-link').map(call=>call.params.url)).toEqual(['http://example.com/read','https://example.com/read']);
+  expect(calls.some(call=>call.method==='tools/call')).toBeFalsy();
+  expect(requests.filter(url=>url!=='http://reader.test/')).toEqual([]);
+  expect(errors).toEqual([]);
+});
