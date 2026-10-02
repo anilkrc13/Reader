@@ -21,3 +21,17 @@ The working version is ready for owner inspection. Double-click
 outline, save status, icons, Command-F in Preview and Edit, and Command-Shift-O file
 search. No app installation was performed by this task. Reload Reader Markdown in
 the host to test the embedded package. No PR, push, merge, or deployment occurred.
+
+## Embedded settings parity
+
+Independent review of frozen `7d7370c..607a88d5361ccc9e8bf963c089d5c5fc6210ed35`
+passed with no concrete findings. The reviewer checked the supported-control
+whitelist, validation, separate storage, host-owned theme, display-only reset,
+shared Escape/focus handling, and local-only tab explanations. Native changes
+are guarded by the embedded marker. The native reset and write policy stay intact.
+
+The reviewer inspected narrow Reading, dark Code, and Files notice screenshots
+and the final gate logs. Evidence shows 11 embedded browser, 34 local browser,
+90 server, and seven protocol tests passing. The Mac bundle was rebuilt, signed,
+and compared with source resources. Actual Codex host UI and native menu
+acceptance remain unobserved.
