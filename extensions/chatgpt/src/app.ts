@@ -52,29 +52,81 @@ window.readerEmbeddedHost = {
     } catch { reader.error("The host could not open this link."); }
   },
 };
-// Independent allowlisted preferences. Storage may be denied by the iframe host.
+// Host theme is never saved as a reading preference.
 const key = "reader.chatgpt.reading.v1";
+const readingKeys = ["fontSize", "lineHeight", "measure", "previewLayout"];
+const readingOnly = (values: Record<string, unknown>) => Object.fromEntries(readingKeys.map(key => [key, values[key]]));
 let prefs: Record<string, unknown> = {};
-try { prefs = reader.preferences(JSON.parse(localStorage.getItem(key) || "{}")); } catch { prefs = reader.preferences(); }
+try { prefs = readingOnly(reader.preferences(readingOnly(JSON.parse(localStorage.getItem(key) || "{}")))); }
+catch { prefs = readingOnly(reader.preferences()); }
 function change(values: Record<string, unknown>) {
-  prefs = reader.preferences({...prefs, ...values});
+  prefs = readingOnly(reader.preferences({...prefs, ...values}));
   try { localStorage.setItem(key, JSON.stringify(prefs)); } catch { /* keep this panel's in-memory choice */ }
 }
-const toolbar = document.getElementById("toolbar")!;
-function button(label: string, action: () => void) {
-  const node = document.createElement("button");
-  node.className = "mini-btn embedded-control"; node.textContent = label;
-  node.setAttribute("aria-label", label); node.addEventListener("click", action); toolbar.append(node);
+function followHostTheme() {
+  const theme = app.getHostContext()?.theme;
+  if (theme === "light" || theme === "dark") reader.preferences({theme});
 }
-button("Find", () => reader.find());
-button("Theme", () => change({theme: prefs.theme === "dark" ? "light" : "dark"}));
-button("A−", () => change({fontSize: Math.max(13, Number(prefs.fontSize) - 1)}));
-button("A+", () => change({fontSize: Math.min(26, Number(prefs.fontSize) + 1)}));
-button("Layout", () => change({previewLayout: prefs.previewLayout === "spread" ? "single" : "spread"}));
-button("Refresh", () => void session?.refresh());
+app.addEventListener("hostcontextchanged", followHostTheme);
+
+const toolbar = document.getElementById("toolbar")!;
+function iconButton(label: string, source: string, action: () => void, parent: HTMLElement = toolbar) {
+  const node = document.createElement("button");
+  node.type = "button"; node.className = "icon-btn embedded-control";
+  node.title = label; node.setAttribute("aria-label", label);
+  node.append(document.querySelector(source)!.cloneNode(true));
+  node.addEventListener("click", action); parent.append(node);
+  return node;
+}
+iconButton("Find", "#findbar > svg", () => reader.find());
+iconButton("Refresh", "#btn-refresh svg", () => void session?.refresh());
+
+const settings = document.createElement("dialog");
+settings.id = "embedded-reading-settings";
+settings.setAttribute("aria-labelledby", "embedded-reading-title");
+const header = document.createElement("div"); header.className = "embedded-settings-header";
+const title = document.createElement("h2"); title.id = "embedded-reading-title"; title.textContent = "Reading preferences";
+header.append(title);
+iconButton("Close reading preferences", "#find-close svg", () => settings.close(), header);
+settings.append(header);
+const controls: Array<() => void> = [];
+function range(label: string, key: string, min: number, max: number, step: number, unit: string) {
+  const row = document.createElement("label"); row.className = "embedded-setting";
+  const name = document.createElement("span"); name.textContent = label;
+  const output = document.createElement("output");
+  const input = document.createElement("input");
+  input.type = "range"; input.min = String(min); input.max = String(max); input.step = String(step);
+  input.setAttribute("aria-label", label);
+  const sync = () => { input.value = String(prefs[key]); output.textContent = input.value + unit; };
+  input.addEventListener("input", () => {change({[key]: Number(input.value)}); sync();});
+  row.append(name, output, input); settings.append(row); controls.push(sync);
+}
+range("Text size", "fontSize", 13, 26, .5, " px");
+range("Line spacing", "lineHeight", 1.2, 2.2, .05, "×");
+range("Content width", "measure", 50, 100, 1, "%");
+const layoutLabel = document.createElement("label"); layoutLabel.className = "embedded-setting"; layoutLabel.textContent = "Reading layout";
+const layout = document.createElement("select"); layout.setAttribute("aria-label", "Reading layout");
+for (const [value, label] of [["single", "Single column"], ["spread", "Two-page layout"]]) {
+  const option = document.createElement("option"); option.value = value; option.textContent = label; layout.append(option);
+}
+layout.addEventListener("change", () => change({previewLayout: layout.value}));
+controls.push(() => {layout.value = String(prefs.previewLayout);});
+layoutLabel.append(layout); settings.append(layoutLabel);
+const note = document.createElement("p"); note.className = "embedded-settings-note";
+note.textContent = "Theme follows Codex. Two-page layout uses one column in small panels.";
+settings.append(note); document.body.append(settings);
+const settingsButton = iconButton("Reading preferences", "#btn-settings svg", () => {
+  controls.forEach(sync => sync()); settings.showModal();
+});
+settingsButton.setAttribute("aria-haspopup", "dialog");
+settings.addEventListener("click", event => {if (event.target === settings) {
+  const rect = settings.getBoundingClientRect();
+  if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) settings.close();
+}});
 try {
   await app.connect();
   connected = true;
+  followHostTheme();
   if (!stopped) {
     if (!extensions.resources) reader.error("This host does not support file resources. Open the file in Reader locally.");
     else {

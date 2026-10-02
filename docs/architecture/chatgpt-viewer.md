@@ -6,7 +6,7 @@ The shared frontend recognizes the embedded document marker before boot. It skip
 
 Each iframe owns one DocumentSession. Reads carry a document generation and refresh number. A result applies only while both still match. Subscription changes are serialized separately from reads, so a slow read cannot prevent unsubscribe or disposal. The app receives tool input before connecting, then opens the pending file after capability discovery. It reports absent capabilities instead of falling back to local paths.
 
-The host owns document contents. Each panel owns its loaded preview and reading position. Its independent storage key holds only validated theme, reading size, and layout. Denied storage leaves those choices in memory. A refresh failure keeps the prior preview. A switch clears the old document before reading the new one.
+The host owns document contents. Each panel owns its loaded preview and reading position. Its independent storage key holds only validated text size, line spacing, content width, and reading layout. Denied storage leaves those choices in memory. The App SDK supplies the initial host theme and reports live theme changes. Theme is never stored as a reading preference. Embedded-only styles give narrow panels responsive document titles and side padding. The native interface keeps its existing controls and defaults. A refresh failure keeps the prior preview. A switch clears the old document before reading the new one.
 
 Relative content cannot confer access to other resources. The renderer replaces unresolved images before inserting them into the live page. Links to other files have no navigable href. External HTTP and HTTPS links go through the host. The resource CSP permits embedded assets and no network connections.
 

@@ -9,7 +9,7 @@ Two focused checks exercise the current bundled viewer with the real App SDK in 
 
 No in-scope supported-link bug was reproduced. No production code changed. Relative-file access remains deferred. A host receiving the correct web-link request can still fail to open it; that boundary is not proven by this harness.
 
-The native/local **Single column** and **Two-page layout** icon buttons map to `single` and `spread`. The embedded **Layout** text button toggles those same choices. Small panels use the single-column fallback.
+The native/local **Single column** and **Two-page layout** icon buttons map to `single` and `spread`. At the time of this diagnosis, the embedded **Layout** text button toggled those same choices. The later [reading controls update](reading-controls.md) moves them into Settings. Small panels use the single-column fallback.
 
 Focused command: `npm run test:embedded -- --grep 'same-document anchors|filesystem document links'` — two tests passed.
 

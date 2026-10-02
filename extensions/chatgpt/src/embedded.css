@@ -1,0 +1,25 @@
+/* This stylesheet is bundled only into the conversation viewer. */
+#sidebar,#dragbar,#editorpane,#empty,#fmtbar,#settings,#scrim,#ctxmenu,#diskbar {display:none!important}
+#toolbar > :not(.doc-title):not(.embedded-control) {display:none!important}
+#toolbar {gap:6px}
+.doc-title {flex:1;min-width:0}
+.embedded-control {flex:none}
+#embedded-status {padding:8px 16px;color:var(--text-3);font:12px var(--ui)}
+.embedded-unavailable {color:var(--text-3)}
+#previewpane {container-type:inline-size}
+.prose {padding:28px clamp(16px,4cqi,40px) 20vh}
+.prose h1.doc-heading {font-size:clamp(28px,6cqi,48px);line-height:1.2;letter-spacing:-.025em;text-wrap:pretty}
+#embedded-reading-settings {
+  width:min(380px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;
+  margin:auto;padding:20px;border:1px solid var(--border);border-radius:14px;
+  color:var(--text);background:var(--paper);box-shadow:var(--shadow);font:14px var(--ui);
+}
+#embedded-reading-settings::backdrop {background:rgb(0 0 0 / .3)}
+.embedded-settings-header {display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}
+.embedded-settings-header h2 {font:600 17px var(--ui);margin:0}
+.embedded-setting {display:grid;grid-template-columns:1fr auto;gap:10px;margin:20px 0}
+.embedded-setting input {grid-column:1 / -1;width:100%;accent-color:var(--accent)}
+.embedded-setting output {color:var(--text-3);font-variant-numeric:tabular-nums}
+.embedded-setting select {grid-column:1 / -1;width:100%;padding:9px;color:var(--text);background:var(--paper);border:1px solid var(--border);border-radius:6px;font:inherit}
+.embedded-settings-note {color:var(--text-3);font-size:12px;line-height:1.5;margin:20px 0 0}
+#embedded-reading-settings :focus-visible {outline:2px solid var(--accent);outline-offset:3px}

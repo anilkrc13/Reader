@@ -16,12 +16,7 @@ for (const match of [...css.matchAll(/url\(\/static\/([^)]*)\)/g)]) {
   const mime = match[1].endsWith('.woff2') ? 'font/woff2' : 'font/ttf';
   css = css.replace(match[0], `url(data:${mime};base64,${data.toString('base64')})`);
 }
-css += `\n#sidebar,#dragbar,#editorpane,#empty,#fmtbar,#settings,#scrim,#ctxmenu,#diskbar {display:none!important}
-#toolbar > :not(.doc-title):not(.embedded-control) {display:none!important}
-#embedded-status {padding:8px 16px;color:var(--text-3);font:12px var(--ui)}
-#toolbar {gap:5px} .doc-title {flex:1;min-width:40px} .embedded-unavailable {color:var(--text-3)}
-@media(max-width:560px) {#toolbar {flex-wrap:wrap;height:auto;min-height:44px}.embedded-control {font-size:11px}}
-`;
+css += '\n' + await readFile(resolve(here, 'src/embedded.css'), 'utf8');
 let html = await readFile(resolve(source, 'index.html'), 'utf8');
 html = html.replace('<html ', '<html data-host="chatgpt" ')
   .replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '')

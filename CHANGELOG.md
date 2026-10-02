@@ -4,6 +4,10 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- The embedded viewer follows Codex’s theme. Find and Refresh use icons.
+  A Settings gear offers text size, line spacing, content width, and reading
+  layout. Headings have more room in narrow panels. Native controls are unchanged.
+
 - Add a read-only Markdown conversation viewer prototype that shares Reader’s
   rendering and reading controls. Desktop installation and file-link routing
   still need a real-host check.

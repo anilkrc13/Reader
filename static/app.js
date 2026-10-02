@@ -6380,6 +6380,7 @@ async function openFromOS(path) {
 /* small automation hook (same-origin pages only) — used by the test suite */
 if (EMBEDDED) {
   S.autoSave = false; S.autoRefresh = false; S.hidden = true; S.mode = "preview";
+  S.theme = "light"; S.measure = 90;
   root.dataset.empty = "yes";
   const status = document.createElement("div");
   status.id = "embedded-status"; status.setAttribute("role", "status");
@@ -6387,7 +6388,7 @@ if (EMBEDDED) {
   $("toolbar").after(status);
   applySettings();
   el.editor.readOnly = true;
-  const keys = ["theme", "fontSize", "previewLayout"];
+  const keys = ["theme", "fontSize", "lineHeight", "measure", "previewLayout"];
   window.readerEmbedded = {
     loading(name) {
       state.file = null;
@@ -6412,6 +6413,8 @@ if (EMBEDDED) {
     preferences(values = {}) {
       if (["auto", "light", "dark"].includes(values.theme)) S.theme = values.theme;
       if (Number.isFinite(values.fontSize) && values.fontSize >= 13 && values.fontSize <= 26) S.fontSize = values.fontSize;
+      if (Number.isFinite(values.lineHeight) && values.lineHeight >= 1.2 && values.lineHeight <= 2.2) S.lineHeight = values.lineHeight;
+      if (Number.isFinite(values.measure) && values.measure >= 50 && values.measure <= 100) S.measure = values.measure;
       if (["single", "spread"].includes(values.previewLayout)) S.previewLayout = values.previewLayout;
       applySettings();
       return Object.fromEntries(keys.map(key => [key, S[key]]));

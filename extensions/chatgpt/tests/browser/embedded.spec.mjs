@@ -2,20 +2,21 @@ import {test, expect} from '@playwright/test';
 import fs from 'node:fs';
 const html = fs.readFileSync(new URL('../../dist/viewer.html', import.meta.url), 'utf8');
 
-async function host(page, {resources = true, storage = true, links = false} = {}) {
+async function host(page, {resources = true, storage = true, links = false, theme = "light", savedPrefs = {}} = {}) {
   const requests = [], errors = [];
   page.on('request', request => requests.push(request.url()));
   page.on('pageerror', error => errors.push(error.message));
   await page.route('http://reader.test/**', route => route.fulfill({body:'<!doctype html><html><body></body></html>',contentType:'text/html'}));
   await page.goto('http://reader.test/');
-  await page.evaluate(({html, resources, storage, links}) => {
+  await page.evaluate(({html, resources, storage, links, theme, savedPrefs}) => {
+    if (storage) localStorage.setItem("reader.chatgpt.reading.v1", JSON.stringify(savedPrefs));
     window.host = {calls:[], frames:[], text: '# Reader\n\nA shared reading interface.\n\n- [x] Read only\n\n![Relative image](./secret.png)\n\n[Relative file](./secret.md) · [External](https://example.com) · [Section](#reader)\n\n<script>window.pwned=true</script>\n<img src="x" onerror="window.pwned=true">', fail:false};
     window.addEventListener('message', event => {
       const message = event.data;
       if (!message || message.jsonrpc !== '2.0') return;
       window.host.calls.push(message);
       const reply = result => event.source.postMessage({jsonrpc:'2.0',id:message.id,result}, '*');
-      if (message.method === 'ui/initialize') reply({protocolVersion:'2026-01-26',hostInfo:{name:'test-host',version:'1'},hostCapabilities: resources ? {experimental:{'openai/resource':{}},serverResources:{},...(links?{openLinks:{}}:{})} : {},hostContext:{}});
+      if (message.method === 'ui/initialize') reply({protocolVersion:'2026-01-26',hostInfo:{name:'test-host',version:'1'},hostCapabilities: resources ? {experimental:{'openai/resource':{}},serverResources:{},...(links?{openLinks:{}}:{})} : {},hostContext:{theme}});
       else if (message.method === 'ui/notifications/initialized') {
         event.source.postMessage({jsonrpc:'2.0',method:'ui/notifications/tool-input',params:{arguments:{file:{name:'demo.md',resourceUri:'host:demo'}}}}, '*');
       } else if (message.method === 'resources/read') {
@@ -29,7 +30,7 @@ async function host(page, {resources = true, storage = true, links = false} = {}
       frame.srcdoc=html; document.body.append(frame); window.host.frames.push(frame);
     };
     window.host.add();
-  }, {html, resources, storage, links});
+  }, {html, resources, storage, links, theme, savedPrefs});
   const frame = page.frameLocator('iframe').first();
   return {frame, requests, errors};
 }
@@ -56,7 +57,8 @@ test('bundled SDK viewer reads, sanitizes, refreshes and never calls local APIs 
   await expect(frame.locator('#toast')).toContainText('last preview');
   await expect(frame.locator('#preview h1')).toHaveText('Updated');
   await page.screenshot({path:testInfo.outputPath('embedded-light-error.png')});
-  await frame.getByRole('button',{name:'Theme',exact:true}).click();
+  await page.evaluate(()=>window.host.frames[0].contentWindow.postMessage({jsonrpc:'2.0',method:'ui/notifications/host-context-changed',params:{theme:'dark'}},'*'));
+  await expect(frame.locator('html')).toHaveAttribute('data-theme','dark');
   await page.screenshot({path:testInfo.outputPath('embedded-dark.png')});
   const calls=await page.evaluate(()=>window.host.calls);
   expect(calls.some(call=>call.method==='resources/subscribe')).toBeTruthy();
@@ -69,8 +71,10 @@ test('bundled SDK viewer reads, sanitizes, refreshes and never calls local APIs 
 test('storage denial falls back to memory and a second panel keeps its own document', async ({page}) => {
   const {frame,errors}=await host(page,{storage:false});
   await expect(frame.locator('#preview h1')).toHaveText('Reader');
-  await frame.getByRole('button',{name:'A+',exact:true}).click();
-  await expect(frame.locator('html')).toHaveAttribute('style',/--fs-body: 17.5px/);
+  await frame.getByRole('button',{name:'Reading preferences',exact:true}).click();
+  await frame.getByRole('slider',{name:'Text size'}).press('ArrowRight');
+  await expect(frame.locator('html')).toHaveAttribute('style',/--fs-body: 17px/);
+  await frame.getByRole('button',{name:'Close reading preferences'}).click();
   await page.evaluate(()=>{window.host.text='# Second'; window.host.add();});
   await expect(page.frameLocator('iframe').nth(1).locator('#preview h1')).toHaveText('Second');
   await expect(frame.locator('#preview h1')).toHaveText('Reader');
@@ -124,7 +128,9 @@ test('same-document anchors reveal a distant heading in single-column and two-pa
   await expect.poll(()=>frame.locator('#previewpane').evaluate(node=>node.scrollTop)).toBeGreaterThan(1000);
   await frame.getByRole('link',{name:'Return to top'}).click();
   await expect.poll(()=>frame.locator('#previewpane').evaluate(node=>node.scrollTop)).toBeLessThan(200);
-  await frame.getByRole('button',{name:'Layout',exact:true}).click();
+  await frame.getByRole('button',{name:'Reading preferences',exact:true}).click();
+  await frame.getByRole('combobox',{name:'Reading layout'}).selectOption('spread');
+  await frame.getByRole('button',{name:'Close reading preferences'}).click();
   await expect(frame.locator('html')).toHaveAttribute('data-paged','yes');
   await frame.getByRole('link',{name:'Go to destination'}).click();
   await expect.poll(visibleInPane).toBeTruthy();
@@ -154,6 +160,58 @@ test('HTTP and HTTPS use host opening while filesystem document links stay unava
   const calls=await page.evaluate(()=>window.host.calls);
   expect(calls.filter(call=>call.method==='ui/open-link').map(call=>call.params.url)).toEqual(['http://example.com/read','https://example.com/read']);
   expect(calls.some(call=>call.method==='tools/call')).toBeFalsy();
+  expect(requests.filter(url=>url!=='http://reader.test/')).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+
+test('host theme wins over saved theme and reading preferences improve narrow headings', async ({page},testInfo) => {
+  const {frame,requests,errors}=await host(page,{theme:'dark',savedPrefs:{theme:'light',fontSize:18,measure:90}});
+  await expect(frame.locator('#preview h1')).toHaveText('Reader');
+  await expect(frame.locator('html')).toHaveAttribute('data-theme','dark');
+  await expect(frame.getByRole('button',{name:'Theme',exact:true})).toHaveCount(0);
+  for (const label of ['Find','Refresh','Reading preferences']) {
+    const button=frame.getByRole('button',{name:label,exact:true});
+    await expect(button.locator('svg')).toHaveCount(1);
+    await expect(button).toHaveText('');
+  }
+  await page.setViewportSize({width:420,height:720});
+  await page.evaluate(()=>{
+    window.host.text='# Reading should feel comfortable in a narrow conversation panel\n\nContent with room to breathe.';
+    window.host.frames[0].contentWindow.postMessage({jsonrpc:'2.0',method:'notifications/resources/updated',params:{uri:'host:demo'}},'*');
+  });
+  await expect(frame.locator('#preview h1')).toContainText('Reading should feel comfortable');
+  const dimensions=await frame.locator('#preview h1').evaluate(node=>{
+    const style=getComputedStyle(node), rect=node.getBoundingClientRect();
+    return {width:rect.width,font:parseFloat(style.fontSize),line:parseFloat(style.lineHeight)};
+  });
+  expect(dimensions.width).toBeGreaterThan(300);
+  expect(dimensions.font).toBeLessThanOrEqual(32);
+  expect(dimensions.line / dimensions.font).toBeGreaterThan(1.15);
+  await page.screenshot({path:testInfo.outputPath('embedded-heading-dark.png')});
+  await frame.getByRole('button',{name:'Reading preferences',exact:true}).click();
+  const dialog=frame.getByRole('dialog',{name:'Reading preferences'});
+  await expect(dialog).toBeVisible();
+  await frame.getByRole('slider',{name:'Content width'}).press('End');
+  await frame.getByRole('slider',{name:'Line spacing'}).press('End');
+  await frame.getByRole('slider',{name:'Text size'}).press('Home');
+  await expect(frame.locator('html')).toHaveAttribute('style',/--measure: 100%/);
+  await expect(frame.locator('html')).toHaveAttribute('style',/--lh-body: 2.2/);
+  await expect(frame.locator('html')).toHaveAttribute('style',/--fs-body: 13px/);
+  await page.screenshot({path:testInfo.outputPath('embedded-settings-dark.png')});
+  await frame.getByRole('button',{name:'Close reading preferences'}).click();
+  await expect(frame.getByRole('button',{name:'Reading preferences',exact:true})).toBeFocused();
+  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('reader.chatgpt.reading.v1')));
+  expect(saved).toEqual({fontSize:13,lineHeight:2.2,measure:100,previewLayout:'single'});
+  await page.evaluate(()=>window.host.frames[0].contentWindow.postMessage({jsonrpc:'2.0',method:'ui/notifications/host-context-changed',params:{theme:'light'}},'*'));
+  await expect(frame.locator('html')).toHaveAttribute('data-theme','light');
+  await frame.getByRole('button',{name:'Reading preferences',exact:true}).click();
+  await page.screenshot({path:testInfo.outputPath('embedded-settings-light.png')});
+  await dialog.press('Escape'); await expect(dialog).not.toBeVisible();
+  await page.evaluate(()=>window.host.add());
+  const next=page.frameLocator('iframe').nth(1);
+  await expect(next.locator('html')).toHaveAttribute('style',/--measure: 100%/);
+  await expect(next.locator('html')).toHaveAttribute('data-theme','dark');
   expect(requests.filter(url=>url!=='http://reader.test/')).toEqual([]);
   expect(errors).toEqual([]);
 });
