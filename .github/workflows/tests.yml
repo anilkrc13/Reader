@@ -57,4 +57,12 @@ jobs:
           codesign --verify --deep --strict build/Reader.app
           cmp reader.py build/Reader.app/Contents/Resources/reader.py
           cmp VERSION build/Reader.app/Contents/Resources/VERSION
-          diff -qr -x __pycache__ src build/Reader.app/Contents/Resources/src
+          cmp reader_backend.py build/Reader.app/Contents/Resources/reader_backend.py
+          cmp src/__init__.py build/Reader.app/Contents/Resources/src/__init__.py
+          for file in __init__.py server.py backend.py; do
+            cmp "src/reader/$file" "build/Reader.app/Contents/Resources/src/reader/$file"
+          done
+          diff -qr -x __pycache__ src/reader/web build/Reader.app/Contents/Resources/src/reader/web
+          test ! -e build/Reader.app/Contents/Resources/src/reader/chatgpt
+          test ! -e build/Reader.app/Contents/Resources/src/reader/macos
+          test ! -e build/Reader.app/Contents/Resources/src/reader/common
