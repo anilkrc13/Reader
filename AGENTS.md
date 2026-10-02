@@ -48,7 +48,7 @@ double-clicking it quits a running Reader, always rebuilds via
 `~/Applications/Reader.app`, and opens that installed copy, which is the app
 the user actually runs.
 
-- After changing `src/reader/`, [`reader.py`](reader.py), [`VERSION`](VERSION), the
+- After changing `src/reader/`, [`scripts/reader.py`](scripts/reader.py), [`VERSION`](VERSION), the
   macOS launcher or icon sources, licenses, or bundle metadata, run
   `./src/reader/macos/scripts/build-app.sh` before declaring the work complete.
 - Do not treat manual edits inside `build/Reader.app` as a finished build. The

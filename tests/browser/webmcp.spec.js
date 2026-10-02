@@ -91,7 +91,7 @@ test.beforeAll(async () => {
   await resetWorkspace();
 
   const port = await availablePort();
-  server = spawn("python3", [path.join(PROJECT, "reader.py"), workspace,
+  server = spawn("python3", [path.join(PROJECT, "scripts", "reader.py"), workspace,
     "--port", String(port), "--no-browser"], {
     cwd: PROJECT,
     env: {...process.env, READER_DATA_DIR: stateDir},

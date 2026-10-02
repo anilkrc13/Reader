@@ -2,7 +2,7 @@ import socket
 import unittest
 from unittest import mock
 
-import reader
+from src.reader import server as reader
 
 
 class ServerBindSkipsFqdnLookupTests(unittest.TestCase):

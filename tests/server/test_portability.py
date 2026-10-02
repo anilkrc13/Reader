@@ -21,7 +21,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import reader
+from src.reader import server as reader
 from src.reader.backend import DocumentStore, FileAccessPolicy, WorkspaceError
 
 
@@ -30,12 +30,12 @@ class DefaultDataDirTests(unittest.TestCase):
     and everything else their own conventional per-user data folder."""
 
     def test_macos_uses_library_application_support(self):
-        with patch("reader.sys.platform", "darwin"):
+        with patch("src.reader.server.sys.platform", "darwin"):
             result = reader.default_data_dir()
         self.assertEqual(result, Path.home() / "Library" / "Application Support" / "Reader")
 
     def test_windows_uses_appdata_when_set(self):
-        with patch("reader.sys.platform", "win32"), \
+        with patch("src.reader.server.sys.platform", "win32"), \
              patch.dict(os.environ, {"APPDATA": r"C:\Users\test\AppData\Roaming"}):
             result = reader.default_data_dir()
         self.assertEqual(result, Path(r"C:\Users\test\AppData\Roaming") / "Reader")
@@ -43,13 +43,13 @@ class DefaultDataDirTests(unittest.TestCase):
     def test_windows_falls_back_when_appdata_missing(self):
         env = os.environ.copy()
         env.pop("APPDATA", None)
-        with patch("reader.sys.platform", "win32"), \
+        with patch("src.reader.server.sys.platform", "win32"), \
              patch.dict(os.environ, env, clear=True):
             result = reader.default_data_dir()
         self.assertEqual(result, Path.home() / "AppData" / "Roaming" / "Reader")
 
     def test_linux_uses_xdg_data_home_when_set(self):
-        with patch("reader.sys.platform", "linux"), \
+        with patch("src.reader.server.sys.platform", "linux"), \
              patch.dict(os.environ, {"XDG_DATA_HOME": "/tmp/xdg-data"}):
             result = reader.default_data_dir()
         self.assertEqual(result, Path("/tmp/xdg-data") / "reader")
@@ -57,7 +57,7 @@ class DefaultDataDirTests(unittest.TestCase):
     def test_linux_falls_back_to_local_share(self):
         env = os.environ.copy()
         env.pop("XDG_DATA_HOME", None)
-        with patch("reader.sys.platform", "linux"), \
+        with patch("src.reader.server.sys.platform", "linux"), \
              patch.dict(os.environ, env, clear=True):
             result = reader.default_data_dir()
         self.assertEqual(result, Path.home() / ".local" / "share" / "reader")
@@ -76,22 +76,22 @@ class OpenWithDefaultAppTests(unittest.TestCase):
         # code under test uses.
         target = Path("/tmp/thing.docx")
         completed = subprocess.CompletedProcess(["open"], 0, stdout=b"", stderr=b"")
-        with patch("reader.sys.platform", "darwin"), \
-             patch("reader.subprocess.run", return_value=completed) as run:
+        with patch("src.reader.server.sys.platform", "darwin"), \
+             patch("src.reader.server.subprocess.run", return_value=completed) as run:
             error = reader.open_with_default_app(target)
         self.assertIsNone(error)
         run.assert_called_once_with(["open", str(target)], capture_output=True, timeout=15)
 
     def test_macos_reports_stderr_on_failure(self):
         completed = subprocess.CompletedProcess(["open"], 1, stdout=b"", stderr=b"no app")
-        with patch("reader.sys.platform", "darwin"), \
-             patch("reader.subprocess.run", return_value=completed):
+        with patch("src.reader.server.sys.platform", "darwin"), \
+             patch("src.reader.server.subprocess.run", return_value=completed):
             error = reader.open_with_default_app(Path("/tmp/thing.docx"))
         self.assertEqual(error, "no app")
 
     def test_windows_uses_os_startfile(self):
-        with patch("reader.sys.platform", "win32"), \
-             patch("reader.os.startfile", create=True) as startfile:
+        with patch("src.reader.server.sys.platform", "win32"), \
+             patch("src.reader.server.os.startfile", create=True) as startfile:
             error = reader.open_with_default_app(Path(r"C:\Users\test\thing.docx"))
         self.assertIsNone(error)
         startfile.assert_called_once_with(r"C:\Users\test\thing.docx")
@@ -100,23 +100,23 @@ class OpenWithDefaultAppTests(unittest.TestCase):
         """os.startfile has no captured process output, so a failure there
         must still produce the same kind of error message the macOS and
         Linux branches produce -- not a crash from assuming stderr exists."""
-        with patch("reader.sys.platform", "win32"), \
-             patch("reader.os.startfile", create=True, side_effect=OSError("no association")):
+        with patch("src.reader.server.sys.platform", "win32"), \
+             patch("src.reader.server.os.startfile", create=True, side_effect=OSError("no association")):
             error = reader.open_with_default_app(Path(r"C:\Users\test\thing.docx"))
         self.assertEqual(error, "no association")
 
     def test_linux_runs_xdg_open(self):
         target = Path("/tmp/thing.docx")  # see test_macos_runs_open for why
         completed = subprocess.CompletedProcess(["xdg-open"], 0, stdout=b"", stderr=b"")
-        with patch("reader.sys.platform", "linux"), \
-             patch("reader.subprocess.run", return_value=completed) as run:
+        with patch("src.reader.server.sys.platform", "linux"), \
+             patch("src.reader.server.subprocess.run", return_value=completed) as run:
             error = reader.open_with_default_app(target)
         self.assertIsNone(error)
         run.assert_called_once_with(["xdg-open", str(target)], capture_output=True, timeout=15)
 
     def test_linux_missing_xdg_open_is_reported(self):
-        with patch("reader.sys.platform", "linux"), \
-             patch("reader.subprocess.run", side_effect=FileNotFoundError()):
+        with patch("src.reader.server.sys.platform", "linux"), \
+             patch("src.reader.server.subprocess.run", side_effect=FileNotFoundError()):
             error = reader.open_with_default_app(Path("/tmp/thing.docx"))
         self.assertEqual(error, "xdg-open is not installed")
 
@@ -206,9 +206,9 @@ class TokenAclTests(unittest.TestCase):
     def test_icacls_runs_on_windows_after_writing_the_token(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / ".reader-token"
-            with patch("reader.sys.platform", "win32"), \
+            with patch("src.reader.server.sys.platform", "win32"), \
                  patch.dict(os.environ, {"USERNAME": "alice"}), \
-                 patch("reader.subprocess.run") as run:
+                 patch("src.reader.server.subprocess.run") as run:
                 reader._rewrite_token(path, "a-token-value")
             self.assertEqual(path.read_text(encoding="utf-8"), "a-token-value")
             run.assert_called_once()
@@ -221,17 +221,17 @@ class TokenAclTests(unittest.TestCase):
     def test_icacls_is_not_attempted_off_windows(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / ".reader-token"
-            with patch("reader.sys.platform", "darwin"), \
-                 patch("reader.subprocess.run") as run:
+            with patch("src.reader.server.sys.platform", "darwin"), \
+                 patch("src.reader.server.subprocess.run") as run:
                 reader._rewrite_token(path, "a-token-value")
             run.assert_not_called()
 
     def test_icacls_failure_is_silent(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / ".reader-token"
-            with patch("reader.sys.platform", "win32"), \
+            with patch("src.reader.server.sys.platform", "win32"), \
                  patch.dict(os.environ, {"USERNAME": "alice"}), \
-                 patch("reader.subprocess.run", side_effect=OSError("no icacls")):
+                 patch("src.reader.server.subprocess.run", side_effect=OSError("no icacls")):
                 reader._rewrite_token(path, "a-token-value")  # must not raise
             self.assertEqual(path.read_text(encoding="utf-8"), "a-token-value")
 

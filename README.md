@@ -30,9 +30,9 @@ open it; see [docs/macos.md](docs/macos.md) for how to get past it.
 ### From source
 
 ```
-python3 reader.py                      # start in your home folder
-python3 reader.py ~/Documents/notes    # start in a folder
-python3 reader.py ~/notes/spec.md      # open a file straight away
+python3 scripts/reader.py                      # start in your home folder
+python3 scripts/reader.py ~/Documents/notes    # start in a folder
+python3 scripts/reader.py ~/notes/spec.md      # open a file straight away
 ```
 
 See [docs/macos.md](docs/macos.md) for building the app yourself, signing it
@@ -71,8 +71,7 @@ turning Reader into a browser app.
 ## Source layout
 
 The shared implementation lives in [`src/reader/`](src/reader/). Web application
-code, assets, and vendored libraries have separate folders. The root `reader.py` keeps
-the existing launch and import name. Native build scripts live in `src/reader/macos/scripts/`; the standalone
+code, assets, and vendored libraries have separate folders. The launcher lives in `scripts/reader.py` and imports the canonical server. Native build scripts live in `src/reader/macos/scripts/`; the standalone
 conversation adapter lives in `src/reader/chatgpt/`. The Mac launcher and its
 assets live in `src/reader/macos/`. Both builds use artwork from `src/reader/common/`. See
 [source ownership](docs/architecture/source-layout.md) for the history and test map.
@@ -108,8 +107,7 @@ Seven sections, in a dialog laid out like a modern desktop app:
 Everything you choose is remembered between restarts, along with the folder you
 were browsing, the file you were reading, the panel side and width, and the
 view mode. Preferences are stored in `~/Library/Application Support/Reader`
-when Reader runs as the app, or in `preferences.json` beside [`reader.py`](reader.py) when
-run from source.
+when Reader runs as the app, or in `preferences.json` at the project root when run from source.
 
 ## Development
 

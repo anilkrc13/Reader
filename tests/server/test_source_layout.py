@@ -1,4 +1,4 @@
-"""Keep canonical source ownership and compatible root entrypoints working."""
+"""Keep canonical source ownership and direct packaged launch working."""
 import os
 import subprocess
 import sys
@@ -6,7 +6,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import reader
 from scripts.package_runtime import package_runtime
 from src.reader import server
 
@@ -14,8 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class SourceLayoutTests(unittest.TestCase):
-    def test_root_imports_return_canonical_modules_and_keep_authorization_root(self):
-        self.assertIs(reader, server)
+    def test_server_keeps_authorization_root(self):
         self.assertEqual(server.APP_DIR, ROOT)
         self.assertEqual(server.STATIC_DIR, ROOT / "src/reader/web")
 
@@ -27,11 +25,11 @@ class SourceLayoutTests(unittest.TestCase):
             environment = {**os.environ, "READER_DATA_DIR": str(Path(temporary) / "state"),
                            "PYTHONDONTWRITEBYTECODE": "1"}
             package_runtime(resource)
-            result = subprocess.run([sys.executable, str(resource / "reader.py"), "--help"],
-                                    cwd=resource, env=environment, capture_output=True, text=True)
+            result = subprocess.run([sys.executable, str(resource / "scripts/reader.py"), "--help"],
+                                    cwd=temporary, env=environment, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("--no-browser", result.stdout)
-            probe = "import reader; from src.reader import backend; from pathlib import Path; assert reader.APP_DIR == Path.cwd(); assert reader.STATIC_DIR.is_dir(); assert backend.DocumentStore"
+            probe = "from src.reader import server, backend; from pathlib import Path; assert server.APP_DIR == Path.cwd(); assert server.STATIC_DIR.is_dir(); assert backend.DocumentStore"
             result = subprocess.run([sys.executable, "-c", probe], cwd=resource,
                                     env=environment, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -58,7 +56,7 @@ class SourceLayoutTests(unittest.TestCase):
     def test_root_has_no_legacy_source_or_generated_app_outputs(self):
         legacy = [name for name in ("macos", "static", "fonts", "builds", "test-results",
                                     "manifest.json", "reader_backend.py", "eslint.config.mjs",
-                                    "ruff.toml", ".swiftlint.yml") if (ROOT / name).exists()]
+                                    "ruff.toml", ".swiftlint.yml", "reader.py") if (ROOT / name).exists()]
         legacy.extend(path.name for pattern in ("Reader-*.zip", "Reader-*.dmg")
                       for path in ROOT.glob(pattern))
         self.assertEqual(legacy, [], "Application source belongs in src; output belongs in build")

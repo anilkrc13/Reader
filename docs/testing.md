@@ -78,7 +78,7 @@ checks can run alongside the native browser and Python checks. Report wall time
 separately from summed command durations: overlapping commands do not add that
 sum to the user's wait. Keep build prerequisites in order.
 
-The Mac build gate comes from `AGENTS.md`. Changes to `src/reader/`, `reader.py`,
+The Mac build gate comes from `AGENTS.md`. Changes to `src/reader/`, `scripts/reader.py`,
 `VERSION`, launcher or icon sources, licenses, or bundle
 metadata require `./src/reader/macos/scripts/build-app.sh`, signature verification, and resource-copy
 checks. An extension-only runner or documentation change does not trigger that
@@ -131,9 +131,9 @@ compilation are checked separately. Actual installed-app font selection remains
 a manual acceptance check through `install/Reader.command`.
 
 Server/tooling tests live in `tests/server/`; discovery from `tests` recurses into
-that package. Root entrypoint and isolated-resource-tree tests protect launch and
-import compatibility after source moves. The native bundle must contain identical Python package markers, server/backend
-modules, the web tree, and the root `reader.py` entry. Compare those selected resources
+that package. Canonical-server and isolated-resource-tree tests protect data paths and
+direct launch after source moves. The native bundle must contain identical Python package markers, server/backend
+modules, the web tree, and the `scripts/reader.py` launcher. Compare those selected resources
 after the mandated build. Verify that Mac/ChatGPT adapter source, Node dependencies,
 and extension output are absent. The extension output lives in `build/chatgpt`.
 

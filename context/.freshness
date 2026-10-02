@@ -1,20 +1,14 @@
 # owned by skills/repository-context/scripts/context_freshness.py -- do not hand-edit
 {
-  "aggregate": "5b8ba391944da0edda37f8b68e4aef7e0bf0f7ead55bab4431e6145babdb10b4",
-  "commit": "8a263726b701987e120b5007d3c8ea1749b809cf",
+  "aggregate": "e4bd581a90ff466939863a1fe94c37f0a8c9928442b26c7d2b3c476aa3b07486",
+  "commit": "4e4b0bb78db32d85af0d20afe63395ecd4991c77",
   "exclude": [],
   "files": {
-    ".agents/plugins/marketplace.json": {
-      "executable": false,
-      "kind": "file",
-      "length": 374,
-      "sha256": "9cb62c536e4161f7dc1998fc43b693ffeeda3952c9cf86498618b4de94b02ff6"
-    },
     ".github/ISSUE_TEMPLATE/bug_report.md": {
       "executable": false,
       "kind": "file",
-      "length": 331,
-      "sha256": "a4330e193912559eee824568c1ead8dab09c8dc864f2986704a9b725f42ab3da"
+      "length": 339,
+      "sha256": "1f849e3043a898674a2169e972c5401d8aa33cac477fae81c56b4e8976788842"
     },
     ".github/ISSUE_TEMPLATE/feature_request.md": {
       "executable": false,
@@ -31,14 +25,14 @@
     ".github/workflows/tests.yml": {
       "executable": false,
       "kind": "file",
-      "length": 3420,
-      "sha256": "ede5fafce2946fa4ca79012e24b1ebe65fd3569e80473d0c2c0c9642210a3c31"
+      "length": 3436,
+      "sha256": "c1cafe007e5aae4891209d4a4ccceef0b63e06fe4d24feb5b8c21207a42dcba8"
     },
     ".gitignore": {
       "executable": false,
       "kind": "file",
-      "length": 831,
-      "sha256": "e68d3a0a4bad8c3374e590f18a07435820fc9f4f54d41abed0b44e6447e70288"
+      "length": 860,
+      "sha256": "2e880cec818163886ccae430e7de52268184fdd8dea0447d1c772a696b87705d"
     },
     "CHANGELOG.md": {
       "executable": false,
@@ -49,8 +43,8 @@
     "CONTRIBUTING.md": {
       "executable": false,
       "kind": "file",
-      "length": 4270,
-      "sha256": "7e91f5ac6577ceddb8764dd383bff0424c2aee3537e2178c4728726dc2937569"
+      "length": 4294,
+      "sha256": "0e2f56d4685a0355590869b6809a68d0d32317e823f556d67d94434831180430"
     },
     "LICENSE": {
       "executable": false,
@@ -61,14 +55,14 @@
     "README.md": {
       "executable": false,
       "kind": "file",
-      "length": 21684,
-      "sha256": "b1a09a8aed941dd1a433710e6caba7fbf5fd276d3e492ed48dfbf02856bde3a3"
+      "length": 21708,
+      "sha256": "4aba451f16b4a9d1eeb5349e4ee03a186ad6e9b9e30ed0a54812f8c7c2d9888e"
     },
     "SECURITY.md": {
       "executable": false,
       "kind": "file",
-      "length": 1202,
-      "sha256": "2cf993d74e6878800aa08dd222d86afa16fd5b1bdb4b24598111f79e9cbea12b"
+      "length": 1210,
+      "sha256": "f785012289db7f8fa07da55a116312ba7f327829650afdb5f5834061745e4ae0"
     },
     "VERSION": {
       "executable": false,
@@ -103,20 +97,14 @@
     "package.json": {
       "executable": false,
       "kind": "file",
-      "length": 805,
-      "sha256": "e9bbfa6c8b58fdb15e4d66fd3169d9f9440921fd675edad8a368308ff00e5f16"
+      "length": 813,
+      "sha256": "5adf6b8992d7faaadcefcd0a100572c2d1a6ca71cefbe441ee65ae3be1175117"
     },
     "playwright.config.js": {
       "executable": false,
       "kind": "file",
       "length": 647,
       "sha256": "cc13202bc461f361b4b7d6c79588a313f3b547131dcef848476c6ff5e15200eb"
-    },
-    "reader.py": {
-      "executable": true,
-      "kind": "file",
-      "length": 259,
-      "sha256": "4baae630652c884f9c01868272038f6dc160d8e9fbaf1592afee70c38b6e6e66"
     },
     "requirements-dev.txt": {
       "executable": false,
@@ -139,8 +127,14 @@
     "scripts/package_runtime.py": {
       "executable": false,
       "kind": "file",
-      "length": 1461,
-      "sha256": "3259a760ae03dc38c2356f18429da019ec1d687b5b81872814ff002455895dde"
+      "length": 1469,
+      "sha256": "ecf8db72960d670edf8181831204485ceb55882b458bd74e1a034cfe195648ca"
+    },
+    "scripts/reader.py": {
+      "executable": true,
+      "kind": "file",
+      "length": 365,
+      "sha256": "5a32c585856a7e74e188d2ffb0072e6d8bea74d65452649f92e6a3e325cf8a8d"
     },
     "src/__init__.py": {
       "executable": false,
@@ -295,8 +289,8 @@
     "src/reader/macos/ReaderLauncher.swift": {
       "executable": false,
       "kind": "file",
-      "length": 103646,
-      "sha256": "5ddccc01eb08915878d15f8a9fd957c9bc020523cb457a8e721777ff858d5a24"
+      "length": 103654,
+      "sha256": "8993250ba739304579a80864ee7a89c47ecbd2a2d24d01e1a4cc22bea025176a"
     },
     "src/reader/macos/scripts/build-app.sh": {
       "executable": true,
@@ -343,8 +337,8 @@
     "src/reader/server.py": {
       "executable": true,
       "kind": "file",
-      "length": 32568,
-      "sha256": "ab104b25170510566dadbb6185a1137ca74a9a765190bb2a967ed5ebf9b331fc"
+      "length": 32577,
+      "sha256": "a333410a0b99300ae29fc0c5cb201684eb11f5e77f64130ba0e8c8d1d11ca5ec"
     },
     "src/reader/web/app.css": {
       "executable": false,
@@ -463,8 +457,8 @@
     "tests/browser/webmcp.spec.js": {
       "executable": false,
       "kind": "file",
-      "length": 78172,
-      "sha256": "e7d37c14d2ce373a397e5d9f10f8026b44bc84bd1d34db30ffc617489ee76819"
+      "length": 78183,
+      "sha256": "a40624d25c688e9a74238436f767b4c912980e20a8f5df31edfd72c6ded1948a"
     },
     "tests/chatgpt/browser/embedded.spec.mjs": {
       "executable": false,
@@ -559,44 +553,44 @@
     "tests/server/test_move.py": {
       "executable": false,
       "kind": "file",
-      "length": 3377,
-      "sha256": "9dcbf466565f3cf3a8817a19d005710b15838cf741bf35f2ac8a4f6398b41f09"
+      "length": 3403,
+      "sha256": "2ba73a1713b8271a62a505527e1b4293879f17e0ed0cd66ee91c83ee8ddc1961"
     },
     "tests/server/test_portability.py": {
       "executable": false,
       "kind": "file",
-      "length": 11810,
-      "sha256": "c1e24426f2ed0de5d1967172451ea0f0ed2d93a358392ac2025333d1bd41bab1"
+      "length": 12089,
+      "sha256": "26700cced0a1175466349c8e52aa31979b92d70db0cc709b91fd42fea39ead12"
     },
     "tests/server/test_privacy_lifecycle.py": {
       "executable": false,
       "kind": "file",
-      "length": 1886,
-      "sha256": "6a960bd2983647cf3489077de4a05534445b0077f7648546bc28b2aa70049164"
+      "length": 1902,
+      "sha256": "805f53d9657e4d82ffe8933ece72877be106fd88a3448fc730f8e88c247c84a3"
     },
     "tests/server/test_save_security.py": {
       "executable": false,
       "kind": "file",
-      "length": 6082,
-      "sha256": "6a575f2f518425197e10f3b9b15778f575ef62490d653991463c6e9d103a065d"
+      "length": 6108,
+      "sha256": "90c359ee6ebc785493dd4695ffa9997bdaa7a186975f118d82fbc75508b12716"
     },
     "tests/server/test_server_bind_speed.py": {
       "executable": false,
       "kind": "file",
-      "length": 2090,
-      "sha256": "93dfbfa0488105be52e2b65d256af1796507a860d2bbd4b3e7bc5a8feed6bf9a"
+      "length": 2116,
+      "sha256": "cdc155fe5e4b4cc6ba6f8ceacbf96f30b3ac55aca6db342966a7c67f1c677c6b"
     },
     "tests/server/test_source_layout.py": {
       "executable": false,
       "kind": "file",
-      "length": 3491,
-      "sha256": "739b55965db73fe2a220d2477bcbf65ab41147350aa6fc9567cf712f9d410a20"
+      "length": 3415,
+      "sha256": "13ed1ebf58ca76e4cff25cd012dea142a2f9f4afa76d6e09ddba06eafa17d6df"
     },
     "tests/server/test_workspace_authorization.py": {
       "executable": false,
       "kind": "file",
-      "length": 10007,
-      "sha256": "3ea4f689f91efb18750368f2fce1ca246ba9688450eb39c350e86b1ee7861483"
+      "length": 10033,
+      "sha256": "2bf62775bb5f5a2de2f0ca938b43c026e58fe2c7ccc7a8fbf57b723051444502"
     }
   },
   "format": 2

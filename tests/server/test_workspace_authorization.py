@@ -7,7 +7,7 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-import reader
+from src.reader import server as reader
 from src.reader.backend import DocumentStore, FileAccessPolicy, WorkspaceError
 
 

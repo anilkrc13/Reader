@@ -4,8 +4,8 @@
 .mdview-token
 preferences.json
 
-# Local Claude Code settings
-.claude/settings.local.json
+# Machine-local assistant catalogs and settings
+/.agents/
 .claude/
 
 # Local Playwright inspection artifacts
@@ -17,6 +17,8 @@ playwright-report/
 # Python
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.ruff_cache/
 
 # macOS
 .DS_Store

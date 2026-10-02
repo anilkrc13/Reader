@@ -7,7 +7,7 @@ welcome.
 ## Running from source
 
 ```
-python3 reader.py            # opens in your browser
+python3 scripts/reader.py            # opens in your browser
 python3 -m unittest discover -s tests -v
 ```
 
@@ -27,7 +27,7 @@ npm run test:webmcp
   meant to stay portable even though only the macOS app ships today.
 - Keep the server dependency-free. No `pip install`.
 - Keep the page free of inline script. The Content Security Policy forbids it.
-- If you change `src/reader/`, [`reader.py`](reader.py), [`VERSION`](VERSION), or
+- If you change `src/reader/`, [`scripts/reader.py`](scripts/reader.py), [`VERSION`](VERSION), or
   anything under `src/reader/macos/`, rebuild the app with [`./src/reader/macos/scripts/build-app.sh`](src/reader/macos/scripts/build-app.sh) and check
   it still launches. The built bundle is not committed; CI builds it.
 

@@ -292,7 +292,7 @@ The launcher-to-server contract is small and is what a launcher for another
 platform would need to reproduce:
 
 1. Probe `GET http://127.0.0.1:8737/api/ping` and expect `{"app": "Reader"}`.
-2. If nothing answers, start `python3 reader.py --port 8737 --no-browser
+2. If nothing answers, start `python3 scripts/reader.py --port 8737 --no-browser
    [PATH]` with `READER_DATA_DIR` pointing at the platform's per-user data
    folder, and stop that process on quit.
 3. Read the session token from `.reader-token` in that data folder and load

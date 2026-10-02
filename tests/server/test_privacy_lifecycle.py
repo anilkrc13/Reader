@@ -35,7 +35,7 @@ class PrivacyLifecycleTests(unittest.TestCase):
             env = os.environ.copy()
             env["READER_DATA_DIR"] = str(Path(tmp) / "Reader State")
             result = subprocess.run(
-                [sys.executable, "-c", "import reader; print(reader.PREFS_FILE)"],
+                [sys.executable, "-c", "from src.reader import server; print(server.PREFS_FILE)"],
                 cwd=PROJECT_ROOT,
                 env=env,
                 text=True,

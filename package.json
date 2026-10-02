@@ -8,7 +8,7 @@
     "test:chatgpt": "npm --prefix src/reader/chatgpt test",
     "build:macos": "python3 scripts/build.py macos",
     "build:chatgpt": "python3 scripts/build.py chatgpt",
-    "start:web": "python3 reader.py",
+    "start:web": "python3 scripts/reader.py",
     "build": "python3 scripts/build.py",
     "build:web": "python3 scripts/build.py web"
   },

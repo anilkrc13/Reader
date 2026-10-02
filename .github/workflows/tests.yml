@@ -55,7 +55,7 @@ jobs:
       - name: Verify bundle
         run: |
           codesign --verify --deep --strict build/Reader.app
-          cmp reader.py build/Reader.app/Contents/Resources/reader.py
+          cmp scripts/reader.py build/Reader.app/Contents/Resources/scripts/reader.py
           cmp VERSION build/Reader.app/Contents/Resources/VERSION
           cmp LICENSE build/Reader.app/Contents/Resources/LICENSE
           diff -qr src/reader/common/licenses build/Reader.app/Contents/Resources/licenses

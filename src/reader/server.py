@@ -5,13 +5,13 @@ Reader -- a small local document browser: markdown, code, CSV and PDF.
 Runs a loopback-only HTTP server and opens the UI in your default browser.
 Standard library only: no pip installs, no network access at runtime.
 
-    python3 reader.py [PATH] [--port N] [--no-browser]
+    python3 scripts/reader.py [PATH] [--port N] [--no-browser]
 
 PATH may be a folder (opens the browser there) or a file (opens it). A
 relative PATH is taken against your home folder, not the working directory,
 so that double-clicking the launcher behaves the same as running it here.
 
-Preferences are stored server side, in preferences.json beside this script,
+Preferences are stored server side, in preferences.json at the runtime root,
 so they survive restarts even when the app lands on a different port.
 """
 

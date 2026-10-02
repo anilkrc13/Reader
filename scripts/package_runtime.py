@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_FILES = (
-    "reader.py", "VERSION", "LICENSE", "src/__init__.py",
+    "scripts/reader.py", "VERSION", "LICENSE", "src/__init__.py",
     "src/reader/__init__.py", "src/reader/server.py", "src/reader/backend.py",
 )
 

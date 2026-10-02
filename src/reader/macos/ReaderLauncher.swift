@@ -530,7 +530,7 @@ private final class ReaderAppDelegate: NSObject, NSApplicationDelegate {
             showError("Reader’s bundled server resources are missing.")
             return
         }
-        let script = resourceURL.appendingPathComponent("reader.py")
+        let script = resourceURL.appendingPathComponent("scripts/reader.py")
         guard FileManager.default.fileExists(atPath: script.path) else {
             showError("Reader’s bundled server script is missing.")
             return

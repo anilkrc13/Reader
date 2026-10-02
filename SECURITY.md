@@ -17,4 +17,4 @@ rather than opening a public issue. Use GitHub's
 on this repository. You should hear back within a week.
 
 Please include the Reader version, how you were running it (app, browser, or
-`python3 reader.py`), and a document or request that demonstrates the problem.
+`python3 scripts/reader.py`), and a document or request that demonstrates the problem.

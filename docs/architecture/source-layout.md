@@ -14,9 +14,8 @@ src/reader/
   macos/                     Swift launcher, metadata, and native icon assets
     scripts/                 native build, signing, and release commands
   chatgpt/                   Node adapter source and package configuration
-reader.py                    compatible launch and import name
 config/                      focused linter configuration
-scripts/                     development and repository tools
+scripts/                     server launcher, development and repository tools
 tests/server/                local server and tooling checks
 tests/browser/               shared UI with the local server
 tests/chatgpt/               adapter protocol and simulated-host checks
@@ -47,10 +46,11 @@ platform builds. Native dock images and the Icon Composer recipe remain Mac
 assets. The build stages common artwork with that recipe in a temporary directory;
 it uses the existing compiler and leaves source artwork untouched.
 
-The root `reader.py` entry preserves existing commands and its import name.
-Importing `reader` returns the canonical server module. Backend callers import
-`src.reader.backend` directly; the old `reader_backend.py` alias was removed.
-Both `./reader.py` and `python3 reader.py` work.
+The launcher is `scripts/reader.py`. Both `./scripts/reader.py` and
+`python3 scripts/reader.py` work from the checkout or a packaged runtime. It adds
+the runtime root to Python’s import path, so direct execution works from another
+working directory. Callers import `src.reader.server` and `src.reader.backend`
+directly. The former root `reader` import alias is removed.
 APP_DIR remains the repository or bundle-resource root. Preferences and workspace
 authorization keep that root. `/static/` still serves only the web directory.
 
@@ -59,7 +59,7 @@ web tree. It compiles the Swift adapter and icon recipe, then adds bundle metada
 It does not ship adapter sources, Node dependencies, or extension output. The
 extension build combines the same web base with its TypeScript adapter and emits
 `build/chatgpt`. That portable package keeps manifests, licenses, and branding.
-A web-only launch uses the root Python command and needs no adapter build.
+A web-only launch uses the Python launcher and needs no adapter build.
 
 Root browser tests use one worker because filesystem fixtures are shared.
 Embedded tests use two workers because page, storage, routes, and output are
@@ -89,13 +89,12 @@ The adapter manifest owns its own runtime dependencies and module type.
 | --- | --- |
 | `src/` | Shared application and platform adapter source, assets, metadata, notices. |
 | `tests/` | All tests, adapter runner configuration, and manual test helpers. |
-| `scripts/` | Project build command, shared runtime packager, and focused lint runner. |
+| `scripts/` | Server launcher, project build command, shared runtime packager, and focused lint runner. |
 | `install/` | The user-facing source installer and update command. |
 | `docs/`, `context/` | Architecture, contributor checks, and document integrity contracts. |
 | `AGENTS.md`, `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md` | Project instructions, entry documentation, security policy, and release history. |
 | `LICENSE` | The project's required license. Both distributions copy it. |
 | `VERSION` | The only product version value. Builds and server read it. |
-| `reader.py` | Compatible Python launch and import name. The implementation lives under source. |
 | `package.json`, `package-lock.json` | Pinned repo-wide development tools and build/test commands; not a second application package. |
 | `requirements-dev.txt` | The pinned Python linter. Reader has no Python runtime dependency manifest. |
 | `config/` | ESLint, Ruff, and SwiftLint rules. The focused lint runner supplies each path explicitly. |
@@ -105,7 +104,7 @@ The adapter manifest owns its own runtime dependencies and module type.
 | `node_modules/` | Ignored repo-wide development dependencies. The adapter's ignored dependencies stay at its package boundary. |
 | `__pycache__/`, `.ruff_cache/`, `.pytest_cache/` | Ignored Python/tool caches. These are local tooling, not application source or release output. |
 | `.reader-token`, `preferences.json` | Existing local authorization and preferences. Preserved without reading their contents. |
-| `.agents/` | Existing local plugin catalog. Reader's source path is `./build/chatgpt`; policy and other fields were preserved. |
+| `.agents/` | Ignored local plugin catalog. Reader's source path is `./build/chatgpt`; policy and other fields are preserved. |
 | `.claude/`, `.playwright-cli/`, `.DS_Store` | Existing local assistant settings, CLI diagnostics, and Finder metadata. Preserved. |
 | `plans/` | Temporary only during active work; removed when decisions and checks have permanent homes. |
 
@@ -122,7 +121,7 @@ Use `npm run build` to build all variants on a Mac. Select one with
 The web target emits a portable server/runtime tree under `build/web`. Its Python
 code needs no compilation. Mac and web builds use one runtime packager, so their
 source and notice selection cannot drift. Non-Mac hosts select web or chatgpt.
-Use `npm run start:web` or `python3 reader.py` to run the checkout. Native builds regenerate `build/Reader.app`. Extension
+Use `npm run start:web` or `python3 scripts/reader.py` to run the checkout. Native builds regenerate `build/Reader.app`. Extension
 builds clear only their owned `build/chatgpt` output before regenerating it.
 Release scripts write archives and the manifest to `build/releases`. The public
 asset filenames and updater URL fields remain unchanged.
@@ -181,3 +180,32 @@ The earlier 97 Python checks and all-variant build evidence apply to this frozen
 candidate. UI suites were not repeated because executable UI files are unchanged.
 Only the existing `.agents` catalog remains untracked. No installation, push,
 or publication occurred.
+
+## Root launcher and local-state audit
+
+The server launcher moved from `reader.py` to `scripts/reader.py`. Keeping a root
+shim would preserve the old command, but would also leave the root item this
+cleanup removes. Use `python3 scripts/reader.py` or `npm run start:web` instead.
+Tests import the server directly. The Mac launcher, shared runtime packager, CI,
+and browser runner use the moved script. Server code still owns the project or
+bundle-resource root, so preferences and authorization paths do not move.
+
+The remaining tracked root files each have a purpose in the table above. Node
+manifests stay together at the root for standard npm commands and reproducible
+tooling. Playwright defaults stay there by project policy. There is no unused
+tracked root file supported for deletion. Historical verification paragraphs
+above describe earlier checkouts; the table and launcher section describe today.
+
+`.agents/`, `.pytest_cache/`, and `.ruff_cache/` now have explicit ignore rules.
+Existing rules exclude dependencies, build and release output, bytecode, local
+preferences and tokens, assistant settings, browser diagnostics, and Finder
+metadata. These local files are preserved. An ignore rule does not untrack a
+file already in Git; the tracked-file audit must check that none of those items
+is already committed.
+
+The root-launcher move passed 97 Python checks and 35 local browser checks.
+Focused ESLint, Ruff, and SwiftLint passed. Direct checkout launch from `/tmp`
+and isolated packaged launch passed. Web and Mac builds passed; selected runtime
+files, web assets, and notices match source in both. The Mac signature verifies.
+The tracked-file audit found no file matching the ignore rules. No installation,
+app launch, publication, or push occurred. Installed-app testing remains manual.
