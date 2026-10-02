@@ -89,7 +89,7 @@ The adapter manifest owns its own runtime dependencies and module type.
 | --- | --- |
 | `src/` | Shared application and platform adapter source, assets, metadata, notices. |
 | `tests/` | All tests, shared and adapter runner configuration, and manual test helpers. |
-| `scripts/` | Server launcher, project build command, shared runtime packager, and focused lint runner. |
+| `scripts/` | Server launcher, project build command, runtime and plugin-release packaging, and focused lint runner. |
 | `install/` | The user-facing source installer and update command. |
 | `docs/`, `context/` | Architecture, contributor checks, and document integrity contracts. |
 | `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md` | Project instructions, entry documentation, security policy, and release history. |
@@ -228,3 +228,15 @@ The owner requested keeping `AGENTS.md` local. It is untracked and covered by
 the root-scoped `/AGENTS.md` ignore rule. The local instructions are preserved.
 Public contributor guidance links to source ownership, testing, and document
 safety. Earlier Git history still contains the instruction file.
+
+## Plugin release ownership
+
+The tag-triggered Release workflow builds both the Mac app and bundled plugin.
+The plugin packager validates the shared version and notices, emits a ZIP under
+`build/releases`, and stages an exploded Git marketplace under `build`. The
+publisher owns only a separate `plugin-marketplace` branch. Its generated
+`.agents/plugins/marketplace.json` is distinct from ignored machine-local state.
+Catalog paths resolve within that fetched branch. Version folders and source
+provenance are immutable; catalog refresh selects the latest published version.
+A dispatch from merged `main` bootstraps plugin distribution without a tag or
+Mac release. Details and failure ordering live in [releasing](../releasing.md).

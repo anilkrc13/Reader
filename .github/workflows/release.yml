@@ -1,14 +1,58 @@
 name: Release
 
-# A pushed tag is the only trigger. The tag is the release: its name fixes the
-# version, and CI's job is just to prove the build matches what VERSION says.
+# Tags publish Mac and plugin release assets. A dispatch from main publishes
+# only the Git marketplace, for initial setup without creating a release tag.
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+
+concurrency:
+  group: reader-release-distribution
+  cancel-in-progress: false
 
 jobs:
+  plugin:
+    name: Build plugin distribution
+    if: github.event_name == 'push' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci --prefix src/reader/chatgpt --ignore-scripts
+      - run: npm run build:chatgpt
+      - name: Validate and package plugin
+        shell: bash
+        run: |
+          TAG_ARGS=()
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            TAG_ARGS=(--tag "$GITHUB_REF_NAME")
+          fi
+          python3 scripts/plugin_release.py stage \
+            --plugin-dir build/chatgpt --version-file VERSION \
+            "${TAG_ARGS[@]}" --source-commit "$GITHUB_SHA" \
+            --repository-url "https://github.com/$GITHUB_REPOSITORY" \
+            --output-dir build/plugin-marketplace --archive-dir build/releases
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reader-plugin-marketplace
+          path: build/plugin-marketplace/
+          include-hidden-files: true
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reader-plugin-zip
+          path: build/releases/Reader-plugin-*.zip
+          if-no-files-found: error
+
   release:
+    if: github.event_name == 'push'
+    needs: plugin
     name: Build and publish
     runs-on: macos-latest
     permissions:
@@ -100,6 +144,12 @@ jobs:
       - name: Extract changelog section
         run: ./src/reader/macos/scripts/extract-changelog.sh "$VERSION" > "$RUNNER_TEMP/release-notes.md"
 
+      - name: Download plugin release asset
+        uses: actions/download-artifact@v4
+        with:
+          name: reader-plugin-zip
+          path: build/releases/
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -107,6 +157,36 @@ jobs:
           gh release create "v$VERSION" \
             "build/releases/Reader-$VERSION.zip" \
             "build/releases/Reader-$VERSION.dmg" \
+            "build/releases/Reader-plugin-$VERSION.zip" \
             build/releases/manifest.json \
             --title "Reader $VERSION" \
             --notes-file "$RUNNER_TEMP/release-notes.md"
+
+  marketplace:
+    name: Publish Git marketplace
+    needs: [plugin, release]
+    if: >-
+      always() && needs.plugin.result == 'success' &&
+      (needs.release.result == 'success' ||
+       (github.event_name == 'workflow_dispatch' && needs.release.result == 'skipped'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: reader-plugin-marketplace
+          path: build/plugin-marketplace/
+      - name: Publish validated plugin files and catalog
+        shell: bash
+        run: |
+          # Reuse checkout's job-scoped credentials without putting a token in URLs.
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0='http.https://github.com/.extraheader'
+          export GIT_CONFIG_VALUE_0="$(git config --get http.https://github.com/.extraheader)"
+          python3 scripts/plugin_release.py publish \
+            --stage-dir build/plugin-marketplace \
+            --checkout "$RUNNER_TEMP/reader-plugin-marketplace" \
+            --remote "https://github.com/$GITHUB_REPOSITORY.git" \
+            --branch plugin-marketplace

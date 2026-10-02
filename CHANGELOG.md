@@ -4,6 +4,10 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- GitHub releases package the bundled Reader plugin alongside Mac assets.
+  The same workflow publishes a Git-backed marketplace with versioned plugin
+  files. An initial dispatch from main can publish the marketplace without a tag.
+
 - A successful conflict overwrite clears the blocked-save label. Newer edits
   entered during that save remain Unsaved.
 

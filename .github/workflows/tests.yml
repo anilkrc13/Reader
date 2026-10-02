@@ -86,6 +86,13 @@ jobs:
           for notice in src/reader/common/licenses/*; do
             cmp "$notice" "build/chatgpt/licenses/$(basename "$notice")"
           done
+      - name: Validate plugin release package
+        run: |
+          python3 scripts/plugin_release.py stage \
+            --plugin-dir build/chatgpt --version-file VERSION \
+            --tag "v$(cat VERSION)" --source-commit "$(git rev-parse HEAD)" \
+            --repository-url "https://github.com/$GITHUB_REPOSITORY" \
+            --output-dir build/ci-plugin-marketplace --archive-dir build/releases
       - run: npm run test:chatgpt
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test --config tests/chatgpt/playwright.config.cjs

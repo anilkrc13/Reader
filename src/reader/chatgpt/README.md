@@ -28,6 +28,23 @@ node build/chatgpt/server.mjs
 
 It waits for MCP messages on stdin. It does not print a web URL. The integration test connects a real MCP client to this exact bundle and verifies its Markdown entrypoint and UI resource. The browser tests use the real App SDK with a simulated host. They prove protocol wiring and rendering, not desktop routing.
 
+## GitHub marketplace installation
+
+After the Release workflow publishes the `plugin-marketplace` branch, use:
+
+```sh
+codex plugin marketplace add anilkrc13/Reader --ref plugin-marketplace
+codex plugin add reader-markdown@reader-github
+```
+
+The fetched marketplace supplies a ready-built plugin; no source build or local
+`build/chatgpt` path is needed. Node 22 or newer is still required. Refresh the
+catalog with `codex plugin marketplace upgrade reader-github`. See
+[release distribution](../../../docs/releasing.md#plugin-package-and-git-marketplace)
+for bootstrap, ZIP contents, immutable versions, and publication failure behavior.
+This route is available only after a successful workflow publication. Real host
+routing and refresh still require the acceptance checks below.
+
 ## Desktop installation to test
 
 OpenAI documents a [repo-local marketplace installation route](https://developers.openai.com/plugins/build/plugins). This route has not been proven for this Reader package or this account. The actual desktop application is `/Applications/ChatGPT.app`, version `26.928.40906`, read from its installed Info.plist on October 2, 2026. The active conversation surface is Codex desktop. The computer-use tool refuses access to `com.openai.codex`, so this task cannot inspect its Plugins Directory or click a conversation file link.
