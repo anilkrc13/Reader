@@ -59,7 +59,8 @@ Root browser tests use one worker because filesystem fixtures are shared.
 Embedded tests use two workers because page, storage, routes, and output are
 isolated. Server discovery includes `tests/server`. Each platform's build and
 checks use only its required source and keep generated output under `build`.
-All test code and runner configurations belong under `tests`. Protocol checks use
+All test code belongs under `tests`. Adapter runner configuration lives beside
+its tests. Shared Playwright defaults remain in root `playwright.config.js`. Protocol checks use
 Node createRequire anchored to the adapter manifest to resolve its pinned SDK;
 root Playwright dependencies serve the relocated browser suite.
 
@@ -83,3 +84,12 @@ Reader Local's existing repo catalog and its tracked example point at
 path. Installation policy and other fields were preserved. This does not install
 or update a host plugin. Actual installed-app and host acceptance are still
 tracked in the linked acceptance page. The completed source-layout plan is removed.
+
+The owner identified that adapter tests still lived under source after the first
+layout review. They were moved to `tests/chatgpt` in `59ded0e`, which passed an
+independent structural review. All 31 affected checks passed: 18 embedded, nine
+protocol, and four layout/document checks. Focused lint and the regenerated native
+app's signature/resource checks passed. The structural guard rejects the previous
+misplaced-test tree when run against an isolated temporary Git index. Independent
+review also reran all three layout checks successfully. Application behavior was
+unchanged; unrelated native/browser and server suites were not repeated.

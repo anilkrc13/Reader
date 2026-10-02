@@ -15,7 +15,8 @@ belong under ignored build/test-result directories. Details are in
 [testing](../docs/testing.md); actual host checks are in
 [embedded acceptance](../docs/embedded-acceptance.md).
 
-All test code and test-runner configuration belong under `tests/`. The protocol
+All test code belongs under `tests/`. Adapter runner configuration lives beside
+its tests. Shared Playwright defaults remain in root `playwright.config.js`. The protocol
 client resolves the SDK through the adapter package with Node createRequire. This
 uses its pinned dependency without adding another copy to the root test package.
 The source-layout check rejects committed tests and generated files under `src`.
