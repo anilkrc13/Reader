@@ -1,7 +1,7 @@
 # owned by skills/repository-context/scripts/context_freshness.py -- do not hand-edit
 {
-  "aggregate": "4892924c53533809310b87268513266da03ce1038679d982be59fba1610c3c53",
-  "commit": "4fa3458516dbc8d64e2a2ca897d5c1ab3859e9d8",
+  "aggregate": "aa609a41fe508c492d9fce77d8f7c58209076a46b9f6f244fcf214540df82113",
+  "commit": "4010a017a47608c27e5411b79741a0dc746810e2",
   "exclude": [],
   "files": {
     ".github/ISSUE_TEMPLATE/bug_report.md": {
@@ -463,8 +463,8 @@
     "tests/chatgpt/playwright.config.cjs": {
       "executable": false,
       "kind": "file",
-      "length": 246,
-      "sha256": "d38c74e1a2ac9a330a35c38ffcde78e06d30013c2ea8648de34c48345376a3ff"
+      "length": 263,
+      "sha256": "6c58f20a20e3fb353f76ba113f922c3d3a427f97e5c443c4be7bc7db4b0a7d7f"
     },
     "tests/chatgpt/server.integration.test.mjs": {
       "executable": false,

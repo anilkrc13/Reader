@@ -65,7 +65,10 @@ requires fresh evidence for the affected check. Build the extension before tests
 that read its generated bundle. Do not run separate builds against the same output
 at once. The `test:embedded` command already builds before starting Playwright.
 
-The embedded browser suite uses two workers with fully parallel tests. Each test
+The embedded browser suite uses two workers with fully parallel tests. Each
+test has a 60-second total budget because long Linux CI interactions and
+screenshots exhausted the local suite’s 30-second budget. Assertions still
+have an 8-second limit, with no retries. The local suite keeps 30 seconds. Each test
 has its own Playwright page and browser context. Simulated host state, routes,
 local storage, and frame state stay inside that context. Workers only read the
 finished bundle. Screenshots use `testInfo.outputPath`, so test outputs are separate.
