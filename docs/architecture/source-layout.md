@@ -65,3 +65,17 @@ packaging, source references, and checks together. `common` must not become a
 folder of unrelated helpers. Completed plans are removed after decisions are here
 and outstanding acceptance checks are in [host acceptance](../embedded-acceptance.md).
 Git retains the history. Create temporary plans only while work is active.
+
+The final implementation was independently reviewed at `90b1970` on October 2,
+2026, covering changes from `1d0cda5`. All 156 checks passed on the final source
+layout: 94 server/tooling, 35 local browser, 18 embedded browser, and 9 protocol
+checks. Focused ESLint, Ruff, and SwiftLint passed. The native build and signature
+passed. Its 25 selected runtime resources match source, and no adapter source,
+Node dependencies, caches, or extension output are shipped. The exact CI bundle
+verification and two source-layout compatibility tests also passed independently.
+
+Reader Local's existing repo catalog and its tracked example point at
+`./build/chatgpt`. The local catalog migration changed only the Reader source
+path. Installation policy and other fields were preserved. This does not install
+or update a host plugin. Actual installed-app and host acceptance are still
+tracked in the linked acceptance page. The completed source-layout plan is removed.

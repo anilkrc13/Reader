@@ -51,3 +51,9 @@ at `607a88d`; scoped links and branding at `1661704`; adaptive settings at `c48b
 faster isolated test scheduling at `7feeba1`; native fonts and focused lint at
 `de2eb8a`. The font checkpoint passed 154 automated checks and independent review.
 The source-layout change preserves those behaviors and their acceptance coverage.
+
+The one-source-tree layout was reviewed at `90b1970`. All 156 automated checks
+passed with the relocated adapter and selected native runtime. Reader Local's
+repo catalog now resolves to `build/chatgpt`, matching the tracked example. This
+path migration preserves installation policy and does not establish host routing
+or update installed copies. Use the current package README for installation.
