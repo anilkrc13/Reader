@@ -4,6 +4,8 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- Install Reader from the plain GitHub repository URL. The catalog and ready plugin now live on main. CI rejects stale generated packages.
+
 - GitHub releases package the bundled Reader plugin alongside Mac assets.
   The same workflow publishes a Git-backed marketplace with versioned plugin
   files. An initial dispatch from main can publish the marketplace without a tag.

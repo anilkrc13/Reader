@@ -1,8 +1,8 @@
 # Cutting a release
 
 Reader's releases are built by [`.github/workflows/release.yml`](../.github/workflows/release.yml), triggered by
-pushing a tag. It also supports a dispatch from `main` to publish the plugin
-marketplace without creating a release tag. Tagged releases keep the Mac app
+pushing a tag. It also supports a dispatch from `main` to validate and archive the committed
+plugin package without creating a release tag. Tagged releases keep the Mac app
 and plugin on the same versioned source.
 
 ## Cutting a release
@@ -15,7 +15,8 @@ and plugin on the same versioned source.
    verbatim into the GitHub release notes; a missing section falls back to a
    generic one-line note, so it is worth checking it is accurate before
    tagging.
-3. Commit both files.
+3. Rebuild and sync the ready plugin package using the commands below. Commit
+   the version, changelog, catalog, and generated package together through a PR.
 4. Tag the commit and push the tag:
 
    ```
@@ -29,7 +30,7 @@ and plugin on the same versioned source.
 5. Watch the Actions run. It builds `Reader.app`, verifies the signature,
    zips it, writes `manifest.json`, builds a `.dmg` of the same build, and
    publishes those assets plus `Reader-plugin-<version>.zip` as a GitHub Release
-   named after the tag. Only after that succeeds does it update the Git marketplace.
+   named after the tag. The marketplace package is already on `main`.
 
 ## Two artifacts, two purposes
 
@@ -124,54 +125,70 @@ portable plugin at its root. It joins the Mac ZIP, DMG, and updater manifest
 on each tagged GitHub release. The updater still reads only its existing Mac
 manifest. Git marketplace installation uses exploded files rather than this ZIP.
 
-The same workflow publishes generated files to the `plugin-marketplace` branch
-in this repository. The branch contains:
+The repository's default `main` branch contains everything needed to discover
+and install Reader:
 
 ```
 .agents/plugins/marketplace.json
-release.json
-versions/<version>/plugins/reader-markdown/
+plugins/release.json
+plugins/reader-markdown/
 ```
 
-The generated catalog is named `reader-github`. Its local source path resolves
-inside the fetched distribution branch, not on the developer’s machine. The
-publisher creates this catalog; it never copies the checkout’s private `.agents`
-state. `release.json` records source commit, version, repository, and file hashes.
-Previous version folders remain available. Ordinary commits and pushes retain
-history. A changed existing version, downgrade, or conflicting push fails rather
-than overwriting published history. Retry the workflow only after resolving the
-reported problem. A newer bundle needs a new `VERSION` before publication.
+The public catalog is named `reader-github`. Its source path is
+`./plugins/reader-markdown`, within the fetched repository. This is the only
+public file under `.agents`; other assistant state and root `AGENTS.md` remain
+ignored. `plugins/release.json` records the version, repository URL, and all
+package hashes. Source commit and tag provenance belong to the staged release
+artifact, where they can refer to a completed commit.
 
-Release runs are serialized. A package failure prevents Mac publication. A Mac
-release failure prevents the marketplace update. A marketplace failure marks
-the workflow failed even if the GitHub release was already created. The branch
-and ZIP are built from the same validated bundle. Generated files stay under
-`build/` locally and never enter the source branch.
+The ready package is generated output approved for tracking on `main`. Edit
+`src/reader`, then regenerate it before opening the source PR:
 
-For the initial marketplace, run the existing workflow from merged `main`:
-
+```sh
+npm run build:chatgpt
+python3 scripts/plugin_release.py sync \
+  --plugin-dir build/chatgpt --version-file VERSION \
+  --repository-root . --repository-url https://github.com/anilkrc13/Reader
+python3 scripts/plugin_release.py check \
+  --plugin-dir build/chatgpt --version-file VERSION \
+  --repository-root . --repository-url https://github.com/anilkrc13/Reader
 ```
+
+`sync` owns the public catalog, package files, and hash manifest. It preserves
+other plugin folders and private assistant state. Unexpected files and symlinks
+in the package fail validation. `check` never writes or repairs files. CI rebuilds
+from pinned dependencies and compares every package byte, version, catalog path,
+and hash. A stale committed package blocks delivery. A release version change
+requires regeneration; moving identical files does not require a version bump.
+
+Release automation rebuilds, checks, and archives the committed package. It
+never commits or pushes catalog changes, so it cannot bypass branch protection
+or trigger itself through a generated commit. A package failure prevents Mac
+publication. The existing `plugin-marketplace` branch is unused and is retained
+only as history; neither discovery nor release automation depends on it.
+
+A manual validation run from merged `main` is available:
+
+```sh
 gh workflow run release.yml --ref main
 ```
 
-This dispatch builds and publishes only the plugin marketplace and keeps its
-ZIP as an Actions artifact. It skips the Mac job and creates no tag or GitHub
-Release. Dispatches from other branches are skipped. Future version tags publish
-all release assets through the same workflow. A bootstrap version cannot be
-replaced with different source or tag provenance; bump `VERSION` for the next
-tagged publication. Do not run this command until publication is intended.
+It keeps the package and ZIP as Actions artifacts. It skips the Mac job and
+creates no tag or GitHub Release. Dispatches from other branches are skipped.
 
-After a successful publication, register the marketplace and install Reader:
+## Install from GitHub
 
-```
-codex plugin marketplace add anilkrc13/Reader --ref plugin-marketplace
+Add `https://github.com/anilkrc13/Reader` in the desktop marketplace UI. No branch
+selection is needed. The supported CLI equivalent is:
+
+```sh
+codex plugin marketplace add https://github.com/anilkrc13/Reader
 codex plugin add reader-markdown@reader-github
 ```
 
-Refresh the catalog with `codex plugin marketplace upgrade reader-github`,
-then refresh/install Reader through the supported plugin interface. Pin an
-existing distribution commit with `--ref <commit>` when a fixed snapshot is
-needed. Node 22 or newer must be available to run the bundled stdio server.
-See [official plugin packaging guidance](https://developers.openai.com/plugins/build/plugins)
-for Git marketplace setup. Successful distribution does not prove real host
-file routing; retain the [host acceptance checks](embedded-acceptance.md).
+The package needs Node 22 or newer on the host path. It needs no local build,
+source checkout, or dependency install. Refresh discovery with
+`codex plugin marketplace upgrade reader-github`, then use the host's plugin
+update action. The plugin has no document settings file; embedded display
+preferences remain owned by the host viewer. Real file routing still needs
+[host acceptance](embedded-acceptance.md).

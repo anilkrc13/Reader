@@ -39,6 +39,24 @@ See [docs/macos.md](docs/macos.md) for building the app yourself, signing it
 so folder permissions survive rebuilds, opening files from Finder, and
 turning Reader into a browser app.
 
+### Codex Markdown viewer
+
+Add `https://github.com/anilkrc13/Reader` in the plugin marketplace UI, then
+install **Reader Markdown** from **Reader GitHub**. The default `main` branch
+contains the catalog and ready package. No branch selection or source build is
+needed. Node 22 or newer must be on the host path.
+
+The CLI equivalent is:
+
+```sh
+codex plugin marketplace add https://github.com/anilkrc13/Reader
+codex plugin add reader-markdown@reader-github
+```
+
+This read-only viewer uses the shared Reader interface. See the
+[adapter guide](src/reader/chatgpt/README.md) for its limits and host acceptance
+checks. The Mac app keeps its own installation path.
+
 ## Using it
 
 | | |

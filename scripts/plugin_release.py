@@ -1,10 +1,9 @@
-"""Stage clean Reader plugin releases and publish an additive Git marketplace."""
+"""Sync and verify the public Reader plugin; stage ephemeral release archives."""
 import argparse
 import hashlib
 import json
 import re
 import shutil
-import subprocess
 import zipfile
 from pathlib import Path
 
@@ -34,7 +33,7 @@ def write_json(path, value):
     path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
 
 
-def safe_tree(root, expected):
+def safe_tree(root, expected, allow_missing=False):
     """Reject unexpected files and links before copying any source bytes."""
     if root.is_symlink() or not root.is_dir():
         raise ValueError(f"Expected an ordinary directory: {root}")
@@ -50,7 +49,7 @@ def safe_tree(root, expected):
             found.add(relative)
         else:
             raise ValueError(f"Not an ordinary release file: {path}")
-    if found != expected:
+    if found - expected or (not allow_missing and expected - found):
         raise ValueError(f"Release files differ: missing={sorted(expected - found)}, "
                          f"unexpected={sorted(found - expected)}")
 
@@ -87,7 +86,7 @@ def stage(plugin_dir, version_file, tag, source_commit, repository_url,
     for destination in (output_dir, archive_dir):
         if any(parent.is_symlink() for parent in (destination, *destination.parents)):
             raise ValueError("Release destinations must not contain symlinks")
-    plugin_path = f"versions/{version}/plugins/{PLUGIN}"
+    plugin_path = f"plugins/{PLUGIN}"
     shutil.copytree(plugin_dir, output_dir / plugin_path)
     metadata = {"version": version, "tag": tag, "source_commit": source_commit,
                 "repository_url": repository_url, "files": file_hashes(plugin_dir)}
@@ -113,7 +112,7 @@ def validate_stage(root):
     validate_provenance(metadata["source_commit"], metadata["repository_url"])
     version = metadata["version"]
     version_parts(version)
-    plugin_path = f"versions/{version}/plugins/{PLUGIN}"
+    plugin_path = f"plugins/{PLUGIN}"
     expected = {f"{plugin_path}/{name}" for name in FILES}
     expected.update({"release.json", ".agents/plugins/marketplace.json"})
     safe_tree(root, expected)
@@ -129,60 +128,82 @@ def validate_stage(root):
     return metadata
 
 
-def git(checkout, *args):
-    return subprocess.run(["git", "-C", str(checkout), *args], check=True,
-                          capture_output=True, text=True).stdout.strip()
+def safe_destination(path):
+    if any(parent.is_symlink() for parent in (path, *path.parents)):
+        raise ValueError(f"Distribution destination contains a symlink: {path}")
 
 
-def publish(stage_dir, checkout, remote, branch="plugin-marketplace"):
-    """Push an ordinary commit; never rewrite branch history or retry races."""
-    metadata = validate_stage(stage_dir)
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", branch):
-        raise ValueError("Invalid distribution branch name")
-    if checkout.exists() or checkout.is_symlink():
-        raise ValueError("Publication checkout must not already exist")
-    if any(parent.is_symlink() for parent in checkout.parents):
-        raise ValueError("Publication checkout must not contain symlinks")
-    checkout.mkdir(parents=True)
-    git(checkout, "init", "--quiet")
-    git(checkout, "remote", "add", "origin", remote)
-    exists = git(checkout, "ls-remote", "--heads", "origin", f"refs/heads/{branch}")
-    if exists:
-        git(checkout, "fetch", "--quiet", "origin", f"refs/heads/{branch}")
-        git(checkout, "checkout", "--quiet", "-b", branch, "FETCH_HEAD")
-        old = read_json(checkout / "release.json")
-        if old["repository_url"] != metadata["repository_url"]:
-            raise ValueError("Distribution repository provenance changed")
-        if version_parts(old["version"]) > version_parts(metadata["version"]):
-            raise ValueError("Cannot replace a newer plugin release")
-    else:
-        git(checkout, "checkout", "--quiet", "--orphan", branch)
-    version_dir = Path("versions") / metadata["version"]
-    existing = checkout / version_dir
-    if any(parent.is_symlink() for parent in (existing, *existing.parents)):
-        raise ValueError("Published version path contains a symlink")
-    if existing.exists():
-        safe_tree(existing, {f"plugins/{PLUGIN}/{name}" for name in FILES})
-        if file_hashes(existing / "plugins" / PLUGIN) != metadata["files"]:
-            raise ValueError("Published version files are immutable")
-        if read_json(checkout / "release.json") != metadata:
-            raise ValueError("Published version provenance is immutable")
-    else:
-        shutil.copytree(stage_dir / version_dir, existing)
-    for name in ("release.json", ".agents/plugins/marketplace.json"):
-        destination = checkout / name
-        if any(parent.is_symlink() for parent in (destination, *destination.parents)):
-            raise ValueError("Distribution destination contains a symlink")
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(stage_dir / name, destination)
-    git(checkout, "add", "--", "versions", "release.json", ".agents/plugins/marketplace.json")
-    if not git(checkout, "diff", "--cached", "--name-only"):
-        return False
-    git(checkout, "-c", "user.name=Reader releases", "-c",
-        "user.email=reader-releases@users.noreply.github.com", "commit", "--quiet",
-        "-m", f"Publish Reader plugin {metadata['version']}")
-    git(checkout, "push", "origin", f"HEAD:refs/heads/{branch}")
-    return True
+def validate_input(plugin_dir, version_file, repository_url):
+    version = version_file.read_text(encoding="utf-8").strip()
+    version_parts(version)
+    validate_provenance("0" * 40, repository_url)
+    safe_tree(plugin_dir, FILES)
+    manifest = read_json(plugin_dir / "plugin.json")
+    if manifest.get("name") != PLUGIN or manifest.get("version") != version:
+        raise ValueError("Plugin manifest name/version must match Reader release")
+    return {"version": version, "repository_url": repository_url,
+            "files": file_hashes(plugin_dir)}
+
+
+def distribution_paths(repository_root):
+    paths = (repository_root / "plugins" / PLUGIN,
+             repository_root / "plugins/release.json",
+             repository_root / ".agents/plugins/marketplace.json")
+    for path in paths:
+        safe_destination(path)
+    return paths
+
+
+def write_if_changed(path, data):
+    if path.exists() and path.read_bytes() == data:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+
+
+def json_bytes(value):
+    return (json.dumps(value, indent=2) + "\n").encode("utf-8")
+
+
+def sync(plugin_dir, version_file, repository_root, repository_url):
+    """Update only the public catalog, Reader plugin, and its hash record."""
+    metadata = validate_input(plugin_dir, version_file, repository_url)
+    plugin, record, catalog = distribution_paths(repository_root)
+    if plugin.exists():
+        safe_tree(plugin, FILES, allow_missing=True)
+    for path in (record, catalog):
+        if path.exists() and not path.is_file():
+            raise ValueError(f"Expected an ordinary file: {path}")
+    if catalog.exists():
+        previous = read_json(catalog)
+        empty_local = previous in (
+            {"name": "reader-local", "plugins": []},
+            {"name": "reader-local", "interface": {"displayName": "Reader Local"},
+             "plugins": []},
+        )
+        owned_public = previous == marketplace(f"plugins/{PLUGIN}")
+        if not (empty_local or owned_public):
+            raise ValueError("Existing marketplace is not owned by the Reader generator")
+    for name in sorted(FILES):
+        write_if_changed(plugin / name, (plugin_dir / name).read_bytes())
+    write_if_changed(record, json_bytes(metadata))
+    write_if_changed(catalog, json_bytes(marketplace(f"plugins/{PLUGIN}")))
+    return repository_root
+
+
+def check(plugin_dir, version_file, repository_root, repository_url):
+    """Verify all public package bytes without changing any file."""
+    metadata = validate_input(plugin_dir, version_file, repository_url)
+    plugin, record, catalog = distribution_paths(repository_root)
+    safe_tree(plugin, FILES)
+    if record.read_bytes() != json_bytes(metadata):
+        raise ValueError("Public release metadata differs from the built plugin")
+    if catalog.read_bytes() != json_bytes(marketplace(f"plugins/{PLUGIN}")):
+        raise ValueError("Public marketplace differs from the generated catalog")
+    for name in sorted(FILES):
+        if (plugin / name).read_bytes() != (plugin_dir / name).read_bytes():
+            raise ValueError(f"Public plugin differs from built file: {name}")
+    return repository_root
 
 
 def main():
@@ -193,20 +214,19 @@ def main():
                    "output-dir", "archive-dir"):
         staging.add_argument(f"--{option}", required=True)
     staging.add_argument("--tag")
-    publishing = commands.add_parser("publish")
-    for option in ("stage-dir", "checkout", "remote"):
-        publishing.add_argument(f"--{option}", required=True)
-    publishing.add_argument("--branch", default="plugin-marketplace")
+    for command in ("sync", "check"):
+        command_parser = commands.add_parser(command)
+        for option in ("plugin-dir", "version-file", "repository-root", "repository-url"):
+            command_parser.add_argument(f"--{option}", required=True)
     arguments = vars(parser.parse_args())
     command = arguments.pop("command")
-    for name in ("plugin_dir", "version_file", "output_dir", "archive_dir", "stage_dir", "checkout"):
+    for name in ("plugin_dir", "version_file", "output_dir", "archive_dir", "repository_root"):
         if name in arguments:
             arguments[name] = Path(arguments[name]).absolute()
     try:
-        result = stage(**arguments) if command == "stage" else publish(**arguments)
-    except (ValueError, KeyError, OSError, subprocess.CalledProcessError) as error:
-        detail = error.stderr if isinstance(error, subprocess.CalledProcessError) else str(error)
-        parser.exit(1, f"Plugin release failed: {detail}\n")
+        result = {"stage": stage, "sync": sync, "check": check}[command](**arguments)
+    except (ValueError, KeyError, OSError) as error:
+        parser.exit(1, f"Plugin distribution failed: {error}\n")
     print(result)
 
 
