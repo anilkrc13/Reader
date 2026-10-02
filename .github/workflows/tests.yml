@@ -51,7 +51,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build Reader.app (ad-hoc signed)
-        run: ./macos/build-app.sh
+        run: ./src/reader/macos/scripts/build-app.sh
       - name: Verify bundle
         run: |
           codesign --verify --deep --strict build/Reader.app

@@ -9,7 +9,7 @@ You need the Xcode Command Line Tools (`xcode-select --install`) and, for the
 adaptive Tahoe icon, a full Xcode 26 install so `actool` is available.
 
 ```
-./macos/build-app.sh
+./src/reader/macos/scripts/build-app.sh
 open build/Reader.app
 ```
 
@@ -26,7 +26,7 @@ drag Reader into Applications.
 The app is built for Apple silicon by default. For a universal build:
 
 ```
-ARCHS="arm64 x86_64" ./macos/build-app.sh
+ARCHS="arm64 x86_64" ./src/reader/macos/scripts/build-app.sh
 ```
 
 The bundle includes the server, the static UI, the licences, and the icon. It
@@ -70,7 +70,7 @@ The fix is to sign with a certificate, which pins the requirement to the
 certificate instead of to the bundle. Reader can make its own, once per user:
 
 ```
-./macos/ensure-signing-identity.sh
+./src/reader/macos/scripts/ensure-signing-identity.sh
 ```
 
 That creates a self-signed code-signing certificate in a keychain of Reader's
@@ -88,7 +88,7 @@ script.
 If you have an Apple certificate, it takes precedence:
 
 ```
-CODE_SIGN_IDENTITY="Apple Development: you@example.com (TEAMID)" ./macos/build-app.sh
+CODE_SIGN_IDENTITY="Apple Development: you@example.com (TEAMID)" ./src/reader/macos/scripts/build-app.sh
 ```
 
 Either way the app stays unnotarised. Because of that, an app downloaded with a
@@ -160,7 +160,7 @@ Step 4 is why releases are signed with one shared identity. If your copy of
 Reader is ad-hoc signed, its designated requirement is a hash of its own bytes,
 which no other build can ever match; Reader refuses the update and says that
 updating in place needs the shared signing identity. Build once with
-`./macos/ensure-signing-identity.sh` in place, or download a release, and the
+`./src/reader/macos/scripts/ensure-signing-identity.sh` in place, or download a release, and the
 problem goes away.
 
 Only then does Reader ask, with **Install and Relaunch**, **Later** and **Skip

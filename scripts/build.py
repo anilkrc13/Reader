@@ -28,7 +28,7 @@ def main():
                     shutil.rmtree(output)
                 package_runtime(output)
             elif target == "macos":
-                subprocess.run([str(ROOT / "macos/build-app.sh")], cwd=ROOT, check=True)
+                subprocess.run([str(ROOT / "src/reader/macos/scripts/build-app.sh")], cwd=ROOT, check=True)
             else:
                 npm = "npm.cmd" if sys.platform == "win32" else "npm"
                 subprocess.run([npm, "--prefix", "src/reader/chatgpt", "run", "build"],

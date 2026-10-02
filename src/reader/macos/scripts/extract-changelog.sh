@@ -4,12 +4,12 @@
 # back to a generic line rather than failing the release outright, since a
 # missing changelog entry is a documentation gap, not a build problem.
 #
-#   ./macos/extract-changelog.sh 2.1.0
+#   ./src/reader/macos/scripts/extract-changelog.sh 2.1.0
 
 set -euo pipefail
 
 VERSION="${1:?usage: extract-changelog.sh <version>}"
-ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "$0")/../../../.." && pwd)"
 CHANGELOG="$ROOT_DIR/CHANGELOG.md"
 HEADING="## $VERSION"
 

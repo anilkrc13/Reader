@@ -5,14 +5,14 @@
 # have to describe the exact zip the release step attaches -- computing them
 # anywhere else risks the two drifting apart.
 #
-#   ./macos/write-release-manifest.sh 2.1.0
+#   ./src/reader/macos/scripts/write-release-manifest.sh 2.1.0
 #
 # Leaves Reader-<version>.zip and manifest.json under build/releases/.
 
 set -euo pipefail
 
 VERSION="${1:?usage: write-release-manifest.sh <version>}"
-ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "$0")/../../../.." && pwd)"
 APP_BUNDLE="$ROOT_DIR/build/Reader.app"
 ZIP_NAME="Reader-$VERSION.zip"
 RELEASE_DIR="$ROOT_DIR/build/releases"
@@ -20,7 +20,7 @@ mkdir -p "$RELEASE_DIR"
 ZIP_PATH="$RELEASE_DIR/$ZIP_NAME"
 
 if [ ! -d "$APP_BUNDLE" ]; then
-  echo "Missing $APP_BUNDLE; run ./macos/build-app.sh first." >&2
+  echo "Missing $APP_BUNDLE; run ./src/reader/macos/scripts/build-app.sh first." >&2
   exit 1
 fi
 

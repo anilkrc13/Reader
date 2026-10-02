@@ -33,7 +33,7 @@ screenshots are written under `build/reading-controls/`.
 
 ## The native app
 
-The bundle has no automated tests. After [`./macos/build-app.sh`](../macos/build-app.sh):
+The bundle has no automated tests. After [`./src/reader/macos/scripts/build-app.sh`](../src/reader/macos/scripts/build-app.sh):
 
 1. `codesign --verify --deep --strict build/Reader.app`
 2. Confirm changed resources match their copies under `Contents/Resources/`.
@@ -80,7 +80,7 @@ sum to the user's wait. Keep build prerequisites in order.
 
 The Mac build gate comes from `AGENTS.md`. Changes to `src/reader/`, `reader.py`,
 `reader_backend.py`, `VERSION`, launcher or icon sources, licenses, or bundle
-metadata require `./macos/build-app.sh`, signature verification, and resource-copy
+metadata require `./src/reader/macos/scripts/build-app.sh`, signature verification, and resource-copy
 checks. An extension-only runner or documentation change does not trigger that
 build requirement. Running native integration checks alone does not trigger it.
 All mandated gates still apply when their listed sources change. Native testing

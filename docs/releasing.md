@@ -35,13 +35,13 @@ Every release carries both a zip and a `.dmg` of the same signed
 `Reader.app`, built one after the other from the same bundle, but they serve
 different consumers and neither can stand in for the other:
 
-- **The zip** (`Reader-<version>.zip`, built by [`write-release-manifest.sh`](../macos/write-release-manifest.sh))
+- **The zip** (`Reader-<version>.zip`, built by [`write-release-manifest.sh`](../src/reader/macos/scripts/write-release-manifest.sh))
   is what the in-app updater downloads. It only ever talks to `manifest.json`,
   which points at the zip and carries its sha256 and size; the updater
   verifies both plus the code signature before unpacking it with
   `ditto -x -k`. Its format (`ditto -c -k --keepParent`) is load-bearing for
   that unpack step and must not change.
-- **The `.dmg`** (`Reader-<version>.dmg`, built by [`write-release-dmg.sh`](../macos/write-release-dmg.sh)) is
+- **The `.dmg`** (`Reader-<version>.dmg`, built by [`write-release-dmg.sh`](../src/reader/macos/scripts/write-release-dmg.sh)) is
   for a first-time install: mount it, and drag `Reader.app` onto the
   `Applications` symlink inside, the familiar macOS installer gesture. The
   updater never reads or produces a `.dmg`; it exists purely for people
@@ -55,10 +55,10 @@ app is signed ad-hoc, which loses folder permissions on every future rebuild
 across versions. Set it up once:
 
 1. On a Mac that already has Reader's local signing identity (run
-   [`./macos/ensure-signing-identity.sh`](../macos/ensure-signing-identity.sh) first if it does not), export it:
+   [`./src/reader/macos/scripts/ensure-signing-identity.sh`](../src/reader/macos/scripts/ensure-signing-identity.sh) first if it does not), export it:
 
    ```
-   ./macos/export-signing-identity.sh /tmp/reader-signing.p12 /tmp/reader-signing.p12.base64
+   ./src/reader/macos/scripts/export-signing-identity.sh /tmp/reader-signing.p12 /tmp/reader-signing.p12.base64
    ```
 
    This writes the certificate and private key as a password-protected
@@ -77,16 +77,16 @@ of ad-hoc, as long as the two secrets remain set.
 
 Development happens on more than one machine, but the signing identity has to
 be the same certificate everywhere, or Gatekeeper and the updater see it as a
-different app each time. Copy the `.p12` file [`export-signing-identity.sh`](../macos/export-signing-identity.sh)
+different app each time. Copy the `.p12` file [`export-signing-identity.sh`](../src/reader/macos/scripts/export-signing-identity.sh)
 wrote (not its base64 form) to the other Mac, then:
 
 ```
-./macos/import-signing-identity.sh reader-signing.p12
+./src/reader/macos/scripts/import-signing-identity.sh reader-signing.p12
 ```
 
 It installs the identity into Reader's own keychain at the same path
 `ensure-signing-identity.sh` uses, trusts the certificate for code signing,
-and writes the keychain's own password so [`build-app.sh`](../macos/build-app.sh) can unlock it
+and writes the keychain's own password so [`build-app.sh`](../src/reader/macos/scripts/build-app.sh) can unlock it
 without a prompt. Safe to run again; it replaces the identity in place rather
 than erroring.
 

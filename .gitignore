@@ -21,7 +21,7 @@ __pycache__/
 # macOS
 .DS_Store
 
-# Native app output. The bundle is built by ./macos/build-app.sh locally and by
+# Native app output. The bundle is built by ./src/reader/macos/scripts/build-app.sh locally and by
 # CI for releases; it is not committed (actool regenerates Assets.car
 # nondeterministically and the signature changes on every build).
 /build/

@@ -12,9 +12,9 @@ src/reader/
     vendor/                  browser libraries
   common/                    shared artwork and third-party notices
   macos/                     Swift launcher, metadata, and native icon assets
+    scripts/                 native build, signing, and release commands
   chatgpt/                   Node adapter source and package configuration
 reader.py, reader_backend.py compatible launch and import names
-macos/                       existing build, signing, and release commands
 scripts/                     development and repository tools
 tests/server/                local server and tooling checks
 tests/browser/               shared UI with the local server
@@ -87,7 +87,6 @@ The adapter manifest owns its own runtime dependencies and module type.
 | --- | --- |
 | `src/` | Shared application and platform adapter source, assets, metadata, notices. |
 | `tests/` | All tests, adapter runner configuration, and manual test helpers. |
-| `macos/` | Existing build, signing, and release commands. Retained for installer and command compatibility; no native application source remains here. |
 | `scripts/` | Project build command, shared runtime packager, and focused lint runner. |
 | `install/` | The user-facing source installer and update command. |
 | `docs/`, `context/` | Architecture, contributor checks, and document integrity contracts. |
@@ -106,15 +105,15 @@ The adapter manifest owns its own runtime dependencies and module type.
 | `.reader-token`, `preferences.json` | Existing local authorization and preferences. Preserved without reading their contents. |
 | `.agents/` | Existing local plugin catalog. Reader's source path is `./build/chatgpt`; policy and other fields were preserved. |
 | `.claude/`, `.playwright-cli/`, `.DS_Store` | Existing local assistant settings, CLI diagnostics, and Finder metadata. Preserved. |
-| `tmp-markdown-8S7rWN/` | Unknown user files. Preserved; not treated as disposable build output. |
 | `plans/` | Temporary only during active work; removed when decisions and checks have permanent homes. |
 
-`static`, root `fonts`, and `builds` are absent from the audited checkout. Shared
+`macos`, `static`, root `fonts`, and `builds` are absent from the audited checkout. Shared
 notices moved byte-for-byte from root `licenses` into `src/reader/common/licenses`.
 Native metadata moved byte-for-byte into `src/reader/macos`. Both builds copy the
 notices; the extension also writes notices for its bundled Node dependencies.
 The known generated browser screenshots were moved under `build` before rerunning
-the suite. No unknown file was deleted to make the root look cleaner.
+the suite. Only the Markdown folder named by the owner was moved to Trash.
+Other unknown files were preserved.
 
 Use `npm run build` to build all variants on a Mac. Select one with
 `npm run build -- web`, `npm run build -- macos`, or `npm run build -- chatgpt`.
@@ -130,7 +129,8 @@ Eight obsolete settings/link diagnostic folders were removed from `build` after
 identifying them as output of earlier checks in this task. Current suites keep
 their screenshots inside their own output directories. Document scratch uses
 owned temporary directories with registered teardown, including setup failures.
-Unknown local Markdown files and assistant state remain preserved.
+The owner requested moving only `tmp-markdown-8S7rWN` to Trash. Other local
+files and assistant state remain preserved.
 
 The complete repository cleanup was independently reviewed at `d9f8838` on
 October 2, 2026, covering changes from `916c739`. The reviewer inspected the
@@ -150,3 +150,11 @@ The Reader Local catalog still points at `./build/chatgpt` with unchanged policy
 No installation, publication, or push occurred. [Host acceptance](../embedded-acceptance.md)
 retains the installed-app and real host checks. Completed cleanup plans are removed;
 Git retains the history.
+
+The seven native build, signing, and release scripts now live in
+`src/reader/macos/scripts`. Their repository-root calculations, installer, CI,
+project build caller, and documentation use that path. The root `macos` folder
+is gone. The named Markdown folder was moved to macOS Trash, not deleted.
+All 97 Python checks, Bash syntax, focused lint, and all three builds passed.
+Native resources and required notices match source. The signed app, ZIP manifest,
+and mounted DMG checks passed. No installer or signing export/import was run.

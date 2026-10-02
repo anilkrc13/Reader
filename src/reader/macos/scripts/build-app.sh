@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-MACOS_DIR="$ROOT_DIR/macos"
+ROOT_DIR="$(cd "$(dirname "$0")/../../../.." && pwd)"
+MACOS_DIR="$ROOT_DIR/src/reader/macos/scripts"
 MACOS_SOURCE_DIR="$ROOT_DIR/src/reader/macos"
 BUILD_DIR="$ROOT_DIR/build"
 APP_BUNDLE="$BUILD_DIR/Reader.app"
@@ -109,7 +109,7 @@ else
   else
     SIGN_IDENTITY="-"
     echo "Signing ad-hoc. macOS will re-ask for folder permissions after each" >&2
-    echo "build; run ./macos/ensure-signing-identity.sh once to stop that." >&2
+    echo "build; run ./src/reader/macos/scripts/ensure-signing-identity.sh once to stop that." >&2
   fi
 fi
 

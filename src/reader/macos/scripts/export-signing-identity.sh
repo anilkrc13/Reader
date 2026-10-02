@@ -5,7 +5,7 @@
 # you choose to hand to GitHub as a secret -- this script never uploads or
 # transmits anything itself.
 #
-#   ./macos/export-signing-identity.sh path/to/reader-signing.p12 path/to/reader-signing.p12.base64
+#   ./src/reader/macos/scripts/export-signing-identity.sh path/to/reader-signing.p12 path/to/reader-signing.p12.base64
 #
 # The second path receives the base64 form GitHub Actions secrets expect. It
 # is written to a file, never printed, because a base64 blob in a terminal
@@ -27,7 +27,7 @@ PASSWORD_FILE="$SUPPORT_DIR/keychain-password"
 IDENTITY_NAME="Reader Local Signing"
 
 if [ ! -f "$KEYCHAIN" ] || [ ! -f "$PASSWORD_FILE" ]; then
-  echo "No Reader signing identity found. Run ./macos/ensure-signing-identity.sh first." >&2
+  echo "No Reader signing identity found. Run ./src/reader/macos/scripts/ensure-signing-identity.sh first." >&2
   exit 1
 fi
 
@@ -35,7 +35,7 @@ security unlock-keychain -p "$(cat "$PASSWORD_FILE")" "$KEYCHAIN" 2>/dev/null ||
 
 if ! security find-identity -v -p codesigning "$KEYCHAIN" 2>/dev/null | grep -qF "\"$IDENTITY_NAME\""; then
   echo "The \"$IDENTITY_NAME\" identity is not usable in $KEYCHAIN." >&2
-  echo "Run ./macos/ensure-signing-identity.sh to (re)create it first." >&2
+  echo "Run ./src/reader/macos/scripts/ensure-signing-identity.sh to (re)create it first." >&2
   exit 1
 fi
 

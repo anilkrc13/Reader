@@ -19,8 +19,8 @@
 # keychain is not touched. Gatekeeper still treats the app as unnotarised, so
 # the first-launch warning is unchanged.
 #
-#   ./macos/ensure-signing-identity.sh          create it if missing, then print it
-#   ./macos/ensure-signing-identity.sh use-existing   print it, never create
+#   ./src/reader/macos/scripts/ensure-signing-identity.sh          create it if missing, then print it
+#   ./src/reader/macos/scripts/ensure-signing-identity.sh use-existing   print it, never create
 #
 # Creating it needs one authorisation: macOS asks for your login password to
 # trust the certificate for code signing, because codesign refuses an untrusted

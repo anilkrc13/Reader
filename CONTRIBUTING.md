@@ -28,7 +28,7 @@ npm run test:webmcp
 - Keep the server dependency-free. No `pip install`.
 - Keep the page free of inline script. The Content Security Policy forbids it.
 - If you change `src/reader/`, [`reader.py`](reader.py), [`reader_backend.py`](reader_backend.py), [`VERSION`](VERSION), or
-  anything under `macos/`, rebuild the app with [`./macos/build-app.sh`](macos/build-app.sh) and check
+  anything under `src/reader/macos/`, rebuild the app with [`./src/reader/macos/scripts/build-app.sh`](src/reader/macos/scripts/build-app.sh) and check
   it still launches. The built bundle is not committed; CI builds it.
 
 ## Portability

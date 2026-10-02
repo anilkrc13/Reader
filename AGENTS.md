@@ -40,17 +40,17 @@ formatting. Do not lint the whole repository or add complexity limits by default
 
 ## macOS app build gate
 
-[`./macos/build-app.sh`](macos/build-app.sh) produces `build/Reader.app`. That bundle is regenerated
+[`./src/reader/macos/scripts/build-app.sh`](src/reader/macos/scripts/build-app.sh) produces `build/Reader.app`. That bundle is regenerated
 build output, not committed, and not something to launch directly: it is not
 the app the user runs day to day. [`install/Reader.command`](install/Reader.command) is the installer and the one-step update path;
 double-clicking it quits a running Reader, always rebuilds via
-`./macos/build-app.sh`, copies the fresh `build/Reader.app` to
+`./src/reader/macos/scripts/build-app.sh`, copies the fresh `build/Reader.app` to
 `~/Applications/Reader.app`, and opens that installed copy, which is the app
 the user actually runs.
 
 - After changing `src/reader/`, [`reader.py`](reader.py), [`reader_backend.py`](reader_backend.py), [`VERSION`](VERSION), the
   macOS launcher or icon sources, licenses, or bundle metadata, run
-  `./macos/build-app.sh` before declaring the work complete.
+  `./src/reader/macos/scripts/build-app.sh` before declaring the work complete.
 - Do not treat manual edits inside `build/Reader.app` as a finished build. The
   script must recreate and sign the bundle.
 - Verify the finished bundle with `codesign --verify --deep --strict build/Reader.app`

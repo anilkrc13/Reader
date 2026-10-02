@@ -59,7 +59,7 @@ fi
 # to remove. The old "only build if missing, only copy if newer" checks are
 # gone for the same reason.
 echo "Step 2/4: Building Reader from source..."
-if ! "$PROJECT_DIR/macos/build-app.sh"; then
+if ! "$PROJECT_DIR/src/reader/macos/scripts/build-app.sh"; then
   echo ""
   echo "Reader could not build its native app. Open Xcode once, then try again."
   echo ""

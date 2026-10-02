@@ -3,7 +3,7 @@
 # Reader.app into Applications gesture. Run right after write-release-manifest.sh,
 # once build/Reader.app exists.
 #
-#   ./macos/write-release-dmg.sh 2.1.0
+#   ./src/reader/macos/scripts/write-release-dmg.sh 2.1.0
 #
 # Leaves Reader-<version>.dmg under build/releases/, beside the zip and
 # manifest.json write-release-manifest.sh writes. The zip stays the in-app
@@ -14,7 +14,7 @@
 set -euo pipefail
 
 VERSION="${1:?usage: write-release-dmg.sh <version>}"
-ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "$0")/../../../.." && pwd)"
 APP_BUNDLE="$ROOT_DIR/build/Reader.app"
 DMG_NAME="Reader-$VERSION.dmg"
 RELEASE_DIR="$ROOT_DIR/build/releases"
@@ -23,7 +23,7 @@ DMG_PATH="$RELEASE_DIR/$DMG_NAME"
 VOLUME_NAME="Reader $VERSION"
 
 if [ ! -d "$APP_BUNDLE" ]; then
-  echo "Missing $APP_BUNDLE; run ./macos/build-app.sh first." >&2
+  echo "Missing $APP_BUNDLE; run ./src/reader/macos/scripts/build-app.sh first." >&2
   exit 1
 fi
 

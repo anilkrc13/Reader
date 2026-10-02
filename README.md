@@ -72,7 +72,7 @@ turning Reader into a browser app.
 
 The shared implementation lives in [`src/reader/`](src/reader/). Web application
 code, assets, and vendored libraries have separate folders. Root Python files keep
-existing launch/import names. Native build scripts stay in `macos/`; the standalone
+existing launch/import names. Native build scripts live in `src/reader/macos/scripts/`; the standalone
 conversation adapter lives in `src/reader/chatgpt/`. The Mac launcher and its
 assets live in `src/reader/macos/`. Both builds use artwork from `src/reader/common/`. See
 [source ownership](docs/architecture/source-layout.md) for the history and test map.
@@ -137,7 +137,7 @@ for how a tagged push turns into a signed release.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor guide and
 [SECURITY.md](SECURITY.md) for the security policy. The macOS app bundle is
-built by [`./macos/build-app.sh`](macos/build-app.sh) and is not committed.
+built by [`./src/reader/macos/scripts/build-app.sh`](src/reader/macos/scripts/build-app.sh) and is not committed.
 
 ## What it renders
 

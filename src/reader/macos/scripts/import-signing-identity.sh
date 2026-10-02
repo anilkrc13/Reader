@@ -5,8 +5,8 @@
 # same certificate identity and folder-permission grants are not tied to one
 # machine.
 #
-#   ./macos/import-signing-identity.sh reader-signing.p12
-#   ./macos/import-signing-identity.sh reader-signing.p12 reader-signing.p12.password
+#   ./src/reader/macos/scripts/import-signing-identity.sh reader-signing.p12
+#   ./src/reader/macos/scripts/import-signing-identity.sh reader-signing.p12 reader-signing.p12.password
 #
 # The p12 password is read, in order: the second argument if given, a sibling
 # "<file>.password" (export-signing-identity.sh writes one next to its base64
@@ -80,4 +80,4 @@ if ! security find-identity -v -p codesigning "$KEYCHAIN" 2>/dev/null | grep -qF
 fi
 
 echo "Imported \"$IDENTITY_NAME\" into $KEYCHAIN."
-echo "./macos/build-app.sh will find and use it automatically from now on."
+echo "./src/reader/macos/scripts/build-app.sh will find and use it automatically from now on."

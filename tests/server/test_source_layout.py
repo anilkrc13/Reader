@@ -57,7 +57,7 @@ class SourceLayoutTests(unittest.TestCase):
         self.assertEqual(misplaced, [], "Tests belong under tests; generated files are ignored")
 
     def test_root_has_no_legacy_source_or_generated_app_outputs(self):
-        legacy = [name for name in ("static", "fonts", "builds", "test-results",
+        legacy = [name for name in ("macos", "static", "fonts", "builds", "test-results",
                                     "manifest.json") if (ROOT / name).exists()]
         legacy.extend(path.name for pattern in ("Reader-*.zip", "Reader-*.dmg")
                       for path in ROOT.glob(pattern))

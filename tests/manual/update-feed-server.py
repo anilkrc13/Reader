@@ -12,12 +12,12 @@ serves, together with the zip the manifest points at.
 End-to-end run, from a clean checkout:
 
     # 1. Install the current version where the updater is allowed to work.
-    ./macos/build-app.sh
+    ./src/reader/macos/scripts/build-app.sh
     ditto build/Reader.app ~/Applications/Reader.app
 
     # 2. Build the "newer" release from a bumped VERSION.
     echo 2.1.0 > VERSION
-    ./macos/build-app.sh
+    ./src/reader/macos/scripts/build-app.sh
     mkdir -p /tmp/reader-feed
     ditto -c -k --keepParent build/Reader.app /tmp/reader-feed/Reader-2.1.0.zip
     git checkout VERSION            # put the committed version back
