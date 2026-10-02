@@ -60,6 +60,9 @@ class FocusedLintTests(unittest.TestCase):
         (self.root / "new.py").write_text("new")
         (self.root / "new.swift").write_text("new")
         (self.root / "vendor.min.js").write_text("changed vendor")
+        generated = self.root / "plugins/reader-markdown/server.mjs"
+        generated.parent.mkdir(parents=True)
+        generated.write_text("generated bundle")
         (self.root / "deleted.py").unlink()
         # Keep the runner itself out of this fixture's changed Python set.
         subprocess.run(["git", "add", "scripts", ".gitignore"], cwd=self.root, check=True)

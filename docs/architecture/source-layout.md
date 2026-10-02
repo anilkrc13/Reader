@@ -19,6 +19,9 @@ scripts/                     server launcher, development and repository tools
 tests/server/                local server and tooling checks
 tests/browser/               shared UI with the local server
 tests/chatgpt/               adapter protocol and simulated-host checks
+plugins/reader-markdown/      tracked ready plugin generated from source
+plugins/release.json          tracked package version and hashes
+.agents/plugins/marketplace.json public default-branch catalog
 build/Reader.app             ignored native output
 build/chatgpt/               ignored extension output
 build/web/                   ignored portable browser/server runtime
@@ -99,12 +102,14 @@ The adapter manifest owns its own runtime dependencies and module type.
 | `requirements-dev.txt` | The pinned Python linter. Reader has no Python runtime dependency manifest. |
 | `config/` | ESLint, Ruff, and SwiftLint rules. The focused lint runner supplies each path explicitly. |
 | `.github/`, `.gitignore`, `.git/` | CI and issue templates, generated/state exclusions, and Git data. |
+| `.gitattributes` | Preserve generated plugin template whitespace. Package byte equality is checked by the freshness gate. |
 | `build/` | Mac app, extension package, release files, build staging, browser output, and ignored inspection/validation tools. |
 | `node_modules/` | Ignored repo-wide development dependencies. The adapter's ignored dependencies stay at its package boundary. |
 | `__pycache__/`, `.ruff_cache/`, `.pytest_cache/` | Ignored Python/tool caches. These are local tooling, not application source or release output. |
 | `.reader-token`, `preferences.json` | Existing local authorization and preferences. Preserved without reading their contents. |
 | `AGENTS.md` | Ignored machine-local agent instructions. Preserved locally; contributor guidance lives in `CONTRIBUTING.md` and `docs/testing.md`. |
-| `.agents/` | Ignored local plugin catalog. Reader's source path is `./build/chatgpt`; policy and other fields are preserved. |
+| `.agents/plugins/marketplace.json` | Public default-branch catalog pointing to `./plugins/reader-markdown`. Other `.agents` files remain ignored private state. |
+| `plugins/` | Generated ready plugin and hash manifest. User-approved distribution output on `main`; never an editable source tree. |
 | `.claude/`, `.playwright-cli/`, `.DS_Store` | Existing local assistant settings, CLI diagnostics, and Finder metadata. Preserved. |
 | `plans/` | Temporary only during active work; removed when decisions and checks have permanent homes. |
 
@@ -231,12 +236,19 @@ safety. Earlier Git history still contains the instruction file.
 
 ## Plugin release ownership
 
-The tag-triggered Release workflow builds both the Mac app and bundled plugin.
-The plugin packager validates the shared version and notices, emits a ZIP under
-`build/releases`, and stages an exploded Git marketplace under `build`. The
-publisher owns only a separate `plugin-marketplace` branch. Its generated
-`.agents/plugins/marketplace.json` is distinct from ignored machine-local state.
-Catalog paths resolve within that fetched branch. Version folders and source
-provenance are immutable; catalog refresh selects the latest published version.
-A dispatch from merged `main` bootstraps plugin distribution without a tag or
-Mac release. Details and failure ordering live in [releasing](../releasing.md).
+The public root catalog and ready plugin live on `main`. A plain repository URL
+fetches `.agents/plugins/marketplace.json`, which points to
+`./plugins/reader-markdown`. This folder contains generated server/viewer files,
+portable manifests, artwork, and licenses. The owner approved tracking this
+ready package so installation requires no branch selection or local build.
+Editable source remains in `src/reader`; dependencies are never copied here.
+Other `.agents` state and root `AGENTS.md` stay ignored.
+
+`scripts/plugin_release.py sync` refreshes the owned package, public catalog, and
+`plugins/release.json` hash manifest. Source PRs include the generated changes.
+CI rebuilds with pinned dependencies and uses the read-only `check` command to
+reject stale bytes, versions, paths, licenses, or hashes. Release jobs perform
+the same check and create archives under `build`. They make no Git changes.
+The legacy `plugin-marketplace` branch is retained but unused. This correction
+moves the identical 2.6.0 package, so it needs no version bump or release tag.
+Details and commands live in [releasing](../releasing.md).

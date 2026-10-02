@@ -4,9 +4,12 @@
 .mdview-token
 preferences.json
 
-# Machine-local assistant instructions, catalogs, and settings
+# Machine-local assistant instructions and settings
 /AGENTS.md
-/.agents/
+/.agents/*
+!/.agents/plugins/
+/.agents/plugins/*
+!/.agents/plugins/marketplace.json
 .claude/
 
 # Local Playwright inspection artifacts

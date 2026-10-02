@@ -30,34 +30,34 @@ It waits for MCP messages on stdin. It does not print a web URL. The integration
 
 ## GitHub marketplace installation
 
-After the Release workflow publishes the `plugin-marketplace` branch, use:
+Add `https://github.com/anilkrc13/Reader` in the desktop marketplace UI. The
+root catalog and ready plugin are on the default `main` branch. The CLI route is:
 
 ```sh
-codex plugin marketplace add anilkrc13/Reader --ref plugin-marketplace
+codex plugin marketplace add https://github.com/anilkrc13/Reader
 codex plugin add reader-markdown@reader-github
 ```
 
-The fetched marketplace supplies a ready-built plugin; no source build or local
-`build/chatgpt` path is needed. Node 22 or newer is still required. Refresh the
-catalog with `codex plugin marketplace upgrade reader-github`. See
+No branch selection or source build is needed. Node 22 or newer must be on the
+host path. Refresh the catalog with
+`codex plugin marketplace upgrade reader-github`. See
 [release distribution](../../../docs/releasing.md#plugin-package-and-git-marketplace)
-for bootstrap, ZIP contents, immutable versions, and publication failure behavior.
-This route is available only after a successful workflow publication. Real host
-routing and refresh still require the acceptance checks below.
+for package generation, freshness checks, and ZIP contents.
 
-## Desktop installation to test
+## Desktop acceptance
 
-OpenAI documents a [repo-local marketplace installation route](https://developers.openai.com/plugins/build/plugins). This route has not been proven for this Reader package or this account. The actual desktop application is `/Applications/ChatGPT.app`, version `26.928.40906`, read from its installed Info.plist on October 2, 2026. The active conversation surface is Codex desktop. The computer-use tool refuses access to `com.openai.codex`, so this task cannot inspect its Plugins Directory or click a conversation file link.
+The supported CLI can discover, install, and connect the stdio plugin. Actual
+file routing still needs these checks in the desktop host:
 
-1. Build the package with the commands above.
-2. Add the entry from `marketplace.example.json` to the repo's `.agents/plugins/marketplace.json`. If no catalog exists, copy the example there. The source path is relative to the Reader root. It points to `./build/chatgpt`. Keep any existing catalog entries. The existing Reader Local entry was migrated to the new build path. Other entries
-and installation settings were preserved; no plugin was installed or enabled.
-3. Restart the desktop app. In its Plugins Directory, select **Reader Local**, then install **Reader Markdown**. Start a new local Codex conversation with the plugin enabled. The plugin configuration runs `node ./server.mjs` from the installed package root. Node must be on the host's executable path. Record any connection error or requested setting.
-4. Ask the assistant to create a short Markdown file and return an ordinary clickable file link. Click the link. Record whether Reader appears in the conversation side panel. If the host offers a viewer chooser, choose Reader and record the default setting. A browser or native Reader window is not a passing result.
-5. With that panel open, ask the assistant to change the file's heading. Confirm the panel updates without reopening it. Open a second Markdown file and confirm the panels stay independent. Record the application version, conversation mode, selected viewer, and results.
-6. If routing or precedence fails, stop feature expansion and report that result. Disable or uninstall Reader Markdown to roll back. Standalone documents and preferences are untouched.
-
-If that desktop surface cannot load the local stdio plugin, the documented fallback is [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels) in developer mode. This task has not created a tunnel, obtained credentials, or proven account access. A tunnel requires a tunnel ID, runtime key, appropriate Platform tunnel permissions, and developer-mode access in the target workspace. Use the official setup UI to connect the same stdio command. Do not expose Reader's Python filesystem service or use public forwarding as a substitute.
+1. Install Reader Markdown from the GitHub marketplace. Start a local Codex
+   conversation with it enabled. Record any connection error.
+2. Ask the assistant to create a short Markdown file and return an ordinary file
+   link. Click it. Confirm Reader opens in the conversation side panel. Record
+   viewer selection and any default setting.
+3. Change the file's heading through the assistant. Confirm the panel updates
+   without reopening it. Open a second file and confirm independent panels.
+4. Record the app version, conversation mode, selected viewer, and results.
+   If routing fails, report it. Disabling the plugin leaves documents untouched.
 
 ## Boundaries
 
@@ -110,10 +110,8 @@ its permission. The native Mac app supplies installed families through AppKit.
 
 The adapter source lives at this package root. Shared UI lives beside it in
 `src/reader/web`. The package builds into `build/chatgpt` and uses common icon
-artwork. The repo-local Reader Local catalog now points to `./build/chatgpt`. Its policy
-and other properties are unchanged. An independent catalog that still points to
-`extensions/chatgpt/dist` needs the same path update. Installed host configuration
-and caches have not been changed.
+artwork. The public catalog points to the generated `plugins/reader-markdown`
+package on `main`. Editable source and dependencies stay in their original owners.
 
 Adapter tests live in `tests/chatgpt`, outside application source. Its browser
 runner configuration lives there too. The protocol client uses this package's

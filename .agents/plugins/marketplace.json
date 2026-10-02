@@ -1,0 +1,20 @@
+{
+  "name": "reader-github",
+  "interface": {
+    "displayName": "Reader GitHub"
+  },
+  "plugins": [
+    {
+      "name": "reader-markdown",
+      "source": {
+        "source": "local",
+        "path": "./plugins/reader-markdown"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

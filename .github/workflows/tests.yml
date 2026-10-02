@@ -88,6 +88,9 @@ jobs:
           done
       - name: Validate plugin release package
         run: |
+          python3 scripts/plugin_release.py check \
+            --plugin-dir build/chatgpt --version-file VERSION \
+            --repository-root . --repository-url "https://github.com/$GITHUB_REPOSITORY"
           python3 scripts/plugin_release.py stage \
             --plugin-dir build/chatgpt --version-file VERSION \
             --tag "v$(cat VERSION)" --source-commit "$(git rev-parse HEAD)" \

@@ -1,0 +1,2 @@
+# Generated plugin bundles retain upstream bytes, including template whitespace.
+plugins/reader-markdown/** -whitespace

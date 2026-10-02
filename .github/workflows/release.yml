@@ -1,7 +1,7 @@
 name: Release
 
-# Tags publish Mac and plugin release assets. A dispatch from main publishes
-# only the Git marketplace, for initial setup without creating a release tag.
+# Tags publish Mac and plugin release assets. A dispatch from main validates
+# the committed marketplace package and archives it without creating a tag.
 on:
   push:
     tags:
@@ -29,6 +29,9 @@ jobs:
       - name: Validate and package plugin
         shell: bash
         run: |
+          python3 scripts/plugin_release.py check \
+            --plugin-dir build/chatgpt --version-file VERSION \
+            --repository-root . --repository-url "https://github.com/$GITHUB_REPOSITORY"
           TAG_ARGS=()
           if [ "$GITHUB_EVENT_NAME" = "push" ]; then
             TAG_ARGS=(--tag "$GITHUB_REF_NAME")
@@ -40,7 +43,7 @@ jobs:
             --output-dir build/plugin-marketplace --archive-dir build/releases
       - uses: actions/upload-artifact@v4
         with:
-          name: reader-plugin-marketplace
+          name: reader-plugin-package
           path: build/plugin-marketplace/
           include-hidden-files: true
           if-no-files-found: error
@@ -161,33 +164,3 @@ jobs:
             build/releases/manifest.json \
             --title "Reader $VERSION" \
             --notes-file "$RUNNER_TEMP/release-notes.md"
-
-  marketplace:
-    name: Publish Git marketplace
-    needs: [plugin, release]
-    if: >-
-      always() && needs.plugin.result == 'success' &&
-      (needs.release.result == 'success' ||
-       (github.event_name == 'workflow_dispatch' && needs.release.result == 'skipped'))
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: reader-plugin-marketplace
-          path: build/plugin-marketplace/
-      - name: Publish validated plugin files and catalog
-        shell: bash
-        run: |
-          # Reuse checkout's job-scoped credentials without putting a token in URLs.
-          READER_GIT_AUTH="$(git config --get http.https://github.com/.extraheader)"
-          export GIT_CONFIG_COUNT=1
-          export GIT_CONFIG_KEY_0='http.https://github.com/.extraheader'
-          export GIT_CONFIG_VALUE_0="$READER_GIT_AUTH"
-          python3 scripts/plugin_release.py publish \
-            --stage-dir build/plugin-marketplace \
-            --checkout "$RUNNER_TEMP/reader-plugin-marketplace" \
-            --remote "https://github.com/$GITHUB_REPOSITORY.git" \
-            --branch plugin-marketplace

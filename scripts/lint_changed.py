@@ -21,6 +21,7 @@ def main():
     )
     files = sorted({name.decode() for name in (tracked + untracked).split(b"\0") if name})
     files = [name for name in files if (ROOT / name).is_file() and
+             not name.startswith("plugins/reader-markdown/") and
              not any(part in {"node_modules", "dist", "build"} for part in Path(name).parts)]
     javascript = [name for name in files if Path(name).suffix in {".js", ".mjs", ".cjs", ".ts"}
                   and not name.endswith(".min.js")]
