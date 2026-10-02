@@ -4,6 +4,60 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- GitHub releases package the bundled Reader plugin alongside Mac assets.
+  The same workflow publishes a Git-backed marketplace with versioned plugin
+  files. An initial dispatch from main can publish the marketplace without a tag.
+
+- A successful conflict overwrite clears the blocked-save label. Newer edits
+  entered during that save remain Unsaved.
+
+- Keep shared, Mac, and ChatGPT adapter source in one tree and separate build output.
+
+- Shared implementation is organized under `src/reader/`. Web assets and vendored
+  libraries have named folders. Start the server with `python3 scripts/reader.py`
+  or `npm run start:web`. Python callers import `src.reader.server` directly.
+  Server tests have one area. Completed plans are replaced by permanent source
+  ownership and host acceptance docs.
+
+- The Mac app lists installed font families for body and headings through AppKit.
+  Saved choices survive missing fonts and use a fallback until available again.
+  Lora is the sole bundled default. Browser and embedded viewers explain their
+  installed-font limit and keep Lora plus system choices without new permissions.
+
+- Embedded Settings fills narrow or short panes. Back and a section picker remain
+  visible while stacked controls scroll. Roomy panes retain the modal. Resize keeps
+  choices and focus. Closing returns to the recorded reading passage after text
+  size changes. Native settings behavior is unchanged.
+
+- Embedded local Markdown links can open through a capable host after validation
+  inside the opened document’s directory. Missing host metadata, path escapes,
+  symlink escapes, and unsupported targets are refused. No filesystem grants are added.
+- The plugin packages existing Reader artwork as its logo and composer icon.
+
+- Embedded keyboard scrolling works after a document opens and after Find or
+  Settings closes. Inputs and nested scrollers keep their keys. Live refresh
+  preserves control focus.
+
+- A heading outline opens on demand inside each local Markdown document pane.
+  It navigates to folded sections and headings in two-page reading.
+- Quiet save status shows Saving, Saved, Unsaved, or Read-only. Failures and
+  conflicts stay visible. Live still describes disk watching.
+- Two-page reading uses a book icon. Comparing documents and editor preview
+  have separate icons.
+- Command-F searches the active document after Files-panel focus and in Edit
+  mode. The native Edit menu and toolbar expose document search. Find a File
+  uses Command-Shift-O and a separate Search files field. Command-P is untouched.
+
+- The embedded viewer follows Codex’s theme. Find and Refresh use icons.
+  A Settings gear opens Reader’s shared Appearance, Reading, and Code controls.
+  Page tones, typography, percentage content width, and code styles persist
+  independently of Mac preferences. Unsupported settings explain their limits.
+  Headings have more room in narrow panels. Native controls are unchanged.
+
+- Add a read-only Markdown conversation viewer prototype that shares Reader’s
+  rendering and reading controls. Desktop installation and file-link routing
+  still need a real-host check.
+
 - Tables keep short values whole: a date such as 08-18, an amount, an ID or a
   short list such as "G19, G20" no longer wraps, and a column of longer text
   keeps a readable width, so a wide table scrolls sideways instead of

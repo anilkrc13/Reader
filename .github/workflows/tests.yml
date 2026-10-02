@@ -42,7 +42,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: webmcp-test-results
-          path: test-results/
+          path: build/browser-test-results/
           if-no-files-found: ignore
 
   macos-app:
@@ -51,9 +51,57 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build Reader.app (ad-hoc signed)
-        run: ./macos/build-app.sh
+        run: ./src/reader/macos/scripts/build-app.sh
       - name: Verify bundle
         run: |
           codesign --verify --deep --strict build/Reader.app
-          cmp reader.py build/Reader.app/Contents/Resources/reader.py
+          cmp scripts/reader.py build/Reader.app/Contents/Resources/scripts/reader.py
           cmp VERSION build/Reader.app/Contents/Resources/VERSION
+          cmp LICENSE build/Reader.app/Contents/Resources/LICENSE
+          diff -qr src/reader/common/licenses build/Reader.app/Contents/Resources/licenses
+          test ! -e build/Reader.app/Contents/Resources/reader_backend.py
+          cmp src/__init__.py build/Reader.app/Contents/Resources/src/__init__.py
+          for file in __init__.py server.py backend.py; do
+            cmp "src/reader/$file" "build/Reader.app/Contents/Resources/src/reader/$file"
+          done
+          diff -qr -x __pycache__ src/reader/web build/Reader.app/Contents/Resources/src/reader/web
+          test ! -e build/Reader.app/Contents/Resources/src/reader/chatgpt
+          test ! -e build/Reader.app/Contents/Resources/src/reader/macos
+          test ! -e build/Reader.app/Contents/Resources/src/reader/common
+
+  chatgpt:
+    name: ChatGPT adapter checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - run: npm ci --prefix src/reader/chatgpt --ignore-scripts
+      - run: npm run build:chatgpt
+      - name: Verify shared notices
+        run: |
+          cmp LICENSE build/chatgpt/LICENSE
+          for notice in src/reader/common/licenses/*; do
+            cmp "$notice" "build/chatgpt/licenses/$(basename "$notice")"
+          done
+      - name: Validate plugin release package
+        run: |
+          python3 scripts/plugin_release.py stage \
+            --plugin-dir build/chatgpt --version-file VERSION \
+            --tag "v$(cat VERSION)" --source-commit "$(git rev-parse HEAD)" \
+            --repository-url "https://github.com/$GITHUB_REPOSITORY" \
+            --output-dir build/ci-plugin-marketplace --archive-dir build/releases
+      - run: npm run test:chatgpt
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test --config tests/chatgpt/playwright.config.cjs
+        env:
+          READER_PLAYWRIGHT_CHANNEL: chromium
+      - name: Keep the failure context
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-test-results
+          path: build/embedded-test-results/
+          if-no-files-found: ignore

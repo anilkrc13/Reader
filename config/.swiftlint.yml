@@ -1,0 +1,4 @@
+only_rules:
+  - duplicate_imports
+  - force_try
+  - trailing_whitespace

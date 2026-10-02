@@ -17,5 +17,5 @@ labels: bug
 
 - Reader version (Settings → About):
 - macOS version:
-- Running as the app, in a browser, or from `python3 reader.py`:
+- Running as the app, in a browser, or from `python3 scripts/reader.py`:
 - Kind of document (markdown, code, CSV, PDF):

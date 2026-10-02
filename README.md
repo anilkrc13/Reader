@@ -30,9 +30,9 @@ open it; see [docs/macos.md](docs/macos.md) for how to get past it.
 ### From source
 
 ```
-python3 reader.py                      # start in your home folder
-python3 reader.py ~/Documents/notes    # start in a folder
-python3 reader.py ~/notes/spec.md      # open a file straight away
+python3 scripts/reader.py                      # start in your home folder
+python3 scripts/reader.py ~/Documents/notes    # start in a folder
+python3 scripts/reader.py ~/notes/spec.md      # open a file straight away
 ```
 
 See [docs/macos.md](docs/macos.md) for building the app yourself, signing it
@@ -62,9 +62,22 @@ turning Reader into a browser app.
 | **Full screen** | The corners icon, or `⌃⌘F`. `Esc` leaves it. In the app, the green window button does it, and the panel, back, forward, theme and settings buttons sit in the title bar instead of Reader's toolbar. |
 | **New document** | `⌘N` asks for a name and creates an empty markdown file next to the document you are reading — or, with nothing open, in the folder you are browsing. Either way the dialog shows the folder and offers **Change** to pick another one. In the app that opens Finder's own folder chooser, with your sidebar, favourites, `⌘⇧G` and **New Folder**; in a browser, which cannot open a Mac panel, a small folder list appears in the dialog instead. A folder Reader may not write to is refused the moment you choose it, saying why, rather than failing later. Nothing is written until you press **Create**. Leave the extension off and it is a `.md`. Only markdown can be created, an existing file is never overwritten, and the new document opens ready to edit. |
 | **Back and forward** | The `‹` and `›` arrows, `⌘←` / `⌘→` or `⌘[` / `⌘]`, or bare `←` / `→` while reading in a single column. `⌘←` / `⌘→` keep their start and end of line meaning while you are typing; `⌘[` / `⌘]` work everywhere. Each document in the trail remembers where you were in it, so going back returns you to the paragraph you left rather than to the top — and going forward again returns you to where you were reading there. In Edit mode the editor's scroll and caret come back with it. |
-| **Find** | `⌘F` opens a find bar above the document. It highlights every match, counts them, and `⌘G` / `⇧⌘G` — or `↵` / `⇧↵` — step between them; `Esc` closes it. A match is found even where it spans styling, so searching `one two` finds **one** two. There is no toolbar button: the shortcut is the whole interface. |
-| **Find a file** | `⌘F` while the file panel has focus searches names instead, anywhere below the folder you are browsing — including folders you never expanded. Each hit shows the folder holding it, `↑`/`↓` move, `↵` opens it and takes the tree with it. |
+| **Find** | `⌘F` opens a find bar above the document. It highlights every match, counts them, and `⌘G` / `⇧⌘G` — or `↵` / `⇧↵` — step between them; `Esc` closes it. A match is found even where it spans styling, so searching `one two` finds **one** two. The magnifying-glass toolbar button and the native Edit menu open the same search. In Edit mode it searches the source text. |
+| **Heading outline** | The outline icon opens a list of Markdown headings inside the document pane. Select a heading to reveal its section, including folded sections or another page. Escape closes the outline. |
+| **Save status** | Saved, Saving, Unsaved, and Read-only describe the current document. Save failures and conflicts remain visible. Live separately means the file is watched for changes on disk. |
+| **Find a file** | `⇧⌘O`, the Files-panel magnifying glass, or Find a File in the native Edit menu searches names, anywhere below the folder you are browsing — including folders you never expanded. Each hit shows the folder holding it, `↑`/`↓` move, `↵` opens it and takes the tree with it. |
 | **Settings** | `⌘,` or the gear. See below. |
+
+## Source layout
+
+The shared implementation lives in [`src/reader/`](src/reader/). Web application
+code, assets, and vendored libraries have separate folders. The launcher lives in `scripts/reader.py` and imports the canonical server. Native build scripts live in `src/reader/macos/scripts/`; the standalone
+conversation adapter lives in `src/reader/chatgpt/`. The Mac launcher and its
+assets live in `src/reader/macos/`. Both builds use artwork from `src/reader/common/`. See
+[source ownership](docs/architecture/source-layout.md) for the history and test map.
+Build everything on a Mac with `npm run build`. Select a variant with
+`npm run build -- web`, `npm run build -- macos`, or `npm run build -- chatgpt`.
+All application output goes under `build/`.
 
 ## Settings
 
@@ -76,7 +89,10 @@ Seven sections, in a dialog laid out like a modern desktop app:
   frosted-glass panel option, and which side the file panel sits on.
 - **Reading** — three presets (Compact, Comfortable, Focus) plus individual
   control of body and heading typeface, text size, line height, line width and
-  paragraph spacing. A live specimen shows the effect as you drag.
+  paragraph spacing. The Mac app lists installed font families. Lora is the one
+  bundled default. Missing saved fonts fall back without erasing the choice.
+  Browser and embedded viewers offer Lora and system defaults because they do
+  not supply a permitted installed-font list. A live specimen shows the effect as you drag.
 - **Code** — highlight palette (brand, muted, vivid), monospace face, code size,
   and whether long lines wrap.
 - **Editor** — editor typeface and size, tab width, spell check, editor and preview
@@ -91,8 +107,7 @@ Seven sections, in a dialog laid out like a modern desktop app:
 Everything you choose is remembered between restarts, along with the folder you
 were browsing, the file you were reading, the panel side and width, and the
 view mode. Preferences are stored in `~/Library/Application Support/Reader`
-when Reader runs as the app, or in `preferences.json` beside [`reader.py`](reader.py) when
-run from source.
+when Reader runs as the app, or in `preferences.json` at the project root when run from source.
 
 ## Development
 
@@ -120,7 +135,7 @@ for how a tagged push turns into a signed release.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor guide and
 [SECURITY.md](SECURITY.md) for the security policy. The macOS app bundle is
-built by [`./macos/build-app.sh`](macos/build-app.sh) and is not committed.
+built by [`./src/reader/macos/scripts/build-app.sh`](src/reader/macos/scripts/build-app.sh) and is not committed.
 
 ## What it renders
 
@@ -228,19 +243,12 @@ preview beside the editor. The editor shows the source, where a link is just tex
 
 ## Third-party components
 
-Bundled locally in `static/`, licences in `licenses/`:
+Bundled locally in `src/reader/web/`, licences in `src/reader/common/licenses/`:
 [marked](https://marked.js.org) (markdown), [DOMPurify](https://github.com/cure53/DOMPurify)
 (sanitising), [highlight.js](https://highlightjs.org) (code), [Mermaid](https://mermaid.js.org)
-(diagrams), and the
-[Poppins](https://fonts.google.com/specimen/Poppins),
-[EB Garamond](https://fonts.google.com/specimen/EB+Garamond),
-[Figtree](https://fonts.google.com/specimen/Figtree),
-[Satoshi](https://www.fontshare.com/fonts/satoshi) (ITF Free Font License),
-[Lora](https://fonts.google.com/specimen/Lora),
-[Inter](https://fonts.google.com/specimen/Inter),
-[Source Serif 4](https://fonts.google.com/specimen/Source+Serif+4) and
-[JetBrains Mono](https://www.jetbrains.com/lp/mono/) typefaces
-(SIL Open Font License).
+(diagrams), and the [Lora](https://fonts.google.com/specimen/Lora) default typeface
+(SIL Open Font License). Other font choices in the Mac app come from installed
+font families. The interface and default code face use operating system stacks.
 
 ## License
 

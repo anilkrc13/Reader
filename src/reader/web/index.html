@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-themepref="auto" data-side="left" data-mode="preview"
+      data-sidebar="shown" data-empty="yes" data-full="off" data-code="brand" data-wordcount="on"
+      data-tableborders="off">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Reader</title>
+<link rel="icon" href="/static/assets/icon.svg">
+<script src="/static/prepaint.js"></script>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- =========================================================== sidebar -->
+  <aside id="sidebar" aria-label="File browser">
+    <div class="side-head">
+      <!-- One glyph, two homes: while the panel is on screen the control lives
+           here, in its corner; while the panel is hidden the toolbar shows its
+           twin (#btn-show) in the same corner of the window. Only one is ever
+           visible, so the button appears to stay put as the panel comes and
+           goes. Which edge the panel sits on is a setting, not a button. -->
+      <button class="icon-btn" id="btn-panel" title="Hide panel (⌘\)" aria-label="Hide panel" data-kbd>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2"/><path d="M8 3.5v13"/></svg>
+      </button>
+      <!-- Back and forward sit immediately after the panel glyph, exactly as
+           they do in the toolbar. The glyph holds the same corner in both
+           states, so the arrows keep one position: expanding the panel changes
+           which element they hang off, not where they are on screen. Before the
+           title, because .side-title takes flex:1 and would shove them to the
+           far edge. -->
+      <span class="trail-nav" id="trail-panel"></span>
+      <span class="side-title">Files</span>
+      <button class="icon-btn" id="btn-file-find" title="Find a File (⇧⌘O)" aria-label="Find a File" data-kbd>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.8" cy="8.8" r="5.4"/><path d="M12.8 12.8 17 17"/></svg>
+      </button>
+    </div>
+
+    <!-- pinned folders ---------------------------------------------------- -->
+    <div class="sec" id="pinned">
+      <div class="sec-bar">
+        <button class="sec-head" id="pinned-toggle" aria-expanded="true">
+          <svg class="caret open" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"/></svg>
+          <span>Pinned</span>
+        </button>
+        <button class="icon-mini" id="btn-pin" title="Pin the folder you are browsing" aria-label="Pin the current folder">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.2v9.6M3.2 8h9.6"/></svg>
+        </button>
+      </div>
+      <ul id="pinnedlist"></ul>
+    </div>
+
+    <!-- recently opened ------------------------------------------------- -->
+    <div class="sec" id="recents">
+      <div class="sec-bar">
+        <button class="sec-head" id="recents-toggle" aria-expanded="true">
+          <svg class="caret open" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"/></svg>
+          <span>Recent</span>
+          <span class="count" id="recents-count"></span>
+        </button>
+      </div>
+      <ul id="recentlist"></ul>
+    </div>
+
+    <!-- where you are: a friendly folder name, not a filesystem path -->
+    <div class="loc">
+      <button class="icon-mini" id="btn-up" title="Up to the enclosing folder" aria-label="Up to the enclosing folder">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 12.8V3.6M4.2 7.2 8 3.4l3.8 3.8"/></svg>
+      </button>
+      <button class="loc-name" id="loc-name" title="" aria-haspopup="menu" aria-label="Current folder">
+        <svg class="loc-folder" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.8 4.2A1.2 1.2 0 0 1 3 3h2.9l1.4 1.7h5.7A1.2 1.2 0 0 1 14.2 6v6a1.2 1.2 0 0 1-1.2 1.2H3A1.2 1.2 0 0 1 1.8 12z"/></svg>
+        <span class="nm" id="loc-label"></span>
+        <svg class="loc-caret" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 6.5 8 10l3.5-3.5"/></svg>
+      </button>
+    </div>
+
+    <!-- Find a file by name, anywhere below the folder being browsed. Opened
+         with ⇧⌘O; the tree returns when it closes. -->
+    <div id="filefind" hidden>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.3"/><path d="M10.2 10.2 13.6 13.6"/></svg>
+      <input id="filefind-q" type="text" placeholder="Search files"
+             aria-label="Search files" autocomplete="off" spellcheck="false"
+             role="combobox" aria-expanded="false" aria-controls="filefind-list">
+      <button class="icon-mini" id="filefind-close" title="Close (Esc)" aria-label="Close file search">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.6 4.6l6.8 6.8M11.4 4.6l-6.8 6.8"/></svg>
+      </button>
+    </div>
+
+    <div class="tree-wrap">
+      <ul class="tree" id="tree" role="tree"></ul>
+      <ul class="tree" id="filefind-list" role="listbox"
+          aria-label="Matching files" hidden></ul>
+    </div>
+
+    <div class="side-foot">
+      <span class="foot-note" id="footnote"></span>
+    </div>
+  </aside>
+
+  <div id="dragbar" role="separator" aria-orientation="vertical" tabindex="-1"></div>
+
+  <!-- ============================================================== main -->
+  <main id="main">
+    <header id="toolbar">
+      <button class="icon-btn" id="btn-show" title="Show panel (⌘\)" aria-label="Show panel" data-kbd>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2"/><path d="M8 3.5v13"/></svg>
+      </button>
+
+      <!-- Back and forward have two homes, like the panel button above. The one
+           pair of buttons is moved between them rather than duplicated, so the
+           click handlers and the enabled state cannot drift apart. -->
+      <span class="trail-nav" id="trail-toolbar">
+        <button class="icon-btn" id="btn-back" title="Back (⌘← or ⌘[)" aria-label="Back" disabled data-kbd>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11.6 4.8 6.4 10l5.2 5.2"/></svg>
+        </button>
+        <button class="icon-btn" id="btn-fwd" title="Forward (⌘→ or ⌘])" aria-label="Forward" disabled data-kbd>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8.4 4.8 13.6 10l-5.2 5.2"/></svg>
+        </button>
+      </span>
+
+      <div class="doc-title">
+        <span id="docname">No document open</span>
+        <span class="dot" id="dirty" title="Unsaved changes" hidden></span>
+      </div>
+      <span id="save-status" role="status" aria-live="polite" hidden></span>
+      <span class="live" id="livetag" title="Watching this file for changes on disk">Live</span>
+
+      <div class="spacer"></div>
+
+      <div class="toolbar-group" role="group" aria-label="Document actions">
+      <button class="icon-btn" id="btn-find" title="Find in Document (⌘F)" aria-label="Find in Document" data-kbd>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.8" cy="8.8" r="5.4"/><path d="M12.8 12.8 17 17"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-outline" title="Heading outline" aria-label="Heading outline" aria-expanded="false" aria-controls="heading-outline">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 5h10M9 10h8M11 15h6M3 5h1M5 10h1M7 15h1"/></svg>
+      </button>
+      <button class="icon-btn accent" id="btn-save" title="Save (⌘S)" aria-label="Save" disabled data-kbd>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.8v9.4"/><path d="M6.2 8.6 10 12.4l3.8-3.8"/><path d="M3.6 13.4v2.2a1.2 1.2 0 0 0 1.2 1.2h10.4a1.2 1.2 0 0 0 1.2-1.2v-2.2"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-copy" title="Copy document (formatted)" aria-label="Copy document with formatting">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.6"/><path d="M13 4.6V4a1.4 1.4 0 0 0-1.4-1.4H4A1.4 1.4 0 0 0 2.6 4v7.6A1.4 1.4 0 0 0 4 13h.6"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-refresh" title="Reload from disk (⌘R)" aria-label="Reload from disk" data-kbd>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.6 10a6.6 6.6 0 1 1-2-4.7"/><path d="M16.8 3.4v4h-4"/></svg>
+      </button>
+      </div>
+      <span class="tool-sep" aria-hidden="true"></span>
+      <div class="view-controls">
+      <div class="segmented" role="group" aria-label="View mode">
+        <button data-mode="preview" class="seg" title="Preview (⌘E)" data-kbd>Preview</button>
+        <button data-mode="edit" class="seg" title="Edit (⌘E)" data-kbd>Edit</button>
+      </div>
+
+      <!-- Editing either shows the preview beside the editor or does not. -->
+      <div id="edit-preview" class="segmented" role="group" aria-label="Editor layout">
+      <button class="icon-btn layout-choice" id="btn-edit-preview" title="Show preview beside the editor" aria-label="Show preview beside the editor" aria-pressed="false">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="1.6"/><path d="M10 3.5v13M4.5 7l2-1.5L4.5 4M4.5 12l2 1.5-2 1.5M12.4 7.2h2.8M12.4 10h2.8M12.4 12.8h1.8"/></svg>
+      </button>
+      </div>
+
+      <!-- A JSON document's folds, opened or closed all at once. -->
+      <div id="json-tools" class="segmented" role="group" aria-label="JSON folds">
+        <button class="icon-btn layout-choice" id="json-expand" title="Expand all" aria-label="Expand all">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 7.5 10 3.5l4 4M6 12.5l4 4 4-4"/></svg>
+        </button>
+        <button class="icon-btn layout-choice" id="json-collapse" title="Collapse all" aria-label="Collapse all">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 3.5l4 4 4-4M6 16.5l4-4 4 4"/></svg>
+        </button>
+      </div>
+
+      <div id="preview-layout" class="segmented" role="group" aria-label="Preview layout">
+        <button class="icon-btn layout-choice" data-layout="single" title="Single column" aria-label="Single column" aria-pressed="true">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="5.5" y="3" width="9" height="14" rx="1.2"/></svg>
+        </button>
+        <button class="icon-btn layout-choice" data-layout="spread" title="Two-page layout" aria-label="Two-page layout" aria-pressed="false">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4.5C7.8 3 4.5 3 2 4v12c2.5-1 5.8-1 8 .5 2.2-1.5 5.5-1.5 8-.5V4c-2.5-1-5.8-1-8 .5ZM10 4.5v12M4 7h3M4 10h3M13 7h3M13 10h3"/></svg>
+        </button>
+      </div>
+      </div>
+
+      <!-- Only in the side pane: closes it and returns the tab to one document. -->
+      <button class="icon-btn" id="btn-close-pane" title="Close this document (⌥⌘\)" aria-label="Close this document" data-kbd>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 5.5l9 9M14.5 5.5l-9 9"/></svg>
+      </button>
+
+      <span class="tool-sep" aria-hidden="true"></span>
+      <div class="toolbar-group" role="group" aria-label="App controls">
+      <button class="icon-btn" id="btn-split" title="Show two documents side by side (⌥⌘\)" aria-label="Split" data-kbd>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="1.5" y="4" width="6.5" height="12" rx="1"/><rect x="12" y="4" width="6.5" height="12" rx="1"/><path d="M9 8h2M9 12h2M3.5 7h2.5M14 10h2.5"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-theme" title="Appearance: match system" aria-label="Switch theme">
+        <svg class="ic-auto" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="6.4"/><path d="M10 3.6v12.8" class="fillhalf"/></svg>
+        <svg class="ic-light" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.9"/><path d="M10 1.4v2.1M10 16.5v2.1M1.4 10h2.1M16.5 10h2.1M3.9 3.9l1.5 1.5M14.6 14.6l1.5 1.5M16.1 3.9l-1.5 1.5M5.4 14.6l-1.5 1.5"/></svg>
+        <svg class="ic-dark" viewBox="0 0 20 20" aria-hidden="true"><path d="M16.6 12A7 7 0 0 1 8 3.4 7 7 0 1 0 16.6 12z"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-full" title="Full screen (⌃⌘F)" aria-label="Full screen" data-kbd>
+        <svg class="ic-enter" viewBox="0 0 20 20" aria-hidden="true"><path d="M7.4 2.8H2.8v4.6M12.6 2.8h4.6v4.6M12.6 17.2h4.6v-4.6M7.4 17.2H2.8v-4.6"/></svg>
+        <svg class="ic-exit" viewBox="0 0 20 20" aria-hidden="true"><path d="M2.8 7.4h4.6V2.8M17.2 7.4h-4.6V2.8M17.2 12.6h-4.6v4.6M2.8 12.6h4.6v4.6"/></svg>
+      </button>
+
+      <button class="icon-btn" id="btn-settings" title="Settings (⌘,)" aria-label="Settings" data-kbd>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="2.6"/><path d="M15.9 12.2a1.3 1.3 0 0 0 .26 1.44l.05.05a1.6 1.6 0 1 1-2.26 2.26l-.05-.05a1.3 1.3 0 0 0-1.44-.26 1.3 1.3 0 0 0-.79 1.19v.13a1.6 1.6 0 0 1-3.2 0v-.07a1.3 1.3 0 0 0-.85-1.19 1.3 1.3 0 0 0-1.44.26l-.05.05a1.6 1.6 0 1 1-2.26-2.26l.05-.05a1.3 1.3 0 0 0 .26-1.44 1.3 1.3 0 0 0-1.19-.79H2.8a1.6 1.6 0 0 1 0-3.2h.07a1.3 1.3 0 0 0 1.19-.85 1.3 1.3 0 0 0-.26-1.44l-.05-.05A1.6 1.6 0 1 1 6.01 3.7l.05.05a1.3 1.3 0 0 0 1.44.26h.06a1.3 1.3 0 0 0 .79-1.19V2.8a1.6 1.6 0 0 1 3.2 0v.07a1.3 1.3 0 0 0 .79 1.19 1.3 1.3 0 0 0 1.44-.26l.05-.05a1.6 1.6 0 1 1 2.26 2.26l-.05.05a1.3 1.3 0 0 0-.26 1.44v.06a1.3 1.3 0 0 0 1.19.79h.13a1.6 1.6 0 0 1 0 3.2h-.07a1.3 1.3 0 0 0-1.19.79z"/></svg>
+      </button>
+      </div>
+    </header>
+
+    <div id="diskbar" hidden>
+      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 6.6v4.2"/><circle cx="10" cy="13.8" r=".6" fill="currentColor" stroke="none"/><path d="M8.7 3.2 1.9 15a1.5 1.5 0 0 0 1.3 2.2h13.6a1.5 1.5 0 0 0 1.3-2.2L11.3 3.2a1.5 1.5 0 0 0-2.6 0z"/></svg>
+      <span class="grow">This file changed on disk while you were editing.</span>
+      <button class="mini-btn" id="disk-keep">Keep mine</button>
+      <button class="mini-btn primary" id="disk-reload">Reload from disk</button>
+    </div>
+
+    <nav id="heading-outline" aria-label="Heading outline" hidden>
+      <div class="outline-head"><b>On this page</b><button class="icon-mini" id="outline-close" aria-label="Close heading outline">×</button></div>
+      <ol id="outline-list"></ol>
+    </nav>
+
+    <!-- Find stays outside the scrolling document. -->
+    <div id="findbar" hidden>
+      <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.8" cy="8.8" r="5.4"/><path d="M12.8 12.8 17 17"/></svg>
+      <input id="find-q" type="text" placeholder="Search this document"
+             aria-label="Search this document" autocomplete="off" spellcheck="false">
+      <span class="find-count" id="find-count" role="status" aria-live="polite"></span>
+      <button class="mini-btn" id="find-prev" title="Previous match (⇧⌘G)" aria-label="Previous match" data-kbd>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 12.2 10 7.7l4.5 4.5"/></svg>
+      </button>
+      <button class="mini-btn" id="find-next" title="Next match (⌘G)" aria-label="Next match" data-kbd>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 7.8 10 12.3l4.5-4.5"/></svg>
+      </button>
+      <button class="mini-btn" id="find-close" title="Close (Esc)" aria-label="Close find">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8"/></svg>
+      </button>
+    </div>
+
+    <div id="panes">
+      <section id="editorpane">
+        <textarea id="editor" spellcheck="false" wrap="soft"
+                  placeholder="Nothing open yet — pick a file from the panel." aria-label="Document source"></textarea>
+      </section>
+      <div id="gutter"></div>
+      <section id="previewpane" tabindex="-1">
+        <article id="preview" class="prose"></article>
+        <div class="page-edge" data-dir="-1" aria-hidden="true">
+          <svg viewBox="0 0 20 20"><path d="M12 4 6 10l6 6"/></svg>
+        </div>
+        <div class="page-edge" data-dir="1" aria-hidden="true">
+          <svg viewBox="0 0 20 20"><path d="m8 4 6 6-6 6"/></svg>
+        </div>
+      </section>
+    </div>
+
+    <nav id="page-nav" aria-label="Reading pages" hidden>
+      <button id="page-prev" class="icon-btn" title="Previous two pages" aria-label="Previous two pages">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12 4 6 10l6 6"/></svg>
+      </button>
+      <span id="page-label" role="status" aria-live="polite"></span>
+      <button id="page-next" class="icon-btn" title="Next two pages" aria-label="Next two pages">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 4 6 6-6 6"/></svg>
+      </button>
+    </nav>
+
+    <div id="empty">
+      <div class="empty-inner">
+        <svg viewBox="0 0 20 20" aria-hidden="true" class="empty-mark"><path d="M4 2.8h7.6L16 7.2v10a.8.8 0 0 1-.8.8H4a.8.8 0 0 1-.8-.8V3.6a.8.8 0 0 1 .8-.8z"/><path d="M11.4 2.9v4.4h4.4M6.6 11h6.8M6.6 13.8h4.4"/></svg>
+        <h1>Reader</h1>
+        <p>Choose a document in the panel — markdown, code, CSV or PDF.</p>
+      </div>
+    </div>
+
+    <div id="toast" role="status" aria-live="polite" hidden></div>
+  </main>
+</div>
+
+<!-- ========================================================= row actions -->
+<div id="ctxmenu" role="menu" hidden></div>
+
+<!-- Quick edit: appears over a selection in the preview. -->
+<div id="fmtbar" role="toolbar" aria-label="Format selection" hidden>
+  <button data-fmt="bold" title="Bold (⌘B)" aria-label="Bold" class="fmt-b" data-kbd>B</button>
+  <button data-fmt="italic" title="Italic (⌘I)" aria-label="Italic" class="fmt-i" data-kbd>I</button>
+  <button data-fmt="underline" title="Underline (⌘U)" aria-label="Underline" class="fmt-u" data-kbd>U</button>
+  <button data-fmt="strike" title="Strikethrough" aria-label="Strikethrough" class="fmt-s">S</button>
+  <button data-fmt="code" title="Inline code" aria-label="Inline code" class="fmt-c">&lt;/&gt;</button>
+  <span class="fmt-sep"></span>
+  <button data-fmt="h1" title="Heading 1" aria-label="Heading 1">H1</button>
+  <button data-fmt="h2" title="Heading 2" aria-label="Heading 2">H2</button>
+  <button data-fmt="h3" title="Heading 3" aria-label="Heading 3">H3</button>
+  <button data-fmt="body" title="Body text" aria-label="Body text">¶</button>
+  <button data-fmt="blockquote" title="Blockquote" aria-label="Blockquote">"</button>
+  <!-- only shown when the selection sits in a list item -->
+  <span class="fmt-sep fmt-li"></span>
+  <button data-fmt="outdent" title="Outdent list item" aria-label="Outdent list item" class="fmt-li">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 3.5h7M6.5 8h7m-11 4.5h11M5.5 5.75 3 8l2.5 2.25"/></svg>
+  </button>
+  <button data-fmt="indent" title="Indent list item (make sub-bullet)" aria-label="Indent list item" class="fmt-li">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 3.5h7M6.5 8h7m-11 4.5h11M3 5.75 5.5 8 3 10.25"/></svg>
+  </button>
+</div>
+
+<!-- ============================================================= rename -->
+<div id="renamer" class="scrim" hidden>
+  <div class="dialog-sm" role="dialog" aria-modal="true" aria-labelledby="rn-title">
+    <div class="cf-mark neutral" aria-hidden="true">
+      <svg viewBox="0 0 20 20"><path d="M13.4 3.4 16.6 6.6 7.2 16H4v-3.2z"/><path d="M11.6 5.2 14.8 8.4"/></svg>
+    </div>
+    <h3 id="rn-title">Rename</h3>
+    <p class="cf-body" id="rn-body"></p>
+    <input id="rn-input" class="dlg-input" type="text" spellcheck="false" autocomplete="off"
+           aria-label="New name">
+    <p class="cf-note" id="rn-note">Leave the extension off and the current one is kept.</p>
+    <div class="cf-actions">
+      <button class="btn" id="rn-cancel">Cancel</button>
+      <button class="btn primary" id="rn-ok">Rename</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================= new document -->
+<div id="newdoc" class="scrim" hidden>
+  <div class="dialog-sm" role="dialog" aria-modal="true" aria-labelledby="nd-title">
+    <div class="cf-mark neutral" aria-hidden="true">
+      <svg viewBox="0 0 20 20"><path d="M4.8 2.8h6.4L15.6 7.2v10a.8.8 0 0 1-.8.8H4.8a.8.8 0 0 1-.8-.8V3.6a.8.8 0 0 1 .8-.8z"/><path d="M11 2.9v4.4h4.4"/><path d="M9.8 10.4v4.2M7.7 12.5h4.2"/></svg>
+    </div>
+    <h3 id="nd-title">New document</h3>
+
+    <div id="nd-form">
+      <input id="nd-input" class="dlg-input" type="text" spellcheck="false" autocomplete="off"
+             placeholder="Name" aria-label="Name for the new document">
+      <!-- Where it lands, said plainly rather than left to be inferred. -->
+      <div class="nd-where">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.8 4.2A1.2 1.2 0 0 1 3 3h2.9l1.4 1.7h5.7A1.2 1.2 0 0 1 14.2 6v6a1.2 1.2 0 0 1-1.2 1.2H3A1.2 1.2 0 0 1 1.8 12z"/></svg>
+        <span class="nd-where-path" id="nd-where"></span>
+        <button type="button" class="nd-change" id="nd-change"
+                aria-label="Choose a different folder">Change</button>
+      </div>
+      <p class="cf-note" id="nd-note">Leave the extension off and it will be a .md file.</p>
+      <div class="cf-actions">
+        <button class="btn" id="nd-cancel">Cancel</button>
+        <button class="btn primary" id="nd-ok">Create</button>
+      </div>
+    </div>
+
+    <div id="nd-picker" hidden>
+      <div class="nd-pick-bar">
+        <button type="button" class="icon-mini" id="nd-up"
+                title="Up to the enclosing folder" aria-label="Up to the enclosing folder">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 12.8V3.6M4.2 7.2 8 3.4l3.8 3.8"/></svg>
+        </button>
+        <span class="nd-pick-here" id="nd-pick-here"></span>
+      </div>
+      <ul class="nd-pick-list" id="nd-pick-list" aria-label="Folders"></ul>
+      <div class="cf-actions">
+        <button class="btn" id="nd-pick-back">Back</button>
+        <button class="btn primary" id="nd-pick-use">Use this folder</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- =================================================== delete confirmation -->
+<div id="confirm" class="scrim" hidden>
+  <div class="dialog-sm" role="alertdialog" aria-modal="true"
+       aria-labelledby="cf-title" aria-describedby="cf-body">
+    <div class="cf-mark" aria-hidden="true">
+      <svg viewBox="0 0 20 20"><path d="M3.6 5.4h12.8M8.1 5.4V3.9a.9.9 0 0 1 .9-.9h2a.9.9 0 0 1 .9.9v1.5"/><path d="M5.2 5.4 6 15.6a1.2 1.2 0 0 0 1.2 1.1h5.6a1.2 1.2 0 0 0 1.2-1.1l.8-10.2"/><path d="M8.6 8.6v4.8M11.4 8.6v4.8"/></svg>
+    </div>
+    <h3 id="cf-title">Move to Trash?</h3>
+    <p id="cf-body" class="cf-body"></p>
+    <p class="cf-path" id="cf-path"></p>
+    <p class="cf-note" id="cf-note">It goes to the macOS Trash, so you can put it back from Finder.</p>
+    <div class="cf-actions">
+      <button class="btn" id="cf-cancel">Cancel</button>
+      <button class="btn danger" id="cf-ok">Move to Trash</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================== settings -->
+<div id="scrim" class="scrim" hidden>
+  <div id="settings" role="dialog" aria-modal="true" aria-labelledby="set-heading">
+
+    <nav class="set-rail" role="tablist" aria-orientation="vertical">
+      <h2 id="set-heading">Settings</h2>
+
+      <button class="cat" role="tab" data-cat="appearance" aria-selected="true">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.2"/><path d="M10 2.8a7.2 7.2 0 0 0 0 14.4 3 3 0 0 0 0-6 3 3 0 0 1 0-6 7.2 7.2 0 0 0 0-2.4z" fill="currentColor" stroke="none" opacity=".28"/><circle cx="12.8" cy="7.4" r=".9"/></svg>
+        Appearance
+      </button>
+      <button class="cat" role="tab" data-cat="reading" aria-selected="false">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.4h4.2A2.8 2.8 0 0 1 10 7.2v9a2.2 2.2 0 0 0-2.2-2.2H3z"/><path d="M17 4.4h-4.2A2.8 2.8 0 0 0 10 7.2v9a2.2 2.2 0 0 1 2.2-2.2H17z"/></svg>
+        Reading
+      </button>
+      <button class="cat" role="tab" data-cat="code" aria-selected="false">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.8 6.4 3.2 10l3.6 3.6M13.2 6.4 16.8 10l-3.6 3.6M11.4 4.6l-2.8 10.8"/></svg>
+        Code
+      </button>
+      <button class="cat" role="tab" data-cat="editor" aria-selected="false">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M13.4 3.4 16.6 6.6 7.2 16H4v-3.2z"/><path d="M11.6 5.2 14.8 8.4"/></svg>
+        Editor
+      </button>
+      <button class="cat" role="tab" data-cat="files" aria-selected="false">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.6 5.4A1.4 1.4 0 0 1 4 4h3.4l1.7 2h6.9A1.4 1.4 0 0 1 17.4 7.4v7.2A1.4 1.4 0 0 1 16 16H4a1.4 1.4 0 0 1-1.4-1.4z"/><path d="M10 8.8v2.6l1.8 1"/></svg>
+        Files &amp; watching
+      </button>
+      <button class="cat" role="tab" data-cat="keys" aria-selected="false">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.2" y="5" width="15.6" height="10" rx="2"/><path d="M5.6 8.2h.01M8.4 8.2h.01M11.2 8.2h.01M14 8.2h.01M5.6 11.6h8.8"/></svg>
+        Shortcuts
+      </button>
+      <button class="cat" role="tab" data-cat="about" aria-selected="false">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.4"/><path d="M10 9v4.4"/><circle cx="10" cy="6.5" r=".7" fill="currentColor" stroke="none"/></svg>
+        About
+      </button>
+
+      <div class="rail-foot">
+        <button class="text-btn" id="btn-reset">Reset all to defaults</button>
+      </div>
+    </nav>
+
+    <div class="set-body">
+      <div class="set-head">
+        <h3 id="set-title">Appearance</h3>
+        <button class="icon-btn plain" id="set-close" title="Close (Esc)" aria-label="Close settings">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.4 5.4l9.2 9.2M14.6 5.4l-9.2 9.2"/></svg>
+        </button>
+      </div>
+
+      <div class="set-scroll">
+
+        <!-- ---------------------------------------------------- appearance -->
+        <section class="panel" data-panel="appearance">
+          <div class="group">
+            <h4 class="group-title">Theme</h4>
+            <div class="set-row">
+              <div class="set-label"><b>Colour scheme</b><span>Match system follows macOS Appearance automatically.</span></div>
+              <div class="set-control">
+                <div class="pills" data-set="theme">
+                  <button class="pill" data-value="auto"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5"/><path d="M8 3v10" stroke-width="5" stroke-linecap="butt" opacity=".5"/></svg>System</button>
+                  <button class="pill" data-value="light"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.1"/><path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3.1 3.1l1.1 1.1M11.8 11.8l1.1 1.1M12.9 3.1l-1.1 1.1M4.2 11.8l-1.1 1.1"/></svg>Light</button>
+                  <button class="pill" data-value="dark"><svg viewBox="0 0 16 16"><path d="M13.2 9.6A5.6 5.6 0 0 1 6.4 2.8a5.6 5.6 0 1 0 6.8 6.8z"/></svg>Dark</button>
+                </div>
+              </div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Accent colour</b><span>Links, highlights and the active file.</span></div>
+              <div class="set-control"><div class="swatches" data-set="accent" id="accent-swatches"></div></div>
+            </div>
+          </div>
+
+          <div class="group">
+            <h4 class="group-title">Page tone</h4>
+            <div class="set-row">
+              <div class="set-label"><b>Light mode paper</b><span>Sepia is easiest on the eyes for long reading sessions.</span></div>
+              <div class="set-control">
+                <div class="pills" data-set="paper">
+                  <button class="pill" data-value="cream">Cream</button>
+                  <button class="pill" data-value="white">White</button>
+                  <button class="pill" data-value="sepia">Sepia</button>
+                  <button class="pill" data-value="grey">Grey</button>
+                </div>
+              </div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Dark mode surface</b><span>True black suits OLED displays; charcoal is softer.</span></div>
+              <div class="set-control">
+                <div class="pills" data-set="paperDark">
+                  <button class="pill" data-value="ink">Ink</button>
+                  <button class="pill" data-value="charcoal">Charcoal</button>
+                  <button class="pill" data-value="black">Black</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="group">
+            <h4 class="group-title">Layout</h4>
+            <div class="set-row">
+              <div class="set-label"><b>Interface size</b><span data-kbd>How large Reader's own controls are: this dialog, the file panel, the toolbar and the menus. Document text has its own size, on the Reading page and under ⌘+ and ⌘−.</span></div>
+              <div class="set-control">
+                <div class="pills" data-set="uiScale">
+                  <button class="pill" data-value="small">Small</button>
+                  <button class="pill" data-value="medium">Medium</button>
+                  <button class="pill" data-value="large">Large</button>
+                </div>
+              </div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Translucent panel</b><span>The file panel turns to frosted glass, with a soft wash of your accent colour glowing through it.</span></div>
+              <div class="set-control"><button class="switch" role="switch" data-set="glass" aria-checked="false" aria-label="Translucent panel"></button></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>File panel side</b><span>Which edge the file browser sits on.</span></div>
+              <div class="set-control">
+                <div class="pills" data-set="side">
+                  <button class="pill" data-value="left">Left</button>
+                  <button class="pill" data-value="right">Right</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ------------------------------------------------------- reading -->
+        <section class="panel" data-panel="reading" hidden>
+          <div class="group">
+            <div class="set-row stack">
+              <div class="specimen" aria-hidden="true">
+                <p class="sp-h">The quick brown fox</p>
+                <p class="sp-p">Jumps over the lazy dog. Reading settings apply live to the document behind this dialog.</p>
+                <p class="sp-c"><b>const</b> greeting = <i>"hello"</i>;</p>
+              </div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Reading preset</b><span>Sets size, spacing and width in one go. Tune anything below afterwards.</span></div>
+              <div class="set-control">
+                <div class="pills" data-preset>
+                  <button class="pill" data-value="compact">Compact</button>
+                  <button class="pill" data-value="comfortable">Comfortable</button>
+                  <button class="pill" data-value="focus">Focus</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="group">
+            <h4 class="group-title">Body</h4>
+            <p class="font-source set-font-note">Lora is bundled as the default.</p>
+            <div class="set-row">
+              <div class="set-label"><b>Typeface</b><span>Lora is the default body face.</span></div>
+              <div class="set-control"><select aria-label="Body typeface" class="control" data-set="bodyFont" id="sel-body"></select></div>
+            </div>
+            <details class="sub-collapse">
+              <summary>Fine-tune<span class="gt-caret" aria-hidden="true"></span></summary>
+            <div class="set-row">
+              <div class="set-label"><b>Weight</b><span>Regular is 400. Variable fonts render every step; others snap to their nearest cut.</span></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="bodyWeight" min="300" max="600" step="10" aria-label="Body text weight">
+                <span class="val" data-val="bodyWeight"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Text size</b></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="fontSize" min="13" max="26" step="0.5" aria-label="Body text size">
+                <span class="val" data-val="fontSize"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Line height</b><span>Vertical rhythm of body text.</span></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="lineHeight" min="1.3" max="2.2" step="0.05" aria-label="Body line height">
+                <span class="val" data-val="lineHeight"></span></div></div>
+            </div>
+            </details>
+          </div>
+
+          <div class="group">
+            <h4 class="group-title">Headings</h4>
+            <p class="font-source set-font-note">Lora is bundled as the default.</p>
+            <div class="set-row">
+              <div class="set-label"><b>Typeface</b><span>Lora is the default heading face.</span></div>
+              <div class="set-control"><select aria-label="Heading typeface" class="control" data-set="headFont" id="sel-head"></select></div>
+            </div>
+            <details class="sub-collapse">
+              <summary>Fine-tune<span class="gt-caret" aria-hidden="true"></span></summary>
+            <p class="sub-title">Document title — the H1 a document opens with</p>
+            <div class="set-row">
+              <div class="set-label"><b>Size</b></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="titleSize" min="28" max="72" step="1" aria-label="Title size">
+                <span class="val" data-val="titleSize"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Weight</b></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="titleWeight" min="400" max="800" step="10" aria-label="Title weight">
+                <span class="val" data-val="titleWeight"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Line height</b></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="titleLineHeight" min="0.95" max="1.4" step="0.01" aria-label="Title line height">
+                <span class="val" data-val="titleLineHeight"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Letter spacing</b><span>Fine control over capital fit.</span></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="titleSpacing" min="-0.05" max="0.02" step="0.001" aria-label="Title letter spacing">
+                <span class="val" data-val="titleSpacing"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Letter proportions</b><span>Height of the title's capitals relative to lowercase.</span></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="titleCapScale" min="0.85" max="1.15" step="0.01" aria-label="Title capital-to-lowercase proportion">
+                <span class="val" data-val="titleCapScale"></span></div></div>
+            </div>
+            <p class="sub-title">H1–H6 — every heading in the document body</p>
+            <div class="set-row">
+              <div class="set-label"><b>Scale</b><span>Overall size multiplier.</span></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="headSizeScale" min="0.8" max="1.3" step="0.01" aria-label="Heading scale">
+                <span class="val" data-val="headSizeScale"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Letter proportions</b><span>Height of capitals relative to lowercase. 100&nbsp;% keeps the typeface's own proportions.</span></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="headCapScale" min="0.85" max="1.15" step="0.01" aria-label="Capital-to-lowercase proportion">
+                <span class="val" data-val="headCapScale"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Weight</b><span>Leave at minimum for built-in defaults.</span></div>
+              <div class="set-control"><div class="slider" data-nullmin="headWeight">
+                <input type="range" data-set="headWeight" min="390" max="800" step="10" aria-label="Heading weight override">
+                <span class="val" data-val="headWeight"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Line height</b><span>Leave at minimum for built-in defaults.</span></div>
+              <div class="set-control"><div class="slider" data-nullmin="headLineHeight">
+                <input type="range" data-set="headLineHeight" min="0.9" max="1.6" step="0.01" aria-label="Heading line-height override">
+                <span class="val" data-val="headLineHeight"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Letter spacing</b><span>Leave at minimum for built-in defaults.</span></div>
+              <div class="set-control"><div class="slider" data-nullmin="headSpacing">
+                <input type="range" data-set="headSpacing" min="-0.06" max="0.03" step="0.001" aria-label="Heading letter-spacing override">
+                <span class="val" data-val="headSpacing"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Gap above</b><span>Vertical space above headings; leave at minimum for built-in defaults.</span></div>
+              <div class="set-control"><div class="slider" data-nullmin="headGap">
+                <input type="range" data-set="headGap" min="0" max="3" step="0.05" aria-label="Heading margin override">
+                <span class="val" data-val="headGap"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Gap below</b><span>Vertical space below headings; leave at minimum for built-in defaults.</span></div>
+              <div class="set-control"><div class="slider" data-nullmin="headGapAfter">
+                <input type="range" data-set="headGapAfter" min="0" max="3" step="0.05" aria-label="Heading bottom margin override">
+                <span class="val" data-val="headGapAfter"></span></div></div>
+            </div>
+            </details>
+          </div>
+
+          <div class="group">
+            <h4 class="group-title">Rhythm</h4>
+            <div class="set-row">
+              <div class="set-label"><b>Paragraph spacing</b></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="paraGap" min="0.5" max="2.2" step="0.05" aria-label="Paragraph spacing">
+                <span class="val" data-val="paraGap"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>List spacing</b><span>Vertical gap between list items.</span></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="listGap" min="0.05" max="1.2" step="0.01" aria-label="List spacing">
+                <span class="val" data-val="listGap"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Line width</b><span>Around 65–75 characters per line is the comfortable range.</span></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="measure" min="30" max="100" step="5" aria-label="Line width">
+                <span class="val" data-val="measure"></span></div></div>
+            </div>
+          </div>
+
+          <div class="group">
+            <h4 class="group-title">Tables</h4>
+            <div class="set-row">
+              <div class="set-label"><b>Column borders</b><span>Off draws a rule between rows only, so a table reads as text. On adds a line between columns.</span></div>
+              <div class="set-control"><button class="switch" role="switch" data-set="tableBorders" aria-checked="false" aria-label="Column borders"></button></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ---------------------------------------------------------- code -->
+        <section class="panel" data-panel="code" hidden>
+          <div class="group">
+            <div class="set-row">
+              <div class="set-label"><b>Highlight palette</b><span>Brand matches the accent colour; muted removes colour entirely.</span></div>
+              <div class="set-control">
+                <div class="pills" data-set="codeTheme">
+                  <button class="pill" data-value="brand">Brand</button>
+                  <button class="pill" data-value="muted">Muted</button>
+                  <button class="pill" data-value="vivid">Vivid</button>
+                </div>
+              </div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Monospace face</b><span>Used for code blocks, inline code and the editor.</span></div>
+              <div class="set-control"><select class="control" data-set="monoFont" id="sel-mono"></select></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Code size</b><span>Relative to the body text size.</span></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="codeScale" min="0.7" max="1.05" step="0.01" aria-label="Code size">
+                <span class="val" data-val="codeScale"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Wrap long lines</b><span>Off scrolls code blocks sideways instead of wrapping.</span></div>
+              <div class="set-control"><button class="switch" role="switch" data-set="codeWrap" aria-checked="false" aria-label="Wrap long lines"></button></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- -------------------------------------------------------- editor -->
+        <section class="panel" data-panel="editor" hidden>
+          <div class="group">
+            <div class="set-row">
+              <div class="set-label"><b>Editor typeface</b><span>Monospace keeps markdown tables aligned.</span></div>
+              <div class="set-control">
+                <div class="pills" data-set="editorFont">
+                  <button class="pill" data-value="mono">Monospace</button>
+                  <button class="pill" data-value="body">Match body</button>
+                </div>
+              </div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Editor size</b></div>
+              <div class="set-control"><div class="slider">
+                <input type="range" data-set="editorSize" min="11" max="22" step="0.5" aria-label="Editor size">
+                <span class="val" data-val="editorSize"></span></div></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Tab width</b><span>How far the Tab key indents.</span></div>
+              <div class="set-control">
+                <div class="pills" data-set="tabSize">
+                  <button class="pill" data-value="2">2 spaces</button>
+                  <button class="pill" data-value="4">4 spaces</button>
+                </div>
+              </div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Spell check</b><span>Uses the macOS dictionary while you type.</span></div>
+              <div class="set-control"><button class="switch" role="switch" data-set="spellcheck" aria-checked="false" aria-label="Spell check"></button></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Synchronise scrolling</b><span>While the preview is shown beside the editor, scrolling one side moves the other.</span></div>
+              <div class="set-control"><button class="switch" role="switch" data-set="syncScroll" aria-checked="true" aria-label="Synchronise scrolling"></button></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Show word count</b><span>In the bottom corner of the file panel.</span></div>
+              <div class="set-control"><button class="switch" role="switch" data-set="wordCount" aria-checked="true" aria-label="Show word count"></button></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ------------------------------------------------ files/watching -->
+        <section class="panel" data-panel="files" hidden>
+          <div class="group">
+            <h4 class="group-title">Recently opened</h4>
+            <div class="set-row">
+              <div class="set-label"><b>Recent files list</b><span>Shown at the top of the file panel for one-click access.</span></div>
+              <div class="set-control"><select class="control" data-set="recentCount">
+                <option value="0">Hidden</option><option value="5">Last 5</option>
+                <option value="10">Last 10</option><option value="20">Last 20</option>
+              </select></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Clear the list</b><span>Forgets every file you have opened so far.</span></div>
+              <div class="set-control"><button class="mini-btn" id="btn-clear-recents">Clear recent files</button></div>
+            </div>
+          </div>
+
+          <div class="group">
+            <h4 class="group-title">The file tree</h4>
+            <div class="set-row">
+              <div class="set-label"><b>Show folders with no documents</b><span>Off by default, so the tree only offers folders that hold a markdown file somewhere inside. Turn it on to browse everything.</span></div>
+              <div class="set-control"><button class="switch" role="switch" data-set="showAllDirs" aria-checked="false" aria-label="Show folders with no documents"></button></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Show unsupported files</b><span>List files Reader cannot render, dimmed. Word, Excel and other office documents open in their own app when clicked.</span></div>
+              <div class="set-control"><button class="switch" role="switch" data-set="showAllFiles" aria-checked="false" aria-label="Show unsupported files"></button></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Show hidden files and folders</b><span data-kbd>List names that start with a dot, like .config. Toggle from anywhere with ⇧⌘. — the same shortcut as Finder.</span></div>
+              <div class="set-control"><button class="switch" role="switch" data-set="showHidden" aria-checked="false" aria-label="Show hidden files and folders"></button></div>
+            </div>
+          </div>
+
+          <div class="group">
+            <h4 class="group-title">Pinned folders</h4>
+            <div class="set-row">
+              <div class="set-label"><b>Pinning</b><span>Use <b>+</b> beside “Pinned” in the file panel to pin the folder you are browsing, and the × on a pinned row to remove it. Pin as many as you like.</span></div>
+              <div class="set-control"><button class="mini-btn" id="btn-reset-pins">Restore defaults</button></div>
+            </div>
+          </div>
+
+          <div class="group">
+            <h4 class="group-title">Watching the open document</h4>
+            <div class="set-row">
+              <div class="set-label"><b>Auto-save edits</b><span>When you stop typing, the document is saved automatically. A quick edit from the preview also saves. Saves happen silently; if the file changed on disk, the save bar will tell you.</span></div>
+              <div class="set-control"><button class="switch" role="switch" data-set="autoSave" aria-checked="true" aria-label="Auto-save edits"></button></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Auto-refresh on change</b><span>When the file you are reading is rewritten on disk, reload it automatically. Only the open document is watched, and never while you have unsaved edits.</span></div>
+              <div class="set-control"><button class="switch" role="switch" data-set="autoRefresh" aria-checked="true" aria-label="Auto-refresh on change"></button></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Check every</b><span>How often to look for a change.</span></div>
+              <div class="set-control"><select class="control" data-set="watchMs">
+                <option value="1000">1 second</option><option value="2000">2 seconds</option>
+                <option value="5000">5 seconds</option><option value="15000">15 seconds</option>
+              </select></div>
+            </div>
+            <div class="set-row">
+              <div class="set-label"><b>Announce refreshes</b><span>Briefly confirm at the bottom of the window when a reload happens.</span></div>
+              <div class="set-control"><button class="switch" role="switch" data-set="watchToast" aria-checked="true" aria-label="Announce refreshes"></button></div>
+            </div>
+          </div>
+
+          <div class="group">
+            <h4 class="group-title">Updates</h4>
+            <div class="set-row">
+              <div class="set-label"><b>Check for updates</b><span>Once a day, Reader asks GitHub whether a newer release exists. That is the only network request Reader makes.</span></div>
+              <div class="set-control"><button class="switch" role="switch" data-set="updates.check" aria-checked="true" aria-label="Check for updates"></button></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ----------------------------------------------------- shortcuts -->
+        <section class="panel" data-panel="keys" hidden>
+          <div class="group">
+            <h4 class="group-title">Reading</h4>
+            <table class="keys">
+              <tbody>
+                <tr><td>Back / forward through documents</td><td><kbd class="k" data-kbd>⌘←</kbd> <kbd class="k" data-kbd>⌘→</kbd> or <kbd class="k" data-kbd>⌘[</kbd> <kbd class="k" data-kbd>⌘]</kbd>; <kbd class="k">←</kbd> <kbd class="k">→</kbd> in a single column</td></tr>
+                <tr><td>Previous / next pages in the two-page layout</td><td><kbd class="k">←</kbd> <kbd class="k">→</kbd> or <kbd class="k">↑</kbd> <kbd class="k">↓</kbd>, or click the outer margin</td></tr>
+                <tr><td>Scroll the document</td><td><kbd class="k">↑</kbd> <kbd class="k">↓</kbd>, <kbd class="k">Space</kbd>, <kbd class="k">Page Up</kbd> <kbd class="k">Page Down</kbd></td></tr>
+                <tr><td>Top / bottom of the document</td><td><kbd class="k" data-kbd>⌘↑</kbd> <kbd class="k" data-kbd>⌘↓</kbd></td></tr>
+                <tr><td>Larger / smaller text</td><td><kbd class="k" data-kbd>⌘+</kbd> <kbd class="k" data-kbd>⌘−</kbd></td></tr>
+                <tr><td>Default text size</td><td><kbd class="k" data-kbd>⌘0</kbd></td></tr>
+                <tr><td>New document, beside the open one</td><td><kbd class="k" data-kbd>⌘N</kbd></td></tr>
+                <tr><td>Find in the document</td><td><kbd class="k" data-kbd>⌘F</kbd></td></tr>
+                <tr><td>Next / previous match</td><td><kbd class="k" data-kbd>⌘G</kbd> <kbd class="k" data-kbd>⇧⌘G</kbd> or <kbd class="k">↵</kbd> <kbd class="k">⇧↵</kbd></td></tr>
+                <tr><td>Collapse / expand the section you are reading</td><td><kbd class="k" data-kbd>⌥⌘[</kbd> <kbd class="k" data-kbd>⌥⌘]</kbd></td></tr>
+                <tr><td>Collapse every heading at a level</td><td><kbd class="k" data-kbd>⌥⌘1</kbd> … <kbd class="k" data-kbd>⌥⌘6</kbd></td></tr>
+                <tr><td>Expand everything</td><td><kbd class="k" data-kbd>⌥⌘0</kbd></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="group">
+            <h4 class="group-title">Editing</h4>
+            <table class="keys">
+              <tbody>
+                <tr><td>Toggle preview and edit</td><td><kbd class="k" data-kbd>⌘E</kbd></td></tr>
+                <tr><td>Bold / italic / underline the selection</td><td><kbd class="k" data-kbd>⌘B</kbd> <kbd class="k" data-kbd>⌘I</kbd> <kbd class="k" data-kbd>⌘U</kbd></td></tr>
+                <tr><td>Undo / redo</td><td><kbd class="k" data-kbd>⌘Z</kbd> <kbd class="k" data-kbd>⇧⌘Z</kbd></td></tr>
+                <tr><td>Save</td><td><kbd class="k" data-kbd>⌘S</kbd></td></tr>
+                <tr><td>Reload from disk</td><td><kbd class="k" data-kbd>⌘R</kbd></td></tr>
+                <tr><td>Indent in the editor</td><td><kbd class="k">Tab</kbd></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="group">
+            <h4 class="group-title">The file panel</h4>
+            <table class="keys">
+              <tbody>
+                <tr><td>Show or hide the panel</td><td><kbd class="k" data-kbd>⌘\</kbd></td></tr>
+                <tr><td>Find a file by name</td><td><kbd class="k" data-kbd>⇧⌘O</kbd></td></tr>
+                <tr><td>Show or hide hidden files and folders</td><td><kbd class="k" data-kbd>⇧⌘.</kbd></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="group">
+            <h4 class="group-title">Window</h4>
+            <table class="keys">
+              <tbody>
+                <tr><td>New tab, in the folder you are browsing (app)</td><td><kbd class="k" data-kbd>⌘T</kbd></td></tr>
+                <tr><td>New window (app)</td><td><kbd class="k" data-kbd>⇧⌘N</kbd></td></tr>
+                <tr><td>Close the tab (app)</td><td><kbd class="k" data-kbd>⌘W</kbd></td></tr>
+                <tr><td>Open a link in a new tab (app)</td><td><kbd class="k" data-kbd>⌘</kbd>-click</td></tr>
+                <tr><td>Show two documents side by side, or close the second</td><td><kbd class="k" data-kbd>⌥⌘\</kbd></td></tr>
+                <tr><td>Open a link to the side, in the other pane</td><td><kbd class="k">⌥</kbd>-click</td></tr>
+                <tr><td>Settings</td><td><kbd class="k" data-kbd>⌘,</kbd></td></tr>
+                <tr><td>Full screen</td><td><kbd class="k" data-kbd>⌃⌘F</kbd></td></tr>
+                <tr><td>Close settings / leave full screen</td><td><kbd class="k">Esc</kbd></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- --------------------------------------------------------- about -->
+        <section class="panel about" data-panel="about" hidden>
+          <div class="about-hero">
+            <img class="about-icon" src="/static/assets/app-icon.png" alt="" width="80" height="80">
+            <h4 class="about-name">Reader</h4>
+            <p class="about-version" id="about-version"></p>
+          </div>
+          <p class="about-lede">Reader reads and edits the documents already on your Mac.
+             They stay ordinary files in your own folders, and nothing is uploaded or synced.</p>
+
+          <div class="group">
+            <div class="set-row" id="about-update-row" hidden>
+              <div class="set-label"><b>Updates</b><span id="about-update-status">Reader looks for a newer version once a day. You can also ask now.</span></div>
+              <div class="set-control"><button class="mini-btn" id="btn-check-updates">Check for updates</button></div>
+            </div>
+            <p class="about-note" id="about-update-note" hidden>Updates are handled by the Reader app.</p>
+          </div>
+
+          <div class="about-fine">
+            <p>marked · DOMPurify · highlight.js · Mermaid · Poppins · Lora · Inter ·
+               Source Serif 4 · JetBrains Mono</p>
+            <p>Bundled offline; their licences are in the <code>licenses</code> folder next to the app.</p>
+            <p id="about-where"></p>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/vendor/marked.min.js"></script>
+<script src="/static/vendor/purify.min.js"></script>
+<script src="/static/vendor/highlight.min.js"></script>
+<script src="/static/vendor/mermaid.min.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
