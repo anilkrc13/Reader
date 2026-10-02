@@ -5,3 +5,5 @@ Keep a change's approved design and verification plan together here while work i
 [Conversation viewer](chatgpt-viewer/plan.md): read-only scope approved; local implementation completed; real desktop installation and routing verification pending.
 
 [Reading controls](reading-controls/implementation.md): reading/search and keyboard milestone passed independent review at `7d7370c`; embedded settings parity passed independent review at `607a88d`. Real-host prototype acceptance remains pending.
+
+[Scoped embedded links](reading-controls/scoped-links.md): implemented; security and regression checks passed; independent review pending.

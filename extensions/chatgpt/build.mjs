@@ -32,10 +32,12 @@ scripts += `<script type="module">${safeScript(app.outputFiles[0].text)}</script
 html = html.replace('</body>', () => `${scripts}</body>`);
 await writeFile(resolve(here, 'dist/viewer.html'), html);
 
+await mkdir(resolve(here, 'dist/assets'), {recursive: true});
+await cp(resolve(here, '../../macos/Assets/ReaderIcon.icon/Assets/ReaderIcon-1024.png'), resolve(here, 'dist/assets/reader.png'));
 await writeFile(resolve(here, 'dist/plugin.json'), JSON.stringify({
   $schema: 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json',
   name: 'reader-markdown', version, description: 'Read Markdown files in Reader in the desktop conversation panel.',
-  'extensions': {'com.openai': {interface: {displayName: 'Reader Markdown', shortDescription: 'Read-only Markdown viewer'}}}
+  'extensions': {'com.openai': {interface: {displayName: 'Reader Markdown', shortDescription: 'Read-only Markdown viewer', logo: './assets/reader.png', composerIcon: './assets/reader.png'}}}
 }, null, 2) + '\n');
 await writeFile(resolve(here, 'dist/mcp.json'), JSON.stringify({
   $schema: 'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json',

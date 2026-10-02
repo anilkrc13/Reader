@@ -4,6 +4,11 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+- Embedded local Markdown links can open through a capable host after validation
+  inside the opened document’s directory. Missing host metadata, path escapes,
+  symlink escapes, and unsupported targets are refused. No filesystem grants are added.
+- The plugin packages existing Reader artwork as its logo and composer icon.
+
 - Embedded keyboard scrolling works after a document opens and after Find or
   Settings closes. Inputs and nested scrollers keep their keys. Live refresh
   preserves control focus.

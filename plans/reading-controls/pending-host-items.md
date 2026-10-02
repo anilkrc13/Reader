@@ -18,15 +18,13 @@ the host advertises `experimental["openai/files"]`. That method sends
 cannot inspect the desktop UI. Relative links have no directory in the iframe’s
 file entry input. The opaque URI must never be treated as a filesystem path.
 
-The installed SDK README’s Filesystem Access example documents a narrower related-file
-design. A server tool receives the host-owned opened-file path through
-`getResourcePath(extra._meta)`. It checks that a requested relative path stays inside
-the opened file’s directory before and after resolving symlinks. The local server
-metadata schema confirms `openai/resource.path`. This project’s extension server
-has no such tool. Real host metadata supply is unverified. Adding related-file reads
-needs an approved design; it does not inherit broad project access or create grants.
+The owner authorized scoped local links and existing branding after settings checkpoint
+`607a88d`. The [scoped-link plan](scoped-links.md) records the implementation boundary.
+The resolver uses trusted opened-file metadata and checks lexical and canonical
+containment. The viewer requests host-mediated opening only with its file capability.
+It never parses an opaque URI as a path. No project-wide grants are added. Actual
+metadata supply, host opening, and icon rendering remain unobserved.
 
-Reader Markdown also lacks plugin icon metadata. Existing Reader artwork can serve
-that purpose without a redesign. The pending metadata task is to bundle the existing
-artwork under plugin assets and set the documented interface logo and composer icon
-fields. No branding change is included without owner approval.
+Existing Reader artwork is packaged with supported interface logo and composer-icon
+metadata. No redesign or installed-cache edit is involved. Same-thread Back/Forward
+still needs a host history API.

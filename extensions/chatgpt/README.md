@@ -1,6 +1,6 @@
 # Reader Markdown viewer prototype
 
-This package opens host-provided Markdown in the shared Reader interface. It is read only. It has no document save, filesystem tool, local server connection, native menu, or folder browser. The theme follows Codex, including changes while the panel is open. Find and Refresh use icon buttons. The Settings gear opens Reader’s shared settings panel. Appearance includes four light papers and three dark surfaces; Codex controls light/dark mode. Reading includes typography, headings, spacing, percentage content width, table borders, presets, and reading layout. Code includes highlighting, typeface, size, and wrapping. These display choices use a separate storage key with an in-memory fallback. Reset affects only supported embedded display preferences. Editor, Files & watching, and About explain features that belong to the Mac app. Shortcuts lists supported embedded commands. Narrow panels use wider content and smaller document titles. The Python browser and Mac app keep their existing boot path.
+This package opens host-provided Markdown in the shared Reader interface. It is read only. It has no document save, local Reader server connection, native menu, or folder browser. A scoped server tool validates relative Markdown links for host-mediated opening. The theme follows Codex, including changes while the panel is open. Find and Refresh use icon buttons. The Settings gear opens Reader’s shared settings panel. Appearance includes four light papers and three dark surfaces; Codex controls light/dark mode. Reading includes typography, headings, spacing, percentage content width, table borders, presets, and reading layout. Code includes highlighting, typeface, size, and wrapping. These display choices use a separate storage key with an in-memory fallback. Reset affects only supported embedded display preferences. Editor, Files & watching, and About explain features that belong to the Mac app. Shortcuts lists supported embedded commands. Narrow panels use wider content and smaller document titles. The Python browser and Mac app keep their existing boot path.
 
 The local build and protocol tests work. Desktop installation, default viewer selection, ordinary file-link routing, and assistant-edit refresh have not been observed in the real host. Do not call this integration delivered until those checks pass. Editing needs a separate approved save design.
 
@@ -16,7 +16,7 @@ npm --prefix extensions/chatgpt test
 npm run test:embedded
 ```
 
-The build reads the version from the root `VERSION`. `dist/` contains a portable plugin manifest, stdio MCP configuration, a bundled server, and the HTML resource. Scripts, styles, and fonts are embedded. The server only serves the UI. The host handles the opaque document resource. No listener or public filesystem service is started.
+The build reads the version from the root `VERSION`. `dist/` contains a portable plugin manifest, stdio MCP configuration, a bundled server, and the HTML resource. Scripts, styles, and fonts are embedded. The server serves the UI and validates related Markdown link paths. It never reads document contents. The host handles the opaque document resource. The package copies existing Reader artwork into its supported logo and composer-icon fields. No listener or public filesystem service is started.
 
 The stdio command can be checked independently:
 
@@ -43,12 +43,30 @@ If that desktop surface cannot load the local stdio plugin, the documented fallb
 
 Each panel reads and subscribes only to the URI supplied by the host. Switching files rejects late reads and serializes subscription changes. Closing a panel removes its notification handler and unsubscribes. Transient read failures preserve the last successful preview. A document switch clears the prior content while the new read is pending.
 
-Same-document anchors work. Images without embedded supported raster data show an unavailable placeholder. Relative file links and system schemes report unavailable. HTTP and HTTPS links use the host open-link capability. If it is absent, the viewer reports that limitation. Markdown HTML remains sanitized. Checkboxes stay disabled even when the host advertises a writable document.
+Same-document anchors work. Images without embedded supported raster data show an unavailable placeholder. Relative Markdown file links use a scoped resolver and the host file-open capability. The resolver requires the host-owned opened-file path, checks lexical containment, then checks canonical paths after resolving symlinks. Targets must remain regular Markdown files within that document’s directory. No base path or grant comes from the app. Absolute filesystem paths, system schemes, queries, and cross-document section anchors report unavailable. HTTP and HTTPS links use the host open-link capability. If it is absent, the viewer reports that limitation. Markdown HTML remains sanitized. Checkboxes stay disabled even when the host advertises a writable document.
 
 The prototype exposes Find, Refresh, and shared display preferences under Settings. Native app features do not carry over automatically. No preference synchronization is promised.
 
 ## Link diagnosis and Layout controls
 
-The user reports that the custom Reader viewer opens. The reported failing link's URL and type have not been supplied. A permitted simulated-host check confirms that same-document anchors scroll to a distant heading in both reading layouts. HTTP and HTTPS links issue a host open-link request when that capability is available. Relative document paths, absolute filesystem paths, and `file://` links remain unavailable under the approved design. These checks do not establish that the actual host honors its link-opening request.
+The user reports that the custom Reader viewer opens. The reported failing link's URL and type have not been supplied. A permitted simulated-host check confirms that same-document anchors scroll to a distant heading in both reading layouts. HTTP and HTTPS links issue a host open-link request when that capability is available. Relative Markdown paths can now request host-mediated opening after scoped server validation. Absolute filesystem paths and `file://` links remain unavailable. These checks do not establish that the actual host honors its link-opening request.
 
 The native and local browser interface has two icon buttons under Preview layout: **Single column** (`single`) and **Two-page layout** (`spread`). The embedded Settings gear offers those same choices under **Reading layout**. Two-page layout falls back to one column when the panel is too narrow or short.
+
+## Scoped local-link acceptance
+
+In the real host, open a Markdown file that links to a sibling and a Markdown file
+in a child directory. Confirm that clicking each opens it through the host. Confirm
+that `../outside.md` and a symlink to a file outside the opened directory are refused.
+If the host does not advertise file opening or supply opened-file metadata, Reader
+reports the limitation and makes no file-open request. A linked file never adds a
+Reader filesystem grant. The host still owns final access and opening policy.
+Resolution and host opening are separate operations, so Reader cannot bind them to
+one atomic filesystem operation. This prototype does not defend against concurrent
+filesystem replacement between those operations.
+
+The SDK documents the `getResourcePath(extra._meta)` scope pattern and
+`extensions.files.open(path)` in its pinned package README. Branding uses the
+[documented interface fields](https://developers.openai.com/plugins/build/plugins).
+Actual host metadata, routing, and icon display remain unobserved. Same-thread
+Back/Forward remains pending because the SDK exposes no complete history API.

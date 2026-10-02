@@ -2,27 +2,33 @@ import {test, expect} from '@playwright/test';
 import fs from 'node:fs';
 const html = fs.readFileSync(new URL('../../dist/viewer.html', import.meta.url), 'utf8');
 
-async function host(page, {resources = true, storage = true, links = false, theme = "light", savedPrefs = {}, documentText = null} = {}) {
+async function host(page, {resources = true, storage = true, links = false, localFiles = false, theme = "light", savedPrefs = {}, documentText = null} = {}) {
   const requests = [], errors = [];
   page.on('request', request => requests.push(request.url()));
   page.on('pageerror', error => errors.push(error.message));
   await page.route('http://reader.test/**', route => route.fulfill({body:'<!doctype html><html><body></body></html>',contentType:'text/html'}));
   await page.goto('http://reader.test/');
-  await page.evaluate(({html, resources, storage, links, theme, savedPrefs, documentText}) => {
+  await page.evaluate(({html, resources, storage, links, localFiles, theme, savedPrefs, documentText}) => {
     if (storage) localStorage.setItem("reader.chatgpt.reading.v1", JSON.stringify(savedPrefs));
     window.host = {calls:[], frames:[], text: '# Reader\n\nA shared reading interface.\n\n- [x] Read only\n\n![Relative image](./secret.png)\n\n[Relative file](./secret.md) · [External](https://example.com) · [Section](#reader)\n\n<script>window.pwned=true</script>\n<img src="x" onerror="window.pwned=true">', fail:false};
     window.addEventListener('message', event => {
       const message = event.data;
       if (!message || message.jsonrpc !== '2.0') return;
       window.host.calls.push(message);
+      if (!message.method) return;
       const reply = result => event.source.postMessage({jsonrpc:'2.0',id:message.id,result}, '*');
-      if (message.method === 'ui/initialize') reply({protocolVersion:'2026-01-26',hostInfo:{name:'test-host',version:'1'},hostCapabilities: resources ? {experimental:{'openai/resource':{}},serverResources:{},...(links?{openLinks:{}}:{})} : {},hostContext:{theme}});
+      if (message.method === 'ui/initialize') reply({protocolVersion:'2026-01-26',hostInfo:{name:'test-host',version:'1'},hostCapabilities: resources ? {experimental:{'openai/resource':{}},serverResources:{},...(links?{openLinks:{}}:{}),...(localFiles?{experimental:{'openai/resource':{},'openai/files':{}}}:{})} : {},hostContext:{theme}});
       else if (message.method === 'ui/notifications/initialized') {
         event.source.postMessage({jsonrpc:'2.0',method:'ui/notifications/tool-input',params:{arguments:{file:{name:'demo.md',resourceUri:'host:demo'}}}}, '*');
       } else if (message.method === 'resources/read') {
         if (window.host.fail) event.source.postMessage({jsonrpc:'2.0',id:message.id,error:{code:-32000,message:'temporary failure'}},'*');
         else reply({contents:[{uri:message.params.uri,text:window.host.text,_meta:{'openai/resource':{writable:true,etag:'v1'}}}]});
-      } else if (message.id !== undefined) reply({});
+      } else if (message.method === 'tools/call') {
+        const result=window.host.linkFail ? {isError:true,content:[{type:'text',text:'unavailable'}]} : {content:[],_meta:{'reader/local-link':{path:'/trusted/document/linked.md'}}};
+        if (window.host.deferLinks) (window.host.pendingLinks ??= []).push({id:message.id,source:event.source,result});
+        else reply(result);
+      } else if (message.method === 'openai/files/open' && window.host.openFail) event.source.postMessage({jsonrpc:'2.0',id:message.id,error:{code:-32000,message:'host refused'}},'*');
+      else if (message.id !== undefined) reply({});
     });
     if (documentText !== null) window.host.text = documentText;
     window.host.add = () => {
@@ -31,7 +37,7 @@ async function host(page, {resources = true, storage = true, links = false, them
       frame.srcdoc=html; document.body.append(frame); window.host.frames.push(frame);
     };
     window.host.add();
-  }, {html, resources, storage, links, theme, savedPrefs, documentText});
+  }, {html, resources, storage, links, localFiles, theme, savedPrefs, documentText});
   const frame = page.frameLocator('iframe').first();
   return {frame, requests, errors};
 }
@@ -157,7 +163,7 @@ test('HTTP and HTTPS use host opening while filesystem document links stay unava
   await expect(frame.locator('#preview h1')).toHaveText('Link categories');
   for (const label of ['Relative','Absolute','File URI']) {
     await frame.getByText(label,{exact:true}).click();
-    await expect(frame.locator('#embedded-status')).toContainText('unavailable in the embedded viewer');
+    await expect(frame.locator('#embedded-status')).toContainText('Opening local files is unavailable on this host');
     await expect(frame.locator('#preview h1')).toHaveText('Link categories');
   }
   for (const [label,url] of [['HTTP','http://example.com/read'],['HTTPS','https://example.com/read']]) {
@@ -407,5 +413,74 @@ test('shared reading and code controls affect rendering and unsupported tabs exp
   await page.screenshot({path:info.outputPath('settings-reading-narrow.png')});
   await frame.getByRole('button',{name:'Close settings'}).click();
   await expect(frame.locator('#preview h1')).toHaveCSS('font-size','43.2px');
+  expect(errors).toEqual([]);
+});
+
+
+test('local links require host resolution and file opening without exposing a base path', async ({page},info) => {
+  const {frame,requests,errors}=await host(page,{localFiles:true,documentText:'# Local links\n\n[Related](./linked.md)\n\n[Section](./linked.md#heading)\n'});
+  await expect(frame.locator('#preview h1')).toHaveText('Local links');
+  await frame.getByRole('link',{name:'Related',exact:true}).click();
+  await expect.poll(()=>page.evaluate(()=>window.host.calls.filter(c=>c.method==='openai/files/open').length)).toBe(1);
+  let calls=await page.evaluate(()=>window.host.calls);
+  const { _meta, ...argumentsSent }=calls.find(c=>c.method==='tools/call').params;
+  expect(argumentsSent).toEqual({name:'reader_resolve_local_link',arguments:{href:'./linked.md'}});
+  expect(_meta).not.toHaveProperty('openai/resource'); // Only the host may add opened-file context.
+  expect(calls.find(c=>c.method==='openai/files/open').params).toEqual({path:'/trusted/document/linked.md'});
+  await frame.getByRole('link',{name:'Section',exact:true}).click();
+  await expect(frame.locator('#embedded-status')).toContainText('cannot open a section in another document');
+  expect(await page.evaluate(()=>window.host.calls.filter(c=>c.method==='tools/call').length)).toBe(1);
+  await page.evaluate(()=>window.host.linkFail=true);
+  const link=frame.getByRole('link',{name:'Related',exact:true});
+  await link.focus(); await link.press('Enter');
+  await expect(frame.locator('#embedded-status')).toContainText('must supply opened-file context');
+  expect(await page.evaluate(()=>window.host.calls.filter(c=>c.method==='openai/files/open').length)).toBe(1);
+  await page.evaluate(()=>{window.host.linkFail=false;window.host.openFail=true;});
+  await link.click();
+  await expect.poll(()=>page.evaluate(()=>window.host.calls.filter(c=>c.method==='openai/files/open').length)).toBe(2);
+  await expect(frame.locator('#embedded-status')).toContainText('The host could not open this related Markdown file');
+  await expect(frame.locator('#preview h1')).toHaveText('Local links');
+  await page.screenshot({path:info.outputPath('local-link-host-refusal.png')});
+  expect(requests.filter(u=>u!=='http://reader.test/')).toEqual([]); expect(errors).toEqual([]);
+});
+
+test('a delayed local link cannot open after switching away and back, a newer link, or teardown', async ({page}) => {
+  const {frame,errors}=await host(page,{localFiles:true,links:true,documentText:'# Stale links\n\n[Related](./linked.md)\n\n[External](https://example.com)\n'});
+  await expect(frame.locator('#preview h1')).toHaveText('Stale links');
+  await page.evaluate(()=>window.host.deferLinks=true);
+  await frame.getByRole('link',{name:'Related',exact:true}).click();
+  await expect.poll(()=>page.evaluate(()=>window.host.pendingLinks?.length)).toBe(1);
+  for (const [name,resourceUri] of [['other.md','host:other'],['demo.md','host:demo']]) {
+    await page.evaluate(file=>window.host.frames[0].contentWindow.postMessage({jsonrpc:'2.0',method:'ui/notifications/tool-input',params:{arguments:{file}}},'*'),{name,resourceUri});
+    await expect(frame.locator('#docname')).toHaveText(name);
+    await expect(frame.locator('#preview h1')).toHaveText('Stale links');
+  }
+  await page.evaluate(()=>{const r=window.host.pendingLinks.shift();r.source.postMessage({jsonrpc:'2.0',id:r.id,result:r.result},'*');});
+  await frame.getByRole('link',{name:'Related',exact:true}).click();
+  await expect.poll(()=>page.evaluate(()=>window.host.pendingLinks.length)).toBe(1);
+  expect(await page.evaluate(()=>window.host.calls.filter(c=>c.method==='openai/files/open').length)).toBe(0);
+  await frame.getByRole('link',{name:'Related',exact:true}).click();
+  await expect.poll(()=>page.evaluate(()=>window.host.pendingLinks.length)).toBe(2);
+  await page.evaluate(()=>{const r=window.host.pendingLinks.pop();r.source.postMessage({jsonrpc:'2.0',id:r.id,result:r.result},'*');});
+  await expect.poll(()=>page.evaluate(()=>window.host.calls.filter(c=>c.method==='openai/files/open').length)).toBe(1);
+  await page.evaluate(()=>{const r=window.host.pendingLinks.shift();r.source.postMessage({jsonrpc:'2.0',id:r.id,result:r.result},'*');});
+  await frame.getByRole('button',{name:'Find',exact:true}).click(); // Process the older reply before reading the call log.
+  expect(await page.evaluate(()=>window.host.calls.filter(c=>c.method==='openai/files/open').length)).toBe(1);
+  await frame.locator('#find-close').click();
+  await frame.getByRole('link',{name:'Related',exact:true}).click();
+  await expect.poll(()=>page.evaluate(()=>window.host.pendingLinks.length)).toBe(1);
+  await frame.getByRole('link',{name:'External',exact:true}).click();
+  await expect.poll(()=>page.evaluate(()=>window.host.calls.some(c=>c.method==='ui/open-link'))).toBeTruthy();
+  await page.evaluate(()=>{const r=window.host.pendingLinks.shift();r.source.postMessage({jsonrpc:'2.0',id:r.id,result:r.result},'*');});
+  await frame.getByRole('button',{name:'Find',exact:true}).click();
+  expect(await page.evaluate(()=>window.host.calls.filter(c=>c.method==='openai/files/open').length)).toBe(1);
+  await frame.locator('#find-close').click();
+  await frame.getByRole('link',{name:'Related',exact:true}).click();
+  await expect.poll(()=>page.evaluate(()=>window.host.pendingLinks.length)).toBe(1);
+  await page.evaluate(()=>window.host.frames[0].contentWindow.postMessage({jsonrpc:'2.0',id:'teardown',method:'ui/resource-teardown',params:{}},'*'));
+  await expect.poll(()=>page.evaluate(()=>window.host.calls.some(c=>c.id==='teardown' && c.result))).toBeTruthy();
+  await page.evaluate(()=>{const r=window.host.pendingLinks.shift();r.source.postMessage({jsonrpc:'2.0',id:r.id,result:r.result},'*');});
+  await frame.getByRole('button',{name:'Find',exact:true}).click();
+  expect(await page.evaluate(()=>window.host.calls.filter(c=>c.method==='openai/files/open').length)).toBe(1);
   expect(errors).toEqual([]);
 });

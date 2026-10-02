@@ -21,8 +21,10 @@ let pending: {name: string; resourceUri: string} | undefined;
 let stopped = false;
 let connected = false;
 let currentUri: string | undefined;
+let localLinkRequest = 0;
 app.addEventListener("toolinput", ({arguments: args}) => {
   if (stopped) return;
+  ++localLinkRequest;
   const input = OpenAIFileEntrypointInputSchema.safeParse(args);
   if (!input.success || !/\.md$/i.test(input.data.file.name)) {
     pending = undefined;
@@ -44,7 +46,26 @@ app.onteardown = async () => { stopped = true; await session?.dispose(); return 
 window.addEventListener("pagehide", () => { stopped = true; void session?.dispose(); });
 window.readerEmbeddedHost = {
   async openLink(href) {
-    if (!/^https?:\/\//i.test(href)) { reader.error("This link is unavailable in the embedded viewer."); return; }
+    const request = ++localLinkRequest;
+    if (!/^https?:\/\//i.test(href)) {
+      const files = extensions.files;
+      if (!files) { reader.error("Opening local files is unavailable on this host."); return; }
+      if (href.includes("#")) { reader.error("This host cannot open a section in another document. Open a link to the Markdown file without its section anchor."); return; }
+      const fileUri = currentUri;
+      if (stopped || !fileUri) { reader.error("Open a Markdown document before following local links."); return; }
+      const current = () => !stopped && currentUri === fileUri && localLinkRequest === request;
+      try {
+        const result = await app.callServerTool({name: "reader_resolve_local_link", arguments: {href}});
+        if (!current()) return;
+        const target = result._meta?.["reader/local-link"] as {path?: unknown} | undefined;
+        if (result.isError || typeof target?.path !== "string" || !target.path) throw new Error();
+        try { await files.open(target.path); }
+        catch { if (current()) reader.error("The host could not open this related Markdown file."); }
+      } catch {
+        if (current()) reader.error("This local link is unavailable. The host must supply opened-file context, and the Markdown target must stay inside that document's directory.");
+      }
+      return;
+    }
     if (!app.getHostCapabilities()?.openLinks) { reader.error("Opening external links is unavailable on this host."); return; }
     try {
       const result = await app.openLink({url: href});
