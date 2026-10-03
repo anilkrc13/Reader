@@ -11388,7 +11388,7 @@ function initializeContext(params) {
     external: params?.external ?? void 0
   };
 }
-function process(schema, ctx, _params = { path: [], schemaPath: [] }) {
+function process2(schema, ctx, _params = { path: [], schemaPath: [] }) {
   var _a3;
   const def = schema._zod.def;
   const seen = ctx.seen.get(schema);
@@ -11425,7 +11425,7 @@ function process(schema, ctx, _params = { path: [], schemaPath: [] }) {
     if (parent) {
       if (!result.ref)
         result.ref = parent;
-      process(parent, ctx, params);
+      process2(parent, ctx, params);
       ctx.seen.get(parent).isParent = true;
     }
   }
@@ -11717,14 +11717,14 @@ var init_to_json_schema = __esm({
     init_registries();
     createToJSONSchemaMethod = (schema, processors = {}) => (params) => {
       const ctx = initializeContext({ ...params, processors });
-      process(schema, ctx);
+      process2(schema, ctx);
       extractDefs(ctx, schema);
       return finalize(ctx, schema);
     };
     createStandardJSONSchemaMethod = (schema, io, processors = {}) => (params) => {
       const { libraryOptions, target } = params ?? {};
       const ctx = initializeContext({ ...libraryOptions ?? {}, target, io, processors });
-      process(schema, ctx);
+      process2(schema, ctx);
       extractDefs(ctx, schema);
       return finalize(ctx, schema);
     };
@@ -11739,7 +11739,7 @@ function toJSONSchema(input, params) {
     const defs = {};
     for (const entry of registry2._idmap.entries()) {
       const [_2, schema] = entry;
-      process(schema, ctx2);
+      process2(schema, ctx2);
     }
     const schemas = {};
     const external = {
@@ -11762,7 +11762,7 @@ function toJSONSchema(input, params) {
     return { schemas };
   }
   const ctx = initializeContext({ ...params, processors: allProcessors });
-  process(input, ctx);
+  process2(input, ctx);
   extractDefs(ctx, input);
   return finalize(ctx, input);
 }
@@ -12011,7 +12011,7 @@ var init_json_schema_processors = __esm({
       if (typeof maximum === "number")
         json2.maxItems = maximum;
       json2.type = "array";
-      json2.items = process(def.element, ctx, {
+      json2.items = process2(def.element, ctx, {
         ...params,
         path: [...params.path, "items"]
       });
@@ -12023,7 +12023,7 @@ var init_json_schema_processors = __esm({
       json2.properties = {};
       const shape = def.shape;
       for (const key in shape) {
-        json2.properties[key] = process(shape[key], ctx, {
+        json2.properties[key] = process2(shape[key], ctx, {
           ...params,
           path: [...params.path, "properties", key]
         });
@@ -12046,7 +12046,7 @@ var init_json_schema_processors = __esm({
         if (ctx.io === "output")
           json2.additionalProperties = false;
       } else if (def.catchall) {
-        json2.additionalProperties = process(def.catchall, ctx, {
+        json2.additionalProperties = process2(def.catchall, ctx, {
           ...params,
           path: [...params.path, "additionalProperties"]
         });
@@ -12055,7 +12055,7 @@ var init_json_schema_processors = __esm({
     unionProcessor = (schema, ctx, json2, params) => {
       const def = schema._zod.def;
       const isExclusive = def.inclusive === false;
-      const options = def.options.map((x, i) => process(x, ctx, {
+      const options = def.options.map((x, i) => process2(x, ctx, {
         ...params,
         path: [...params.path, isExclusive ? "oneOf" : "anyOf", i]
       }));
@@ -12067,11 +12067,11 @@ var init_json_schema_processors = __esm({
     };
     intersectionProcessor = (schema, ctx, json2, params) => {
       const def = schema._zod.def;
-      const a = process(def.left, ctx, {
+      const a = process2(def.left, ctx, {
         ...params,
         path: [...params.path, "allOf", 0]
       });
-      const b = process(def.right, ctx, {
+      const b = process2(def.right, ctx, {
         ...params,
         path: [...params.path, "allOf", 1]
       });
@@ -12088,11 +12088,11 @@ var init_json_schema_processors = __esm({
       json2.type = "array";
       const prefixPath = ctx.target === "draft-2020-12" ? "prefixItems" : "items";
       const restPath = ctx.target === "draft-2020-12" ? "items" : ctx.target === "openapi-3.0" ? "items" : "additionalItems";
-      const prefixItems = def.items.map((x, i) => process(x, ctx, {
+      const prefixItems = def.items.map((x, i) => process2(x, ctx, {
         ...params,
         path: [...params.path, prefixPath, i]
       }));
-      const rest = def.rest ? process(def.rest, ctx, {
+      const rest = def.rest ? process2(def.rest, ctx, {
         ...params,
         path: [...params.path, restPath, ...ctx.target === "openapi-3.0" ? [def.items.length] : []]
       }) : null;
@@ -12132,7 +12132,7 @@ var init_json_schema_processors = __esm({
       const keyBag = keyType._zod.bag;
       const patterns = keyBag?.patterns;
       if (def.mode === "loose" && patterns && patterns.size > 0) {
-        const valueSchema = process(def.valueType, ctx, {
+        const valueSchema = process2(def.valueType, ctx, {
           ...params,
           path: [...params.path, "patternProperties", "*"]
         });
@@ -12142,12 +12142,12 @@ var init_json_schema_processors = __esm({
         }
       } else {
         if (ctx.target === "draft-07" || ctx.target === "draft-2020-12") {
-          json2.propertyNames = process(def.keyType, ctx, {
+          json2.propertyNames = process2(def.keyType, ctx, {
             ...params,
             path: [...params.path, "propertyNames"]
           });
         }
-        json2.additionalProperties = process(def.valueType, ctx, {
+        json2.additionalProperties = process2(def.valueType, ctx, {
           ...params,
           path: [...params.path, "additionalProperties"]
         });
@@ -12162,7 +12162,7 @@ var init_json_schema_processors = __esm({
     };
     nullableProcessor = (schema, ctx, json2, params) => {
       const def = schema._zod.def;
-      const inner = process(def.innerType, ctx, params);
+      const inner = process2(def.innerType, ctx, params);
       const seen = ctx.seen.get(schema);
       if (ctx.target === "openapi-3.0") {
         seen.ref = def.innerType;
@@ -12173,20 +12173,20 @@ var init_json_schema_processors = __esm({
     };
     nonoptionalProcessor = (schema, ctx, _json, params) => {
       const def = schema._zod.def;
-      process(def.innerType, ctx, params);
+      process2(def.innerType, ctx, params);
       const seen = ctx.seen.get(schema);
       seen.ref = def.innerType;
     };
     defaultProcessor = (schema, ctx, json2, params) => {
       const def = schema._zod.def;
-      process(def.innerType, ctx, params);
+      process2(def.innerType, ctx, params);
       const seen = ctx.seen.get(schema);
       seen.ref = def.innerType;
       json2.default = JSON.parse(JSON.stringify(def.defaultValue));
     };
     prefaultProcessor = (schema, ctx, json2, params) => {
       const def = schema._zod.def;
-      process(def.innerType, ctx, params);
+      process2(def.innerType, ctx, params);
       const seen = ctx.seen.get(schema);
       seen.ref = def.innerType;
       if (ctx.io === "input")
@@ -12194,7 +12194,7 @@ var init_json_schema_processors = __esm({
     };
     catchProcessor = (schema, ctx, json2, params) => {
       const def = schema._zod.def;
-      process(def.innerType, ctx, params);
+      process2(def.innerType, ctx, params);
       const seen = ctx.seen.get(schema);
       seen.ref = def.innerType;
       let catchValue;
@@ -12209,32 +12209,32 @@ var init_json_schema_processors = __esm({
       const def = schema._zod.def;
       const inIsTransform = def.in._zod.traits.has("$ZodTransform");
       const innerType = ctx.io === "input" ? inIsTransform ? def.out : def.in : def.out;
-      process(innerType, ctx, params);
+      process2(innerType, ctx, params);
       const seen = ctx.seen.get(schema);
       seen.ref = innerType;
     };
     readonlyProcessor = (schema, ctx, json2, params) => {
       const def = schema._zod.def;
-      process(def.innerType, ctx, params);
+      process2(def.innerType, ctx, params);
       const seen = ctx.seen.get(schema);
       seen.ref = def.innerType;
       json2.readOnly = true;
     };
     promiseProcessor = (schema, ctx, _json, params) => {
       const def = schema._zod.def;
-      process(def.innerType, ctx, params);
+      process2(def.innerType, ctx, params);
       const seen = ctx.seen.get(schema);
       seen.ref = def.innerType;
     };
     optionalProcessor = (schema, ctx, _json, params) => {
       const def = schema._zod.def;
-      process(def.innerType, ctx, params);
+      process2(def.innerType, ctx, params);
       const seen = ctx.seen.get(schema);
       seen.ref = def.innerType;
     };
     lazyProcessor = (schema, ctx, _json, params) => {
       const innerType = schema._zod.innerType;
-      process(innerType, ctx, params);
+      process2(innerType, ctx, params);
       const seen = ctx.seen.get(schema);
       seen.ref = innerType;
     };
@@ -12340,7 +12340,7 @@ var init_json_schema_generator = __esm({
        * This must be called before emit().
        */
       process(schema, _params = { path: [], schemaPath: [] }) {
-        return process(schema, this.ctx, _params);
+        return process2(schema, this.ctx, _params);
       }
       /**
        * Emit the final JSON Schema after processing.
@@ -12634,7 +12634,7 @@ __export(core_exports2, {
   parse: () => parse,
   parseAsync: () => parseAsync,
   prettifyError: () => prettifyError,
-  process: () => process,
+  process: () => process2,
   regexes: () => regexes_exports,
   registry: () => registry,
   safeDecode: () => safeDecode,
@@ -31778,7 +31778,7 @@ var EMPTY_COMPLETION_RESULT = {
 };
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
-import process2 from "node:process";
+import process3 from "node:process";
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/shared/stdio.js
 var STDIO_DEFAULT_MAX_BUFFER_SIZE = 10 * 1024 * 1024;
@@ -31819,7 +31819,7 @@ function serializeMessage(message) {
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
 var StdioServerTransport = class {
-  constructor(_stdin = process2.stdin, _stdout = process2.stdout, options) {
+  constructor(_stdin = process3.stdin, _stdout = process3.stdout, options) {
     this._stdin = _stdin;
     this._stdout = _stdout;
     this._started = false;
@@ -33477,6 +33477,35 @@ function getResourcePath(meta3) {
   return OpenAIResourceToolCallMetadataSchema.parse(meta3 ?? {})[OPENAI_RESOURCE_METADATA_KEY]?.path;
 }
 
+// fonts.ts
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
+var execute = promisify(execFile);
+async function fontCatalog() {
+  const unavailable = {
+    version: 1,
+    platform: process.platform,
+    provenance: "backend-machine",
+    rendering: "viewer-verification-required",
+    available: false,
+    families: [],
+    reason: "Installed font discovery needs Python 3 on the backend machine."
+  };
+  const script = fileURLToPath(new URL("./fonts.py", import.meta.url));
+  const interpreters = process.platform === "win32" ? [["py", "-3"], ["python3"], ["python"]] : [["python3"]];
+  for (const [command, ...args] of interpreters) {
+    try {
+      const { stdout } = await execute(command, [...args, script], { timeout: 15e3, maxBuffer: 1024 * 1024, windowsHide: true });
+      const result = JSON.parse(stdout);
+      if (result.version !== 1 || !Array.isArray(result.families)) return unavailable;
+      return result;
+    } catch {
+    }
+  }
+  return unavailable;
+}
+
 // local-links.ts
 import { realpath, stat } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
@@ -33539,4 +33568,11 @@ K3(server, "reader_resolve_local_link", {
     return { isError: true, content: [{ type: "text", text: "This local link is unavailable. It needs host-owned opened-file context and a Markdown target inside that document's directory." }] };
   }
 });
+K3(server, "reader_font_catalog", {
+  title: "List backend font families",
+  description: "Return installed family names on the backend machine; the viewer verifies rendering separately.",
+  inputSchema: {},
+  annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+  _meta: { ui: { visibility: ["app"] } }
+}, async () => ({ content: [], _meta: { "reader/font-catalog": await fontCatalog() } }));
 await server.connect(new StdioServerTransport());

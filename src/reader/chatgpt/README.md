@@ -106,11 +106,24 @@ cover these layouts; actual host acceptance remains pending.
 
 ## Fonts
 
-This host SDK supplies no installed-font list. Body and heading choices are Lora,
-the sole bundled default, and the generic system face; headings can match body.
-Code uses the system monospace stack. Saved unavailable choices remain saved and
-show their fallback. The viewer does not call browser font enumeration or request
-its permission. The native Mac app supplies installed families through AppKit.
+Reader asks its app-only `reader_font_catalog` MCP tool for the backend machine's
+installed families. The tool runs the same standard-library Python service as
+the Mac app's authenticated `/api/fonts` endpoint. Python 3 must be on the MCP
+backend PATH; without it the viewer explains unavailable discovery and keeps
+Lora and system defaults. The service currently implements macOS; other OSes
+return unavailable until their adapter is added. No HTTP Reader server is
+started by the extension.
+
+Backend enumeration and viewer rendering are separate. An iframe compares actual
+canvas text metrics before offering a family, so remote-only or blocked fonts do
+not become phantom choices. This conservative check can omit indistinguishable
+faces. Lora is the sole bundled font; headings can match body and code retains its
+system monospace default. Saved unavailable choices remain saved and recover on
+refresh. The viewer neither calls browser font enumeration nor asks its permission.
+On 2026-10-03 the user confirmed the extension works after the shared backend
+font change `326b30a`. This is user-reported host acceptance; automated tests
+verify rendering and fallback in a simulated iframe. Repeat host acceptance after
+future package or host updates.
 
 The adapter source lives at this package root. Shared UI lives beside it in
 `src/reader/web`. The package builds into `build/chatgpt` and uses common icon

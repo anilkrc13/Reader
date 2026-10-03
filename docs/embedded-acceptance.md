@@ -38,11 +38,19 @@ name and URI but no thread identity or document-history API. Per-iframe history
 would not establish same-thread navigation, especially after iframe recreation.
 No misleading history controls are added.
 
-The viewer is read only and has no folder browser, disk save, or installed-font
-API. Lora and system defaults remain available without font enumeration or new
-permissions. Native installed-font selection is a separate manual check: update
-through `install/Reader.command`, choose an installed body and heading family,
-restart, and confirm the choices persist. Never launch generated build/Reader.app.
+The viewer is read only and has no folder browser or disk save. Its app-only
+font-catalog tool lists the backend machine's families using the shared Python
+service. On macOS with Python 3 available, verify in the actual host that a known
+installed body and heading family appears, visibly renders, survives reopening,
+and recovers after temporary removal. If the host blocks local font rendering,
+confirm the viewer explains the limit and retains Lora/system fallbacks rather
+than offering unusable families. Remote server families must be checked by the
+viewer, not assumed to exist locally. On 2026-10-03, the user confirmed the
+local Mac app works and then confirmed the extension works with the shared
+backend font change `326b30a`. This records user-reported actual-host acceptance;
+automated missing-font and privacy-restriction evidence uses a simulated iframe.
+Native installed selection is also a separate manual check; use the installed
+app only after an authorized update, never launch generated `build/Reader.app`.
 
 ## Completed checkpoints
 

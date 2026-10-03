@@ -9,6 +9,7 @@ const version = (await readFile(resolve(here, '../../../VERSION'), 'utf8')).trim
 const define = {__READER_VERSION__: JSON.stringify(version)};
 await rm(output, {recursive: true, force: true});
 await mkdir(output, {recursive: true});
+await cp(resolve(here, '../fonts.py'), resolve(output, 'fonts.py'));
 const app = await build({entryPoints: [resolve(here, 'app.ts')], bundle: true, metafile: true, define, format: 'esm', target: 'es2022', write: false});
 const server = await build({entryPoints: [resolve(here, 'server.ts')], bundle: true, metafile: true, platform: 'node', format: 'esm', define, banner: {js: "import {createRequire} from 'node:module'; const require = createRequire(import.meta.url);"}, outfile: resolve(output, 'server.mjs')});
 await build({entryPoints: [resolve(here, 'session.ts')], bundle: true, platform: 'node', format: 'esm', outfile: resolve(output, 'session.mjs')});

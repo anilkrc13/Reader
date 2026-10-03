@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Mac and embedded viewers now share a backend font-catalog service. The macOS
+  adapter uses AppKit; other platforms report unavailable until supported.
+  Embedded choices are checked for local rendering and preserve saved fallbacks.
+  The MCP backend requires Python 3; Lora remains the sole bundled default.
+
 All notable changes to Reader. Versions follow [semantic versioning](https://semver.org).
 
 ## Unreleased

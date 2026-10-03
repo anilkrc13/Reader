@@ -147,6 +147,12 @@ staging also stay under `build`. Nothing is published by these local scripts.
 
 ## Plugin package and Git marketplace
 
+The plugin package includes `fonts.py`, copied unchanged from
+`src/reader/fonts.py`. Keep it in the distribution allowlist and beside
+`server.mjs`: the Node adapter invokes it through Python 3 on the backend PATH.
+The Mac/web runtime packages the same source module. This shares OS discovery
+without starting an HTTP server for the embedded viewer.
+
 Reader uses one implementation and one Git branch, `main`. The tracked catalog
 and ready package always have production identities. Local development is a
 separate generated marketplace, ignored by Git.
@@ -185,6 +191,15 @@ local edits. The generated package is a snapshot, not a source watcher.
 Generation does not update an installed plugin. Refresh the development install
 with the host's supported update or reload action and verify its active package
 before testing; automatic refresh and live desktop behavior remain unverified.
+
+For the bundled CLI 0.160.0, `plugin marketplace upgrade` refreshes Git
+marketplaces only; it rejects the local `reader-dev` source. Rebuilding updates
+that source's generated files. Verify `codex plugin list --marketplace reader-dev
+--json` reports the intended installed source, then restart the ChatGPT desktop
+app or use its supported reload lifecycle to replace running MCP processes and
+cached UI resources. Compare package bytes, including `fonts.py`, rather than
+assuming an unchanged version number proves freshness. The user confirmed the
+shared-font extension works after the local bundle was rebuilt from `326b30a`.
 
 The generator only writes owned files. It rejects unknown files, catalog
 settings, source/output overlap, and symlink destinations before writing. It

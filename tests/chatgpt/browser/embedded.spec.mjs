@@ -2,15 +2,15 @@ import {test, expect} from '@playwright/test';
 import fs from 'node:fs';
 const html = fs.readFileSync(new URL('../../../build/chatgpt/viewer.html', import.meta.url), 'utf8');
 
-async function host(page, {resources = true, storage = true, links = false, localFiles = false, theme = "light", savedPrefs = {}, documentText = null, paneSize = null} = {}) {
+async function host(page, {resources = true, storage = true, links = false, localFiles = false, theme = "light", savedPrefs = {}, documentText = null, paneSize = null, fontCatalog = null} = {}) {
   const requests = [], errors = [];
   page.on('request', request => requests.push(request.url()));
   page.on('pageerror', error => errors.push(error.message));
   await page.route('http://reader.test/**', route => route.fulfill({body:'<!doctype html><html><body></body></html>',contentType:'text/html'}));
   await page.goto('http://reader.test/');
-  await page.evaluate(({html, resources, storage, links, localFiles, theme, savedPrefs, documentText, paneSize}) => {
+  await page.evaluate(({html, resources, storage, links, localFiles, theme, savedPrefs, documentText, paneSize, fontCatalog}) => {
     if (storage) localStorage.setItem("reader.chatgpt.reading.v1", JSON.stringify(savedPrefs));
-    window.host = {calls:[], frames:[], text: '# Reader\n\nA shared reading interface.\n\n- [x] Read only\n\n![Relative image](./secret.png)\n\n[Relative file](./secret.md) · [External](https://example.com) · [Section](#reader)\n\n<script>window.pwned=true</script>\n<img src="x" onerror="window.pwned=true">', fail:false};
+    window.host = {fontCatalog, calls:[], frames:[], text: '# Reader\n\nA shared reading interface.\n\n- [x] Read only\n\n![Relative image](./secret.png)\n\n[Relative file](./secret.md) · [External](https://example.com) · [Section](#reader)\n\n<script>window.pwned=true</script>\n<img src="x" onerror="window.pwned=true">', fail:false};
     window.addEventListener('message', event => {
       const message = event.data;
       if (!message || message.jsonrpc !== '2.0') return;
@@ -23,6 +23,8 @@ async function host(page, {resources = true, storage = true, links = false, loca
       } else if (message.method === 'resources/read') {
         if (window.host.fail) event.source.postMessage({jsonrpc:'2.0',id:message.id,error:{code:-32000,message:'temporary failure'}},'*');
         else reply({contents:[{uri:message.params.uri,text:window.host.text,_meta:{'openai/resource':{writable:true,etag:'v1'}}}]});
+      } else if (message.method === 'tools/call' && message.params.name === 'reader_font_catalog') {
+        reply({content:[],_meta:{'reader/font-catalog':window.host.fontCatalog ?? {version:1,platform:'unsupported',provenance:'backend-machine',rendering:'viewer-verification-required',available:false,families:[]}}});
       } else if (message.method === 'tools/call') {
         const result=window.host.linkFail ? {isError:true,content:[{type:'text',text:'unavailable'}]} : {content:[],_meta:{'reader/local-link':{path:'/trusted/document/linked.md'}}};
         if (window.host.deferLinks) (window.host.pendingLinks ??= []).push({id:message.id,source:event.source,result});
@@ -37,7 +39,7 @@ async function host(page, {resources = true, storage = true, links = false, loca
       frame.srcdoc=html; document.body.append(frame); window.host.frames.push(frame);
     };
     window.host.add();
-  }, {html, resources, storage, links, localFiles, theme, savedPrefs, documentText, paneSize});
+  }, {html, resources, storage, links, localFiles, theme, savedPrefs, documentText, paneSize, fontCatalog});
   const frame = page.frameLocator('iframe').first();
   return {frame, requests, errors};
 }
@@ -76,7 +78,8 @@ test('bundled SDK viewer reads, sanitizes, refreshes and never calls local APIs 
   const calls=await page.evaluate(()=>window.host.calls);
   expect(calls.some(call=>call.method==='resources/subscribe')).toBeTruthy();
   expect(calls.filter(call=>call.method==='resources/read').every(call=>call.params._meta['openai/resource'].representation==='text')).toBeTruthy();
-  expect(calls.some(call=>/write|tools\/call/.test(call.method||''))).toBeFalsy();
+  expect(calls.some(call=>/write/.test(call.method||''))).toBeFalsy();
+  expect(calls.filter(call=>call.method==='tools/call').every(call=>call.params.name==='reader_font_catalog')).toBeTruthy();
   expect(requests.filter(url=>url!== 'http://reader.test/')).toEqual([]);
   expect(errors).toEqual([]);
 });
@@ -178,7 +181,7 @@ test('HTTP and HTTPS use host opening while filesystem document links stay unava
   }
   const calls=await page.evaluate(()=>window.host.calls);
   expect(calls.filter(call=>call.method==='ui/open-link').map(call=>call.params.url)).toEqual(['http://example.com/read','https://example.com/read']);
-  expect(calls.some(call=>call.method==='tools/call')).toBeFalsy();
+  expect(calls.some(call=>call.method==='tools/call' && call.params.name==='reader_resolve_local_link')).toBeFalsy();
   expect(requests.filter(url=>url!=='http://reader.test/')).toEqual([]);
   expect(errors).toEqual([]);
 });
@@ -373,7 +376,7 @@ test('shared reading and code controls affect rendering and unsupported tabs exp
   await expect(frame.locator('#preview h1')).toHaveText('Adjustable title');
   await frame.getByRole('button',{name:'Settings',exact:true}).click();
   await settingsSection(frame,'Reading');
-  await expect(frame.locator('.font-source').first()).toContainText('Installed font browsing is available in the Mac app');
+  await expect(frame.locator('.font-source').first()).toContainText('Installed font discovery is unavailable on this backend');
   await expect(frame.locator('#sel-body option')).toHaveCount(2);
   await frame.locator('#sel-body').selectOption('system');
   await frame.getByRole('button',{name:'Focus',exact:true}).click();
@@ -431,13 +434,13 @@ test('local links require host resolution and file opening without exposing a ba
   await frame.getByRole('link',{name:'Related',exact:true}).click();
   await expect.poll(()=>page.evaluate(()=>window.host.calls.filter(c=>c.method==='openai/files/open').length)).toBe(1);
   let calls=await page.evaluate(()=>window.host.calls);
-  const { _meta, ...argumentsSent }=calls.find(c=>c.method==='tools/call').params;
+  const { _meta, ...argumentsSent }=calls.find(c=>c.method==='tools/call' && c.params.name==='reader_resolve_local_link').params;
   expect(argumentsSent).toEqual({name:'reader_resolve_local_link',arguments:{href:'./linked.md'}});
   expect(_meta).not.toHaveProperty('openai/resource'); // Only the host may add opened-file context.
   expect(calls.find(c=>c.method==='openai/files/open').params).toEqual({path:'/trusted/document/linked.md'});
   await frame.getByRole('link',{name:'Section',exact:true}).click();
   await expect(frame.locator('#embedded-status')).toContainText('cannot open a section in another document');
-  expect(await page.evaluate(()=>window.host.calls.filter(c=>c.method==='tools/call').length)).toBe(1);
+  expect(await page.evaluate(()=>window.host.calls.filter(c=>c.method==='tools/call' && c.params.name==='reader_resolve_local_link').length)).toBe(1);
   await page.evaluate(()=>window.host.linkFail=true);
   const link=frame.getByRole('link',{name:'Related',exact:true});
   await link.focus(); await link.press('Enter');
@@ -586,5 +589,38 @@ test('settings resize without losing choices, focused controls, or the reading p
   await gear.click(); await picker.selectOption('reading');
   await expect(font).toHaveValue('17');
   await expect(frame.locator('html')).toHaveAttribute('data-uiscale','large');
+  expect(errors).toEqual([]);
+});
+
+
+test('backend catalog offers only fonts rendered in the iframe and recovers saved missing choices', async ({page}, info) => {
+  // The bundled Lora gives every CI platform a real rendered font; Georgia is macOS-specific.
+  const catalog={version:1,platform:'darwin',provenance:'backend-machine',rendering:'viewer-verification-required',available:true,families:['Lora','Reader Missing Font 987654']};
+  const {frame,errors}=await host(page,{fontCatalog:catalog,savedPrefs:{bodyFont:'font:Lora',headFont:'font:Lora'}});
+  await expect(frame.locator('#preview h1')).toHaveText('Reader');
+  await frame.getByRole('button',{name:'Settings',exact:true}).click();
+  await settingsSection(frame,'Reading');
+  await expect(frame.locator('#sel-body option[value="font:Lora"]')).toHaveCount(1);
+  await expect(frame.locator('#sel-body option[value="font:Reader Missing Font 987654"]')).toHaveCount(0);
+  await expect(frame.locator('#sel-body')).toHaveValue('font:Lora');
+  await expect(frame.locator('.font-source').first()).toContainText('usable in this viewer');
+  await page.screenshot({path:info.outputPath('embedded-backend-fonts.png')});
+  await frame.getByRole('button',{name:/Close settings|Back to document/}).click();
+  await page.evaluate(()=>window.host.fontCatalog.families=['Reader Missing Font 987654']);
+  await frame.getByRole('button',{name:'Settings',exact:true}).click();
+  await settingsSection(frame,'Reading');
+  await expect(frame.locator('#sel-body option:checked')).toHaveText(/Lora.*unavailable/);
+  await expect(frame.locator('.font-source').first()).toContainText('cannot be verified');
+  expect(await frame.locator('html').evaluate(n=>n.style.getPropertyValue('--font-head'))).toBe('Lora,serif');
+  await page.screenshot({path:info.outputPath('embedded-unavailable-fonts.png')});
+  await frame.getByRole('button',{name:/Close settings|Back to document/}).click();
+  await page.evaluate(()=>window.host.fontCatalog.families=['Lora']);
+  await frame.getByRole('button',{name:'Settings',exact:true}).click();
+  await expect(frame.locator('#sel-body option:checked')).toHaveText('Lora');
+  await frame.getByRole('button',{name:/Close settings|Back to document/}).click();
+  await frame.locator('html').evaluate(()=> { CanvasRenderingContext2D.prototype.measureText = () => { throw new Error('Host privacy restriction'); }; });
+  await frame.getByRole('button',{name:'Settings',exact:true}).click();
+  await expect(frame.locator('#sel-body option:checked')).toHaveText(/Lora.*unavailable/);
+  await expect(frame.locator('.font-source').first()).toContainText('cannot be verified');
   expect(errors).toEqual([]);
 });
