@@ -192,6 +192,15 @@ Generation does not update an installed plugin. Refresh the development install
 with the host's supported update or reload action and verify its active package
 before testing; automatic refresh and live desktop behavior remain unverified.
 
+For the bundled CLI 0.160.0, `plugin marketplace upgrade` refreshes Git
+marketplaces only; it rejects the local `reader-dev` source. Rebuilding updates
+that source's generated files. Verify `codex plugin list --marketplace reader-dev
+--json` reports the intended installed source, then restart the ChatGPT desktop
+app or use its supported reload lifecycle to replace running MCP processes and
+cached UI resources. Compare package bytes, including `fonts.py`, rather than
+assuming an unchanged version number proves freshness. The user confirmed the
+shared-font extension works after the local bundle was rebuilt from `326b30a`.
+
 The generator only writes owned files. It rejects unknown files, catalog
 settings, source/output overlap, and symlink destinations before writing. It
 preserves unrelated repository state and performs no host registration or install.

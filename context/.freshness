@@ -1,7 +1,7 @@
 # owned by skills/repository-context/scripts/context_freshness.py -- do not hand-edit
 {
-  "aggregate": "824f8bb16cf4725a13c7fbba227df93c2d22a4d5ba33689eb2b8d50d85c0149e",
-  "commit": "35e4c575b3f4799fa6c6ae09268a8b6b54e4be7f",
+  "aggregate": "c1834ce422393c5be4d1a7a8c3ed59fd3f47b1c1f4ec8f09a9bee56ae8611dcd",
+  "commit": "fd7c0c4d04a9219e32cc27e70ecec523a8ef05ca",
   "exclude": [],
   "files": {
     ".agents/plugins/marketplace.json": {
@@ -265,8 +265,8 @@
     "src/reader/chatgpt/README.md": {
       "executable": false,
       "kind": "file",
-      "length": 10434,
-      "sha256": "a4ca60f7c6d0a25f28c67e9e77592f66cae8bb47beabe4ca5aab82cc4fd10b89"
+      "length": 10641,
+      "sha256": "d90712bc272929b8be277258d9353d5b00ea822adfd3435f5d684df7723e125d"
     },
     "src/reader/chatgpt/app.ts": {
       "executable": false,
