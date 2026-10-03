@@ -1430,13 +1430,15 @@ test("native installed font choices survive reload, removal, and comparison pane
   await fs.writeFile(path.join(stateDir, "preferences.json"), JSON.stringify({bodyFont:"georgia", headFont:"poppins"}));
   await page.addInitScript(() => {
     window.__fontFamilies = ["Georgia", "Poppins", 'Quoted "Family"\\Name'];
-    window.__fontCalls = [];
-    window.webkit = {messageHandlers:{reader:{postMessage: async message => {
-      window.__fontCalls.push(message.action);
-      if (message.action === "fontFamilies") {
-        if (window.__fontFail) throw new Error("unavailable");
-        return window.__fontFamilies;
+    const fetchOriginal = window.fetch;
+    window.fetch = (url, options) => {
+      if (String(url) === "/api/fonts") {
+        if (window.__fontFail) return Promise.reject(new Error("unavailable"));
+        return Promise.resolve(new Response(JSON.stringify({version:1, platform:"darwin", provenance:"backend-machine", rendering:"viewer-verification-required", available:true, families:window.__fontFamilies})));
       }
+      return fetchOriginal(url, options);
+    };
+    window.webkit = {messageHandlers:{reader:{postMessage: async () => {
       return true;
     }}}};
   });
@@ -1477,5 +1479,4 @@ test("native installed font choices survive reload, removal, and comparison pane
   await page.locator("#btn-split").click();
   const side=page.frameLocator("#side-pane iframe");
   await expect(side.locator('#sel-body option[value="font:Georgia"]')).toHaveCount(1);
-  expect(await page.evaluate(()=>window.__fontCalls)).toContain("fontFamilies");
 });

@@ -6385,11 +6385,29 @@ const LEGACY_FONT_NAMES = {poppins: "Poppins", figtree: "Figtree", satoshi: "Sat
   ebgaramond: "EB Garamond", sourceserif: "Source Serif 4", georgia: "Georgia", jetbrains: "JetBrains Mono"};
 const FONT_LISTS = {bodyFont: BODY_FONTS, headFont: HEAD_FONTS, monoFont: MONO_FONTS};
 let fontRequest = 0;
-async function nativeFontFamilies() {
-  if (EMBEDDED) return null;
-  if (SIDE) return host()?.fontFamilies() ?? null;
-  const bridge = nativeBridge();
-  return bridge ? bridge.postMessage({action: "fontFamilies"}) : null;
+async function backendFontCatalog() {
+  if (EMBEDDED) return window.readerEmbeddedHost?.fontCatalog();
+  if (SIDE) return host()?.fontCatalog();
+  return api("/api/fonts");
+}
+// A server's installed names need not be usable in a remote/restricted iframe.
+// Check actual local rendering, not document.fonts.check (which accepts fallback).
+function canRenderFamily(name) {
+  try {
+    const context = document.createElement("canvas").getContext("2d");
+    if (!context) return false;
+    const samples = ["mmmmWWWWiiii0123456789", "漢字かな한글", "العربيةעברית", "देवनागरीবাংলা", "★✂✓♠"];
+    const width = (font, sample) => {
+      context.font = "32px " + font;
+      return context.measureText(sample).width;
+    };
+    return samples.some(sample => {
+      const serif = width("serif", sample), mono = width("monospace", sample);
+      const a = width(JSON.stringify(name) + ",serif", sample);
+      const b = width(JSON.stringify(name) + ",monospace", sample);
+      return Math.abs(a - b) < 0.01 && (Math.abs(a - serif) > 0.01 || Math.abs(b - mono) > 0.01);
+    });
+  } catch { return false; }
 }
 function fontChoice(list, key) {
   const migrated = Object.hasOwn(LEGACY_FONT_NAMES, key) ? "font:" + LEGACY_FONT_NAMES[key] : key;
@@ -6398,20 +6416,26 @@ function fontChoice(list, key) {
 async function refreshFontFamilies() {
   const request = ++fontRequest;
   try {
-    const families = await nativeFontFamilies();
+    const catalog = await backendFontCatalog();
     if (request !== fontRequest) return;
-    if (families === null) {
-      document.querySelectorAll(".font-source").forEach(n => n.textContent = "Installed font browsing is available in the Mac app. This viewer uses Lora and system defaults.");
-      return;
-    }
-    if (!Array.isArray(families) || !families.every(name => typeof name === "string" && name.trim() && name.length <= 256 && !/[\u0000-\u001f\u007f]/.test(name))) throw new Error();
-    const options = [...new Set(families)].sort((a,b) => a.localeCompare(b)).map(name =>
+    if (!catalog || catalog.version !== 1 || catalog.provenance !== "backend-machine" ||
+        catalog.rendering !== "viewer-verification-required" || typeof catalog.available !== "boolean" ||
+        !Array.isArray(catalog.families) || !catalog.families.every(name => typeof name === "string" && name.trim() && name.length <= 256 && !/[\u0000-\u001f\u007f]/.test(name))) throw new Error();
+    const families = catalog.available ? catalog.families : [];
+    const nativeRendering = !!nativeBridge() || (SIDE && host()?.nativeFontRendering());
+    const verified = nativeRendering ? families : families.filter(canRenderFamily);
+    const options = [...new Set(verified)].sort((a,b) => a.localeCompare(b)).map(name =>
       ["font:" + name, name, JSON.stringify(name) + ",Lora,serif"]);
     BODY_FONTS.splice(2, Infinity, ...options);
     HEAD_FONTS.splice(3, Infinity, ...options);
     MONO_FONTS.splice(1, Infinity, ...options.map(([key,name]) => [key,name,JSON.stringify(name) + "," + MONO_SYSTEM]));
     for (const [key,list] of Object.entries(FONT_LISTS)) fillSelect(document.querySelector(`select[data-set="${key}"]`), list);
-    document.querySelectorAll(".font-source").forEach(n => n.textContent = "Installed Mac font families. Lora is bundled as the default. Reopen Settings to refresh the list.");
+    const note = !catalog.available
+      ? (typeof catalog.reason === "string" && catalog.reason.length <= 256 ? catalog.reason : "Installed font discovery is unavailable on this backend.") + " This viewer uses Lora and system defaults."
+      : !verified.length && families.length
+        ? "Backend fonts cannot be verified in this viewer. This viewer uses Lora and system defaults."
+        : "Installed backend font families" + (verified.length < families.length ? " usable in this viewer" : "") + ". Lora is bundled as the default. Reopen Settings to refresh the list.";
+    document.querySelectorAll(".font-source").forEach(n => n.textContent = note);
     applySettings(); syncDialog();
   } catch {
     if (request === fontRequest) document.querySelectorAll(".font-source").forEach(n => n.textContent = "Could not refresh installed fonts. Existing choices are kept; unavailable fonts use the default.");
@@ -12702,6 +12726,7 @@ if (EMBEDDED) {
       restoreReadingAnchor(anchor);
       if (!paging.active) el.previewpane.scrollTop -= anchor.inset;
     },
+    refreshFonts: refreshFontFamilies,
     find: () => findOpen(), settings: () => openSettings(),
     error: message => { $("embedded-status").textContent = message; toast(message, true); },
   };
@@ -12710,7 +12735,8 @@ if (EMBEDDED) {
   return;
 }
 window.reader = {
-  fontFamilies: nativeFontFamilies,
+  fontCatalog: backendFontCatalog,
+  nativeFontRendering: () => !!nativeBridge(),
   findDocument: findInDocument, findFile: fileFindOpen,
   goto: (p) => setRoot(p), open: (p) => openFile(p), openFromOS,
   /* The app's title bar buttons, and its full screen hand-back. */
@@ -31557,6 +31583,12 @@ window.addEventListener("pagehide", () => {
   void session?.dispose();
 });
 window.readerEmbeddedHost = {
+  async fontCatalog() {
+    if (!connected || stopped) throw new Error("Font catalog is not connected.");
+    const result = await app.callServerTool({ name: "reader_font_catalog", arguments: {} });
+    if (result.isError) throw new Error("Font catalog unavailable.");
+    return result._meta?.["reader/font-catalog"];
+  },
   async openLink(href) {
     const request = ++localLinkRequest;
     if (!/^https?:\/\//i.test(href)) {
@@ -31747,6 +31779,7 @@ iconButton("Settings", "#btn-settings svg", () => reader.settings()).setAttribut
 try {
   await app.connect();
   connected = true;
+  void reader.refreshFonts();
   followHostTheme();
   if (!stopped) {
     if (!extensions.resources) reader.error("This host does not support file resources. Open the file in Reader locally.");

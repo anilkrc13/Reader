@@ -191,7 +191,7 @@ class PluginReleaseTests(unittest.TestCase):
             self.assertEqual(set(bundle.namelist()), {
                 "reader-markdown/plugin.json", "reader-markdown/mcp.json",
                 "reader-markdown/server.mjs", "reader-markdown/session.mjs",
-                "reader-markdown/viewer.html", "reader-markdown/LICENSE",
+                "reader-markdown/viewer.html", "reader-markdown/fonts.py", "reader-markdown/LICENSE",
                 "reader-markdown/assets/reader.png", "reader-markdown/licenses/npm-notices.txt",
                 "reader-markdown/licenses/mermaid-LICENSE", "reader-markdown/licenses/marked-LICENSE.md",
                 "reader-markdown/licenses/dompurify-LICENSE", "reader-markdown/licenses/highlightjs-LICENSE",

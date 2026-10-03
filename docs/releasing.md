@@ -147,6 +147,12 @@ staging also stay under `build`. Nothing is published by these local scripts.
 
 ## Plugin package and Git marketplace
 
+The plugin package includes `fonts.py`, copied unchanged from
+`src/reader/fonts.py`. Keep it in the distribution allowlist and beside
+`server.mjs`: the Node adapter invokes it through Python 3 on the backend PATH.
+The Mac/web runtime packages the same source module. This shares OS discovery
+without starting an HTTP server for the embedded viewer.
+
 Reader uses one implementation and one Git branch, `main`. The tracked catalog
 and ready package always have production identities. Local development is a
 separate generated marketplace, ignored by Git.

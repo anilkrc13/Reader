@@ -17,7 +17,16 @@ test('the bundled stdio server advertises only Markdown and serves its self-cont
   try {
     await client.connect(transport);
     const {tools}=await client.listTools();
-    assert.equal(tools.length,2);
+    assert.equal(tools.length,3);
+    const fontTool=tools.find(tool=>tool.name==='reader_font_catalog');
+    assert.deepEqual(fontTool._meta.ui,{visibility:['app']});
+    const catalog=(await client.callTool({name:'reader_font_catalog',arguments:{}}))._meta['reader/font-catalog'];
+    assert.equal(catalog.version,1);
+    assert.equal(catalog.provenance,'backend-machine');
+    assert.equal(catalog.rendering,'viewer-verification-required');
+    assert.equal(typeof catalog.available,'boolean');
+    assert.ok(Array.isArray(catalog.families));
+    if (process.platform==='darwin') { assert.equal(catalog.available,true); assert.ok(catalog.families.length>0); }
     const resolver=tools.find(tool=>tool.name==='reader_resolve_local_link');
     assert.deepEqual(resolver._meta.ui,{visibility:['app']});
     assert.equal(resolver.annotations.readOnlyHint,true);

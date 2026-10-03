@@ -121,8 +121,9 @@ Seven sections, in a dialog laid out like a modern desktop app:
   control of body and heading typeface, text size, line height, line width and
   paragraph spacing. The Mac app lists installed font families. Lora is the one
   bundled default. Missing saved fonts fall back without erasing the choice.
-  Browser and embedded viewers offer Lora and system defaults because they do
-  not supply a permitted installed-font list. A live specimen shows the effect as you drag.
+  All viewers request the backend machine's font catalog. Browser and embedded
+  viewers offer families only when local rendering can be verified; otherwise
+  they retain Lora and system defaults. A live specimen shows the effect as you drag.
 - **Code** — highlight palette (brand, muted, vivid), monospace face, code size,
   and whether long lines wrap.
 - **Editor** — editor typeface and size, tab width, spell check, editor and preview

@@ -115,6 +115,11 @@ The owner approved changed-file linting. Install pinned Node tools with `npm ci`
 For Python, run `python3 -m venv build/lint-venv`, then
 `build/lint-venv/bin/python -m pip install -r requirements-dev.txt`.
 On macOS install SwiftLint with `brew install swiftlint`; validation used 0.65.1.
+A global install is optional: the official SwiftLint 0.65.1
+`portable_swiftlint.zip` release can be extracted under
+`build/lint-tools/swiftlint-0.65.1`. Prepend that directory to the command's PATH
+when running `npm run lint:changed`; this does not change the user's shell
+configuration. ESLint uses the root lockfile, and Ruff uses the project venv.
 Run `npm run lint:changed` before committing. After committing, use
 `npm run lint:changed -- --base <previous-commit>` to check that same change.
 The three linter configurations live in `config/`. The runner supplies their

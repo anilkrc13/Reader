@@ -11,7 +11,7 @@ PLUGIN = "reader-markdown"
 DEV_PLUGIN = "reader-markdown-dev"
 DEV_MARKETPLACE = "reader-dev"
 FILES = {
-    "plugin.json", "mcp.json", "server.mjs", "session.mjs", "viewer.html",
+    "plugin.json", "mcp.json", "server.mjs", "session.mjs", "viewer.html", "fonts.py",
     "LICENSE", "assets/reader.png", "licenses/npm-notices.txt",
     "licenses/mermaid-LICENSE", "licenses/marked-LICENSE.md",
     "licenses/dompurify-LICENSE", "licenses/highlightjs-LICENSE",

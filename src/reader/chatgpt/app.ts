@@ -10,9 +10,10 @@ declare global {
       preferences(values?: Record<string, unknown>): Record<string, unknown>;
       readingAnchor(): {path?: string; block: number; offset: number; inset: number};
       restoreReadingAnchor(anchor: {path?: string; block: number; offset: number; inset: number}): void;
+      refreshFonts(): Promise<void>;
       find(): void; settings(): void; error(message: string): void;
     };
-    readerEmbeddedHost: {openLink(href: string): Promise<void>};
+    readerEmbeddedHost: {fontCatalog(): Promise<unknown>; openLink(href: string): Promise<void>};
   }
 }
 const reader = window.readerEmbedded;
@@ -47,6 +48,12 @@ app.addEventListener("toolinput", ({arguments: args}) => {
 app.onteardown = async () => { stopped = true; await session?.dispose(); return {}; };
 window.addEventListener("pagehide", () => { stopped = true; void session?.dispose(); });
 window.readerEmbeddedHost = {
+  async fontCatalog() {
+    if (!connected || stopped) throw new Error("Font catalog is not connected.");
+    const result = await app.callServerTool({name: "reader_font_catalog", arguments: {}});
+    if (result.isError) throw new Error("Font catalog unavailable.");
+    return result._meta?.["reader/font-catalog"];
+  },
   async openLink(href) {
     const request = ++localLinkRequest;
     if (!/^https?:\/\//i.test(href)) {
@@ -193,6 +200,7 @@ iconButton("Settings", "#btn-settings svg", () => reader.settings()).setAttribut
 try {
   await app.connect();
   connected = true;
+  void reader.refreshFonts();
   followHostTheme();
   if (!stopped) {
     if (!extensions.resources) reader.error("This host does not support file resources. Open the file in Reader locally.");

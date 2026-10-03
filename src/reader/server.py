@@ -47,6 +47,7 @@ from .backend import (
     WorkspaceError,
     WorkspaceGrantStore,
 )
+from .fonts import font_catalog
 
 APP_NAME = "Reader"
 APP_DIR = Path(__file__).resolve().parents[2]
@@ -514,6 +515,8 @@ class Handler(BaseHTTPRequestHandler):
                     "home": str(Path.home()), "roots": quick_roots(),
                     "start": self.server.start_dir, "startFile": self.server.start_file,
                 })
+            if route == "/api/fonts":
+                return self._json(font_catalog())
             if route == "/api/prefs":
                 return self._json(read_prefs())
             if route == "/api/list":

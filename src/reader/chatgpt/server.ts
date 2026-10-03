@@ -4,6 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
 import { OpenAIExtensions, type OpenAIUiToolMetadata } from "@openai/mcp-extensions/server";
 import { z } from "zod";
+import { fontCatalog } from "./fonts.js";
 import { resolveLocalLink } from "./local-links.js";
 
 const uri = "ui://reader/markdown";
@@ -38,4 +39,11 @@ registerAppTool(server, "reader_resolve_local_link", {
     return {isError: true, content: [{type: "text", text: "This local link is unavailable. It needs host-owned opened-file context and a Markdown target inside that document's directory."}]};
   }
 });
+registerAppTool(server, "reader_font_catalog", {
+  title: "List backend font families",
+  description: "Return installed family names on the backend machine; the viewer verifies rendering separately.",
+  inputSchema: {},
+  annotations: {readOnlyHint: true, destructiveHint: false, openWorldHint: false},
+  _meta: {ui: {visibility: ["app"]}},
+}, async () => ({content: [], _meta: {"reader/font-catalog": await fontCatalog()}}));
 await server.connect(new StdioServerTransport());
