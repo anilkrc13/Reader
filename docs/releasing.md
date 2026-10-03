@@ -2,8 +2,9 @@
 
 Reader's releases are built by [`.github/workflows/release.yml`](../.github/workflows/release.yml), triggered by
 pushing a tag. It also supports a dispatch from `main` to validate and archive the committed
-production plugin package without creating a release tag. Tagged releases keep the Mac app
-and plugin on the same versioned source.
+production web and plugin packages without creating a release tag. Tagged releases keep
+macOS, browser, and ChatGPT products on the same versioned source. Root `VERSION` is
+the only product version; build scripts derive all bundle and plugin metadata from it.
 
 ## Cutting a release
 
@@ -29,10 +30,40 @@ and plugin on the same versioned source.
    shipping the wrong build.
 5. Watch the Actions run. It builds `Reader.app`, verifies the signature,
    zips it, writes `manifest.json`, builds a `.dmg` of the same build, and
-   publishes those assets plus `Reader-plugin-<version>.zip` as a GitHub Release
-   named after the tag. Publishing the production marketplace branch is a separate action.
+   verifies the finished Mac ZIP, web ZIP, plugin ZIP, and updater manifest against
+   `VERSION` and the tag, then publishes all five assets in one GitHub Release.
+   Any mismatch blocks publication. GitHub `main` remains the production marketplace;
+   there is no separate distribution branch or publishing workflow.
 
-## Two artifacts, two purposes
+## One release, three products
+
+Every release includes `Reader-<version>.dmg`, `Reader-<version>.zip`,
+`Reader-web-<version>.zip`, `Reader-plugin-<version>.zip`, and `manifest.json`.
+The Mac ZIP/DMG, web runtime's `VERSION`, plugin manifest, and updater manifest
+all carry the same root version. Do not bump a target independently.
+
+The web ZIP contains the standard-library Python server, browser interface,
+assets, licenses, and launch instructions. Unzip it, open a terminal in the
+`Reader-web-<version>` folder, and run `python3 scripts/reader.py` with Python
+3.10 or newer installed. No checkout, pip, Node, or build step is needed.
+It opens a local browser application; this archive is not a static hosted website.
+macOS remains the supported desktop platform.
+
+To prepare and validate the web archive locally:
+
+```sh
+npm run build:web
+python3 -m scripts.release_artifacts web
+```
+
+After also staging the plugin and packaging the Mac app, validate all finished
+ZIPs and the native updater digest before tagging or publishing:
+
+```sh
+python3 -m scripts.release_artifacts check --tag "v$(cat VERSION)"
+```
+
+## Mac artifacts and their purposes
 
 Every release carries both a zip and a `.dmg` of the same signed
 `Reader.app`, built one after the other from the same bundle, but they serve
@@ -74,7 +105,9 @@ across versions. Set it up once:
    your private signing key.
 
 From then on, every tagged push is signed with "Reader Local Signing" instead
-of ad-hoc, as long as the two secrets remain set.
+of ad-hoc, as long as the two secrets remain set. This is a self-signed identity,
+not an Apple Developer ID certificate; signature verification does not imply
+Apple notarization. The workflow does not notarize releases.
 
 ## Installing the same identity on another Mac
 

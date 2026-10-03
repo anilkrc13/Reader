@@ -1,6 +1,6 @@
 name: Release
 
-# Tags publish Mac and plugin release assets. A dispatch from main validates
+# Tags publish Mac, web, and plugin release assets. A dispatch from main validates
 # the committed production package without creating a tag.
 on:
   push:
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   plugin:
-    name: Build plugin distribution
+    name: Build web and plugin distributions
     if: github.event_name == 'push' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -41,6 +41,15 @@ jobs:
             "${TAG_ARGS[@]}" --source-commit "$GITHUB_SHA" \
             --repository-url "https://github.com/$GITHUB_REPOSITORY" \
             --output-dir build/plugin-marketplace --archive-dir build/releases
+      - name: Package browser runtime
+        run: |
+          npm run build:web
+          python3 -m scripts.release_artifacts web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reader-web-zip
+          path: build/releases/Reader-web-*.zip
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: reader-plugin-package
@@ -153,6 +162,15 @@ jobs:
           name: reader-plugin-zip
           path: build/releases/
 
+      - name: Download web release asset
+        uses: actions/download-artifact@v4
+        with:
+          name: reader-web-zip
+          path: build/releases/
+
+      - name: Verify versions and finished archives before publication
+        run: python3 -m scripts.release_artifacts check --tag "$GITHUB_REF_NAME"
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -161,6 +179,7 @@ jobs:
             "build/releases/Reader-$VERSION.zip" \
             "build/releases/Reader-$VERSION.dmg" \
             "build/releases/Reader-plugin-$VERSION.zip" \
+            "build/releases/Reader-web-$VERSION.zip" \
             build/releases/manifest.json \
             --title "Reader $VERSION" \
             --notes-file "$RUNNER_TEMP/release-notes.md"

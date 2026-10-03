@@ -33507,7 +33507,7 @@ async function resolveLocalLink(href, metadata) {
 // server.ts
 var uri2 = "ui://reader/markdown";
 var html = await readFile(new URL("./viewer.html", import.meta.url), "utf8");
-var server = new McpServer({ name: "Reader Markdown viewer", version: "2.6.0" });
+var server = new McpServer({ name: "Reader Markdown viewer", version: "2.7.0" });
 new OpenAIExtensions(server);
 N3(server, "Reader", uri2, {}, async () => ({ contents: [{
   uri: uri2,

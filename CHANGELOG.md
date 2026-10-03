@@ -4,13 +4,17 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+## 2.7.0
+
 - Keep the single `main` branch installable as production Reader. Build local
   uncommitted work with `npm run build:dev` into an ignored Reader - Dev
   marketplace with distinct identities. No release or additional branch is needed.
   Installed plugin refresh remains unverified.
 
-- GitHub releases package the bundled Reader plugin alongside Mac assets.
-  The existing workflow also archives the production package without a tag.
+- One version from root `VERSION` covers the Mac app, browser download, and
+  ChatGPT plugin. Every release includes all three products, with finished
+  archive versions and the updater checksum verified before publication.
+  The web ZIP runs with Python and includes its assets, licenses, and instructions.
 
 - A successful conflict overwrite clears the blocked-save label. Newer edits
   entered during that save remain Unsaved.
