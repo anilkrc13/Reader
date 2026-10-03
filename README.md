@@ -41,18 +41,19 @@ turning Reader into a browser app.
 
 ### Codex Markdown viewer
 
-The checkout catalog is **Reader-Dev**, with the separate development identity
-`reader-markdown-dev@reader-dev`. Production is **Reader**, with the stable
-identity `reader-markdown@reader-github`. Node 22 or newer must be on the host path.
-
-The proposed production source is `https://github.com/anilkrc13/Reader`, explicitly
-selecting the `reader-release` branch. That branch has not been published. After
-publication, the CLI installation would be:
+GitHub `main` installs as **Reader**, with the production identity
+`reader-markdown@reader-github`. Node 22 or newer must be on the host path.
+No release or additional branch is needed:
 
 ```sh
-codex plugin marketplace add https://github.com/anilkrc13/Reader --ref reader-release
+codex plugin marketplace add https://github.com/anilkrc13/Reader --ref main
 codex plugin add reader-markdown@reader-github
 ```
+
+For uncommitted local work, run `npm run build:dev` and register the ignored
+`build/reader-dev` marketplace. It displays **Reader - Dev** and uses the separate
+identity `reader-markdown-dev@reader-dev`. See the distribution guide below for
+setup and rebuild instructions.
 
 This read-only viewer uses the shared Reader interface. See the
 [adapter guide](src/reader/chatgpt/README.md) for its limits and host acceptance

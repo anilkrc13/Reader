@@ -54,8 +54,8 @@ class PluginReleaseTests(unittest.TestCase):
         self.check()
         self.assertEqual(self.snapshot(), before)
         self.assertEqual(catalog.read_bytes(), release.json_bytes({
-            "name": "reader-dev", "interface": {"displayName": "Reader-Dev"},
-            "plugins": [{"name": "reader-markdown-dev", "source": {
+            "name": "reader-github", "interface": {"displayName": "Reader"},
+            "plugins": [{"name": "reader-markdown", "source": {
                 "source": "local", "path": "./plugins/reader-markdown"},
                 "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
                 "category": "Productivity"}]}))
@@ -181,9 +181,12 @@ class PluginReleaseTests(unittest.TestCase):
         self.assertEqual(self.snapshot(), {})
 
     def test_archive_has_plugin_root_licenses_and_ephemeral_commit_provenance(self):
+        self.sync()
+        before = self.snapshot()
         output = self.root / "stage"
         archive = release.stage(self.plugin, self.version, "v2.6.0", "a" * 40,
                                 URL, output, self.root / "archives")
+        self.assertEqual(self.snapshot(), before)
         with zipfile.ZipFile(archive) as bundle:
             self.assertEqual(set(bundle.namelist()), {
                 "reader-markdown/plugin.json", "reader-markdown/mcp.json",
@@ -208,39 +211,85 @@ class PluginReleaseTests(unittest.TestCase):
         self.assertIsNone(dispatch["tag"])
         self.assertEqual(dispatch["source_commit"], "b" * 40)
 
-    def test_dev_and_production_have_separate_ids_and_staging_preserves_checkout(self):
-        catalog = self.repository / ".agents/plugins/marketplace.json"
-        catalog.parent.mkdir(parents=True)
-        legacy = release.marketplace("plugins/reader-markdown")
-        legacy["interface"]["displayName"] = "Reader - Dev"
-        catalog.write_text(json.dumps(legacy))
+    def test_dev_uses_uncommitted_build_bytes_and_preserves_production(self):
         self.sync()
         before = self.snapshot()
-        source_before = {name: (self.plugin / name).read_bytes() for name in release.FILES}
-        output = self.root / "production"
-        release.stage(self.plugin, self.version, None, "c" * 40, URL,
-                      output, self.root / "archives")
-        release.validate_stage(output)
-        self.assertEqual(self.snapshot(), before)
-        self.assertEqual(source_before, release.package_bytes(self.plugin))
-        dev = release.read_json(catalog)
-        prod = release.read_json(output / ".agents/plugins/marketplace.json")
-        self.assertEqual(dev["name"], "reader-dev")
-        self.assertEqual(prod["name"], "reader-github")
-        self.assertEqual(dev["interface"]["displayName"], "Reader-Dev")
-        self.assertEqual(prod["interface"]["displayName"], "Reader")
-        self.assertNotEqual(dev["plugins"][0]["name"], prod["plugins"][0]["name"])
-        dev_root = self.repository / dev["plugins"][0]["source"]["path"]
-        prod_root = output / prod["plugins"][0]["source"]["path"]
+        (self.plugin / "server.mjs").write_text("uncommitted source build")
+        development = release.dev(self.plugin, self.version, self.repository, URL)
+        dev_catalog = release.read_json(development / ".agents/plugins/marketplace.json")
+        prod_catalog = release.read_json(self.repository / ".agents/plugins/marketplace.json")
+        self.assertEqual(dev_catalog["name"], "reader-dev")
+        self.assertEqual(dev_catalog["interface"]["displayName"], "Reader - Dev")
+        self.assertEqual(dev_catalog["plugins"][0]["name"], "reader-markdown-dev")
+        self.assertEqual(prod_catalog["name"], "reader-github")
+        self.assertEqual(prod_catalog["interface"]["displayName"], "Reader")
+        self.assertEqual(prod_catalog["plugins"][0]["name"], "reader-markdown")
+        self.assertEqual(development, self.repository / "build/reader-dev")
+        dev_root = development / dev_catalog["plugins"][0]["source"]["path"]
+        self.assertTrue(dev_root.resolve().is_relative_to(development.resolve()))
         self.assertEqual(release.read_json(dev_root / "plugin.json")["name"], "reader-markdown-dev")
+        self.assertEqual(release.read_json(dev_root / "plugin.json")["extensions"]["com.openai"]["interface"]["displayName"], "Reader - Dev")
         self.assertEqual(set(release.read_json(dev_root / "mcp.json")["mcpServers"]), {"reader-markdown-dev"})
-        self.assertEqual(release.read_json(prod_root / "plugin.json")["name"], "reader-markdown")
-        self.assertEqual(set(release.read_json(prod_root / "mcp.json")["mcpServers"]), {"reader-markdown"})
-        self.check()
+        for name in release.FILES - {"plugin.json", "mcp.json"}:
+            self.assertEqual((dev_root / name).read_bytes(), (self.plugin / name).read_bytes())
+        for name, data in before.items():
+            self.assertEqual(self.snapshot()[name], data)
+        dev_before = self.snapshot()
+        release.dev(self.plugin, self.version, self.repository, URL)
+        self.assertEqual(self.snapshot(), dev_before)
+        (self.plugin / "server.mjs").write_text("next local edit")
+        release.dev(self.plugin, self.version, self.repository, URL)
+        self.assertEqual((dev_root / "server.mjs").read_text(), "next local edit")
         with self.assertRaises(ValueError):
             release.stage(dev_root, self.version, None, "d" * 40, URL,
                           self.root / "invalid", self.root / "invalid-archives")
         self.assertFalse((self.root / "invalid").exists())
+
+    def test_dev_refuses_unowned_output_symlinks_and_overlap_before_writes(self):
+        self.sync()
+        output = self.repository / "build/reader-dev"
+        output.mkdir(parents=True)
+        private = output / ".env"
+        private.write_text("keep local state")
+        before = self.snapshot()
+        with self.assertRaises(ValueError):
+            release.dev(self.plugin, self.version, self.repository, URL)
+        self.assertEqual(self.snapshot(), before)
+        private.unlink()
+        output.rmdir()
+        output.symlink_to(self.root / "built", target_is_directory=True)
+        with self.assertRaises(ValueError):
+            release.dev(self.plugin, self.version, self.repository, URL)
+        output.unlink()
+        output.parent.rmdir()
+        output.parent.symlink_to(self.root, target_is_directory=True)
+        with self.assertRaises(ValueError):
+            release.dev(self.plugin, self.version, self.repository, URL)
+        output.parent.unlink()
+        output_plugin = output / "plugins/reader-markdown"
+        output_plugin.mkdir(parents=True)
+        for name in release.FILES:
+            target = output_plugin / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes((self.plugin / name).read_bytes())
+        before = self.snapshot()
+        with self.assertRaises(ValueError):
+            release.dev(output_plugin, self.version, self.repository, URL)
+        self.assertEqual(self.snapshot(), before)
+        self.assertEqual((self.plugin / "server.mjs").read_text(), "Fixture server.mjs\n")
+
+    def test_sync_migrates_pr40_development_catalog_to_production(self):
+        catalog = self.repository / ".agents/plugins/marketplace.json"
+        catalog.parent.mkdir(parents=True)
+        legacy = release.marketplace("plugins/reader-markdown", development=True)
+        legacy["interface"]["displayName"] = "Reader-Dev"
+        catalog.write_text(json.dumps(legacy))
+        self.sync()
+        self.check()
+        self.assertEqual(release.read_json(catalog)["name"], "reader-github")
+        production = self.repository / "plugins/reader-markdown"
+        self.assertEqual(release.read_json(production / "plugin.json")["name"], "reader-markdown")
+        self.assertEqual(set(release.read_json(production / "mcp.json")["mcpServers"]), {"reader-markdown"})
 
     def test_stage_wrong_tag_and_missing_license_fail_before_writes(self):
         for change in ("tag", "license"):

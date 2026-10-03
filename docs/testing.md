@@ -176,15 +176,23 @@ python3 scripts/plugin_release.py check \
   --repository-root . --repository-url https://github.com/anilkrc13/Reader
 ```
 
-This read-only gate compares the tracked development `plugins/reader-markdown`
-package, `reader-dev` catalog, version, and file hashes with the derived build. Missing, extra,
+This read-only gate compares the tracked production `plugins/reader-markdown`
+package, `reader-github` catalog, version, and file hashes with the derived build. Missing, extra,
 changed, or symlinked package files fail. The adapter CI and release workflow run
 this check. Packaging unit tests live in `tests/server/test_plugin_release.py`.
-They also protect label-only legacy migration, distinct catalog/plugin/MCP
+They also protect PR40 and label-only legacy migration, distinct catalog/plugin/MCP
 identities, staging isolation, immutable source input, unsafe output rejection,
 and private state preservation. Production `stage` validates the ready
 `reader-markdown@reader-github` tree before archiving it; CI runs both commands.
-See [releasing](releasing.md#generate-development-and-stage-production) for staging
+See [releasing](releasing.md#optional-versioned-release-archive) for staging
 commands and the clean-commit provenance requirement. Local checks prove generated
-separation; installed discovery, registration migration, and automatic updates are
+separation and read-only discovery; installation, registration migration, and automatic updates are
 not established without real host acceptance.
+
+`npm run build:dev` must generate a complete ignored `build/reader-dev` marketplace
+with label Reader - Dev and `reader-markdown-dev@reader-dev`. Its runtime must
+reflect the current source build, including saved uncommitted edits, without
+changing tracked production files. Packaging tests cover that separation, repeated
+regeneration, and refusal of unowned output and symlinks. Verify local marketplace
+discovery from that generated root with the bundled CLI; installation and active
+cache refresh are separate host checks that need authorization.

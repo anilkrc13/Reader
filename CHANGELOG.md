@@ -4,15 +4,13 @@ All notable changes to Reader. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
-- Separate Reader-Dev in the checkout and on main from the stable Reader
-  production identity. CI checks development and stages complete production
-  packages. Production installation will require the proposed reader-release
-  branch, which is not yet published. Installed plugin updates remain unverified.
+- Keep the single `main` branch installable as production Reader. Build local
+  uncommitted work with `npm run build:dev` into an ignored Reader - Dev
+  marketplace with distinct identities. No release or additional branch is needed.
+  Installed plugin refresh remains unverified.
 
 - GitHub releases package the bundled Reader plugin alongside Mac assets.
-  The same workflow stages a Git-backed marketplace with versioned plugin files;
-  a dispatch from main archives it without a tag. Distribution branch publication
-  is a separate action.
+  The existing workflow also archives the production package without a tag.
 
 - A successful conflict overwrite clears the blocked-save label. Newer edits
   entered during that save remain Unsaved.

@@ -86,7 +86,7 @@ jobs:
           for notice in src/reader/common/licenses/*; do
             cmp "$notice" "build/chatgpt/licenses/$(basename "$notice")"
           done
-      - name: Validate development and production packages
+      - name: Validate production package and archive
         run: |
           python3 scripts/plugin_release.py check \
             --plugin-dir build/chatgpt --version-file VERSION \

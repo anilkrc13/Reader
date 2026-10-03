@@ -1,8 +1,7 @@
 name: Release
 
 # Tags publish Mac and plugin release assets. A dispatch from main validates
-# the committed development package and stages production without creating a tag.
-# The production artifact is ready for a separately authorized reader-release branch publication.
+# the committed production package without creating a tag.
 on:
   push:
     tags:
@@ -27,7 +26,7 @@ jobs:
           node-version: "22"
       - run: npm ci --prefix src/reader/chatgpt --ignore-scripts
       - run: npm run build:chatgpt
-      - name: Validate development and stage production plugin
+      - name: Validate and archive production plugin
         shell: bash
         run: |
           python3 scripts/plugin_release.py check \
