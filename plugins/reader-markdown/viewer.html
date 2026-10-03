@@ -31517,7 +31517,7 @@ var DocumentSession = class {
 
 // app.ts
 var reader = window.readerEmbedded;
-var app = new i({ name: "Reader", version: "2.6.0" });
+var app = new i({ name: "Reader", version: "2.7.0" });
 var extensions = new OpenAIExtensions(app);
 var session;
 var pending;
@@ -31642,7 +31642,7 @@ settings.querySelector('[data-set="uiScale"]').closest(".set-row").querySelector
 var notices = {
   editor: "Editing settings are unavailable here because this viewer is read only. Use the Mac app to edit documents. Code-block typography is available under Code.",
   files: "Files, disk watching, and app updates belong to local Reader. This panel has no folder browser or save access. The host supplies the document and live updates; Refresh reads it again.",
-  about: `Reader ${"2.6.0"}. This is the read-only conversation viewer. Native installation paths and update controls belong to the Mac app.`
+  about: `Reader ${"2.7.0"}. This is the read-only conversation viewer. Native installation paths and update controls belong to the Mac app.`
 };
 for (const [category, notice] of Object.entries(notices)) {
   const panel = settings.querySelector(`[data-panel="${category}"]`);

@@ -27,6 +27,15 @@ the Xcode Command Line Tools. An app downloaded with a browser carries a
 quarantine flag, so macOS shows a first-launch warning the first time you
 open it; see [docs/macos.md](docs/macos.md) for how to get past it.
 
+### Browser download
+
+Download `Reader-web-<version>.zip` from the same
+[GitHub Release](https://github.com/anilkrc13/Reader/releases), unzip it, and
+open a terminal in its folder. With Python 3.10 or newer installed, run
+`python3 scripts/reader.py`. Reader opens in your browser; Ctrl-C stops the
+local server. The download includes all assets and licenses and needs no
+checkout or build tools. Its version matches the Mac app and ChatGPT package.
+
 ### From source
 
 ```

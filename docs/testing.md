@@ -196,3 +196,18 @@ changing tracked production files. Packaging tests cover that separation, repeat
 regeneration, and refusal of unowned output and symlinks. Verify local marketplace
 discovery from that generated root with the bundled CLI; installation and active
 cache refresh are separate host checks that need authorization.
+
+## Unified release archives
+
+`tests/server/test_release_artifacts.py` launches an extracted web ZIP outside the
+checkout on its own localhost port and checks the version endpoint and authenticated
+UI. It catches missing or modified web assets, stale native bundle fields and copied
+VERSION, stale/development plugin identities, wrong tags, updater digest corruption,
+private runtime files, overwrite attempts, and ZIP traversal. These tests run in the
+server CI on macOS, Linux, and Windows.
+
+After producing all release archives, `python3 -m scripts.release_artifacts check
+--tag "v$(cat VERSION)"` validates actual ZIP contents and emits a size/hash receipt.
+The release workflow runs this gate before publication. Mac signature verification
+and read-only DMG validation remain separate native checks. A valid self-signed
+signature does not establish Apple notarization or live desktop rendering.

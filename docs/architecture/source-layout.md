@@ -258,3 +258,13 @@ paths remain relative; local paths stay in ignored output or host settings. Othe
 `.agents` state and root `AGENTS.md` stay ignored. See
 [releasing](../releasing.md#plugin-package-and-git-marketplace) for commands and
 [testing](../testing.md#development-and-production-plugin-packages) for evidence.
+
+## Product version and release archives
+
+Root `VERSION` is the single product version for macOS, web, and ChatGPT. Native
+builds stamp both Info.plist version fields and copy VERSION beside the runtime;
+web builds copy it for the server; ChatGPT builds inject it into the viewer and
+manifest. The tagged release workflow publishes all three products together.
+`scripts/release_artifacts.py` packages the self-contained browser ZIP and checks
+finished ZIP contents and the updater digest against VERSION and the tag before
+publication. The existing Mac ZIP format remains owned by the native updater.
