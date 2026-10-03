@@ -48,13 +48,14 @@ no browser enumeration permission and sends no rendering results to the server.
 Lora is the sole bundled fallback. Discovery failure or unavailable rendering
 keeps clear defaults; saved unavailable choices remain saved.
 
-Verification record, 2026-10-03, working change based on Reader 2.7.0: macOS
+Verification record, 2026-10-03, Reader 2.7.0 font change `326b30a`: macOS
 backend discovery, authenticated HTTP, real stdio MCP, and simulated-host iframe
 rendering have focused checks in `tests/server/test_fonts.py`,
 `tests/chatgpt/server.integration.test.mjs`, and
-`tests/chatgpt/browser/embedded.spec.mjs`. Actual Codex-host rendering and installed
-Mac app selection remain unverified; host UI access was not used. Windows/Linux
-font discovery is future work, not implemented parity.
+`tests/chatgpt/browser/embedded.spec.mjs`. The user confirmed the local Mac app
+works, then confirmed the extension works. This is user-reported acceptance of
+the actual host; automated rendering evidence remains the simulated iframe, and
+Codex UI access was not used. Windows/Linux font discovery is future work.
 
 Validation for this change: all 35 shared UI cases, nine MCP/session cases,
 four focused service/HTTP cases, and the embedded cases passed (18 in the
@@ -67,13 +68,14 @@ expects `legacy == []`, but old untracked `macos/` and `test-results/` directori
 exist with ignored metadata only. The same assertion fails using its unchanged
 source from baseline `35e4c57`; those directories were not removed.
 
-No Reader app or plugin installation was performed. Before actual-host
-acceptance, authorize an update through `install/Reader.command` for the Mac
-app, and a supported host refresh/reload of a rebuilt Reader development plugin
-(or a separately authorized production release/update). Verify the installed
-plugin's bytes rather than trusting its unchanged 2.7.0 version. Keep Python 3
-on the MCP backend PATH, then perform the font selection/rendering checks in
-`docs/embedded-acceptance.md`. Do not launch the generated Mac bundle directly.
+The local Reader Dev bundle was rebuilt from `326b30a`; the supported CLI reports
+`reader-markdown-dev@reader-dev` installed and enabled from that generated path.
+The rebuilt stdio tool returns 179 macOS families. The production plugin was not
+updated as part of local verification. Future installations need Python 3 on the
+MCP backend PATH and should repeat the checks in `docs/embedded-acceptance.md`.
+Verify installed bytes rather than trusting the unchanged 2.7.0 version. Use
+`install/Reader.command` for authorized Mac updates and the documented host
+lifecycle for plugins; never launch the generated Mac bundle directly.
 
 See [source ownership](source-layout.md) for the layout, its history, compatibility
 entrypoints, and the test areas. Unobserved host checks live in

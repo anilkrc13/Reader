@@ -45,7 +45,10 @@ installed body and heading family appears, visibly renders, survives reopening,
 and recovers after temporary removal. If the host blocks local font rendering,
 confirm the viewer explains the limit and retains Lora/system fallbacks rather
 than offering unusable families. Remote server families must be checked by the
-viewer, not assumed to exist locally. Actual host acceptance remains pending.
+viewer, not assumed to exist locally. On 2026-10-03, the user confirmed the
+local Mac app works and then confirmed the extension works with the shared
+backend font change `326b30a`. This records user-reported actual-host acceptance;
+automated missing-font and privacy-restriction evidence uses a simulated iframe.
 Native installed selection is also a separate manual check; use the installed
 app only after an authorized update, never launch generated `build/Reader.app`.
 

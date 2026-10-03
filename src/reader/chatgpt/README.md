@@ -120,7 +120,10 @@ not become phantom choices. This conservative check can omit indistinguishable
 faces. Lora is the sole bundled font; headings can match body and code retains its
 system monospace default. Saved unavailable choices remain saved and recover on
 refresh. The viewer neither calls browser font enumeration nor asks its permission.
-Actual Codex-host rendering remains a manual acceptance check.
+On 2026-10-03 the user confirmed the extension works after the shared backend
+font change `326b30a`. This is user-reported host acceptance; automated tests
+verify rendering and fallback in a simulated iframe. Repeat host acceptance after
+future package or host updates.
 
 The adapter source lives at this package root. Shared UI lives beside it in
 `src/reader/web`. The package builds into `build/chatgpt` and uses common icon
