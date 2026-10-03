@@ -1,4 +1,4 @@
-"""Derive the Reader development plugin and stage production distribution files."""
+"""Generate production Reader and an ignored local development marketplace."""
 import argparse
 import hashlib
 import json
@@ -61,7 +61,7 @@ def package_bytes(root, development=False):
     if development:
         manifest = read_json(root / "plugin.json")
         manifest["name"] = DEV_PLUGIN
-        manifest["extensions"]["com.openai"]["interface"]["displayName"] = "Reader-Dev"
+        manifest["extensions"]["com.openai"]["interface"]["displayName"] = "Reader - Dev"
         files["plugin.json"] = json_bytes(manifest)
         mcp = read_json(root / "mcp.json")
         server = mcp["mcpServers"].pop(PLUGIN)
@@ -126,7 +126,7 @@ def stage(plugin_dir, version_file, tag, source_commit, repository_url,
 
 def marketplace(plugin_path, development=False):
     return {"name": DEV_MARKETPLACE if development else "reader-github",
-            "interface": {"displayName": "Reader-Dev" if development else "Reader"},
+            "interface": {"displayName": "Reader - Dev" if development else "Reader"},
             "plugins": [{"name": DEV_PLUGIN if development else PLUGIN,
                          "source": {"source": "local", "path": f"./{plugin_path}"},
                          "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
@@ -188,15 +188,29 @@ def json_bytes(value):
     return (json.dumps(value, indent=2) + "\n").encode("utf-8")
 
 
-def development_metadata(plugin_dir, version_file, repository_url):
-    metadata = validate_input(plugin_dir, version_file, repository_url)
-    metadata["files"] = file_hashes(plugin_dir, development=True)
-    return metadata
-
-
 def sync(plugin_dir, version_file, repository_root, repository_url):
-    """Derive the development catalog/package without modifying production input."""
-    metadata = development_metadata(plugin_dir, version_file, repository_url)
+    """Update the tracked production package from a validated source build."""
+    return sync_package(plugin_dir, version_file, repository_root, repository_url)
+
+
+def dev(plugin_dir, version_file, repository_root, repository_url):
+    """Generate a complete local marketplace from the current build, without installs."""
+    output = repository_root / "build/reader-dev"
+    safe_destination(output)
+    if (output.resolve().is_relative_to(plugin_dir.resolve())
+            or plugin_dir.resolve().is_relative_to(output.resolve())):
+        raise ValueError("Development output must not overlap the source package")
+    expected = {f"plugins/{PLUGIN}/{name}" for name in FILES}
+    expected.update({"plugins/release.json", ".agents/plugins/marketplace.json"})
+    if output.exists():
+        safe_tree(output, expected, allow_missing=True)
+    return sync_package(plugin_dir, version_file, output, repository_url, development=True)
+
+
+def sync_package(plugin_dir, version_file, repository_root, repository_url, development=False):
+    """Write only owned distribution files; keep other repository state intact."""
+    metadata = validate_input(plugin_dir, version_file, repository_url)
+    metadata["files"] = file_hashes(plugin_dir, development)
     plugin, record, catalog = distribution_paths(repository_root)
     if plugin.exists():
         safe_tree(plugin, FILES, allow_missing=True)
@@ -217,26 +231,28 @@ def sync(plugin_dir, version_file, repository_root, repository_url):
                       and isinstance(interface["displayName"], str))
         normalized["interface"] = {"displayName": "Reader"}
         owned_public = label_only and normalized == marketplace(f"plugins/{PLUGIN}")
-        owned_dev = previous == marketplace(f"plugins/{PLUGIN}", development=True)
+        legacy_dev = marketplace(f"plugins/{PLUGIN}", development=True)
+        legacy_dev["interface"]["displayName"] = "Reader-Dev"
+        owned_dev = previous in (marketplace(f"plugins/{PLUGIN}", development=True), legacy_dev)
         if not (empty_local or owned_public or owned_dev):
             raise ValueError("Existing marketplace is not owned by the Reader generator")
-    for name, data in package_bytes(plugin_dir, development=True).items():
+    for name, data in package_bytes(plugin_dir, development).items():
         write_if_changed(plugin / name, data)
     write_if_changed(record, json_bytes(metadata))
-    write_if_changed(catalog, json_bytes(marketplace(f"plugins/{PLUGIN}", development=True)))
+    write_if_changed(catalog, json_bytes(marketplace(f"plugins/{PLUGIN}", development)))
     return repository_root
 
 
 def check(plugin_dir, version_file, repository_root, repository_url):
-    """Verify the derived development package without changing any file."""
-    metadata = development_metadata(plugin_dir, version_file, repository_url)
+    """Verify the tracked production package without changing any file."""
+    metadata = validate_input(plugin_dir, version_file, repository_url)
     plugin, record, catalog = distribution_paths(repository_root)
     safe_tree(plugin, FILES)
     if record.read_bytes() != json_bytes(metadata):
         raise ValueError("Public release metadata differs from the built plugin")
-    if catalog.read_bytes() != json_bytes(marketplace(f"plugins/{PLUGIN}", development=True)):
+    if catalog.read_bytes() != json_bytes(marketplace(f"plugins/{PLUGIN}")):
         raise ValueError("Public marketplace differs from the generated catalog")
-    for name, data in package_bytes(plugin_dir, development=True).items():
+    for name, data in package_bytes(plugin_dir).items():
         if (plugin / name).read_bytes() != data:
             raise ValueError(f"Public plugin differs from built file: {name}")
     return repository_root
@@ -250,7 +266,7 @@ def main():
                    "output-dir", "archive-dir"):
         staging.add_argument(f"--{option}", required=True)
     staging.add_argument("--tag")
-    for command in ("sync", "check"):
+    for command in ("sync", "check", "dev"):
         command_parser = commands.add_parser(command)
         for option in ("plugin-dir", "version-file", "repository-root", "repository-url"):
             command_parser.add_argument(f"--{option}", required=True)
@@ -260,7 +276,7 @@ def main():
         if name in arguments:
             arguments[name] = Path(arguments[name]).absolute()
     try:
-        result = {"stage": stage, "sync": sync, "check": check}[command](**arguments)
+        result = {"stage": stage, "sync": sync, "check": check, "dev": dev}[command](**arguments)
     except (ValueError, KeyError, OSError) as error:
         parser.exit(1, f"Plugin distribution failed: {error}\n")
     print(result)

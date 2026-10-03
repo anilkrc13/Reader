@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from package_runtime import package_runtime
+from plugin_release import dev
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -14,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("target", nargs="?", default="all",
-                        choices=("all", "web", "macos", "chatgpt"))
+                        choices=("all", "web", "macos", "chatgpt", "dev"))
     args = parser.parse_args()
     targets = ("web", "macos", "chatgpt") if args.target == "all" else (args.target,)
     if "macos" in targets and sys.platform != "darwin":
@@ -33,6 +34,10 @@ def main():
                 npm = "npm.cmd" if sys.platform == "win32" else "npm"
                 subprocess.run([npm, "--prefix", "src/reader/chatgpt", "run", "build"],
                                cwd=ROOT, check=True)
+                if target == "dev":
+                    dev(ROOT / "build/chatgpt", ROOT / "VERSION", ROOT,
+                        "https://github.com/anilkrc13/Reader")
+                    print(ROOT / "build/reader-dev", flush=True)
     except subprocess.CalledProcessError as error:
         return error.returncode
     return 0

@@ -10,7 +10,8 @@
     "build:chatgpt": "python3 scripts/build.py chatgpt",
     "start:web": "python3 scripts/reader.py",
     "build": "python3 scripts/build.py",
-    "build:web": "python3 scripts/build.py web"
+    "build:web": "python3 scripts/build.py web",
+    "build:dev": "python3 scripts/build.py dev"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",
