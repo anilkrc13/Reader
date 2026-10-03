@@ -594,32 +594,33 @@ test('settings resize without losing choices, focused controls, or the reading p
 
 
 test('backend catalog offers only fonts rendered in the iframe and recovers saved missing choices', async ({page}, info) => {
-  const catalog={version:1,platform:'darwin',provenance:'backend-machine',rendering:'viewer-verification-required',available:true,families:['Georgia','Reader Missing Font 987654']};
-  const {frame,errors}=await host(page,{fontCatalog:catalog,savedPrefs:{bodyFont:'font:Georgia',headFont:'font:Georgia'}});
+  // The bundled Lora gives every CI platform a real rendered font; Georgia is macOS-specific.
+  const catalog={version:1,platform:'darwin',provenance:'backend-machine',rendering:'viewer-verification-required',available:true,families:['Lora','Reader Missing Font 987654']};
+  const {frame,errors}=await host(page,{fontCatalog:catalog,savedPrefs:{bodyFont:'font:Lora',headFont:'font:Lora'}});
   await expect(frame.locator('#preview h1')).toHaveText('Reader');
   await frame.getByRole('button',{name:'Settings',exact:true}).click();
   await settingsSection(frame,'Reading');
-  await expect(frame.locator('#sel-body option[value="font:Georgia"]')).toHaveCount(1);
+  await expect(frame.locator('#sel-body option[value="font:Lora"]')).toHaveCount(1);
   await expect(frame.locator('#sel-body option[value="font:Reader Missing Font 987654"]')).toHaveCount(0);
-  await expect(frame.locator('#sel-body')).toHaveValue('font:Georgia');
+  await expect(frame.locator('#sel-body')).toHaveValue('font:Lora');
   await expect(frame.locator('.font-source').first()).toContainText('usable in this viewer');
   await page.screenshot({path:info.outputPath('embedded-backend-fonts.png')});
   await frame.getByRole('button',{name:/Close settings|Back to document/}).click();
   await page.evaluate(()=>window.host.fontCatalog.families=['Reader Missing Font 987654']);
   await frame.getByRole('button',{name:'Settings',exact:true}).click();
   await settingsSection(frame,'Reading');
-  await expect(frame.locator('#sel-body option:checked')).toHaveText(/Georgia.*unavailable/);
+  await expect(frame.locator('#sel-body option:checked')).toHaveText(/Lora.*unavailable/);
   await expect(frame.locator('.font-source').first()).toContainText('cannot be verified');
   expect(await frame.locator('html').evaluate(n=>n.style.getPropertyValue('--font-head'))).toBe('Lora,serif');
   await page.screenshot({path:info.outputPath('embedded-unavailable-fonts.png')});
   await frame.getByRole('button',{name:/Close settings|Back to document/}).click();
-  await page.evaluate(()=>window.host.fontCatalog.families=['Georgia']);
+  await page.evaluate(()=>window.host.fontCatalog.families=['Lora']);
   await frame.getByRole('button',{name:'Settings',exact:true}).click();
-  await expect(frame.locator('#sel-body option:checked')).toHaveText('Georgia');
+  await expect(frame.locator('#sel-body option:checked')).toHaveText('Lora');
   await frame.getByRole('button',{name:/Close settings|Back to document/}).click();
   await frame.locator('html').evaluate(()=> { CanvasRenderingContext2D.prototype.measureText = () => { throw new Error('Host privacy restriction'); }; });
   await frame.getByRole('button',{name:'Settings',exact:true}).click();
-  await expect(frame.locator('#sel-body option:checked')).toHaveText(/Georgia.*unavailable/);
+  await expect(frame.locator('#sel-body option:checked')).toHaveText(/Lora.*unavailable/);
   await expect(frame.locator('.font-source').first()).toContainText('cannot be verified');
   expect(errors).toEqual([]);
 });
