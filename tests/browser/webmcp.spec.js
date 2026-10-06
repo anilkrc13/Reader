@@ -997,9 +997,13 @@ test("round-trips a task and constrains file moves to the temporary workspace", 
 
   // Loose tasks have paragraph wrappers. They must remain real task controls.
   const loose = path.join(workspace, "loose-tasks.md");
-  await fs.writeFile(loose, "# Loose tasks\n\n- [ ] Pending task\n\n- [x] Finished task\n");
+  await fs.writeFile(loose, "# Loose tasks\n\n- [ ] Pending task\n\n- [x] Finished task\n\n- Ordinary bullet without checkbox\n");
   await open(page, loose);
   expect((await state(page)).tasks).toHaveLength(2);
+  await expect(page.locator('#preview > ul')).toHaveCSS('list-style-type','disc');
+  await expect(page.locator('#preview > ul > li').first()).toHaveCSS('display','list-item');
+  await expect(page.locator('#preview > ul > li').nth(2)).toHaveCSS('display','list-item');
+  await expect(page.locator('#preview > ul > li').nth(2)).toHaveCSS('list-style-type','disc');
   await page.locator('#preview input[type=checkbox]').first().check();
   await expect(page.locator('#preview li').first()).toHaveClass(/done/);
   await invoke(page, "reader_save_document");

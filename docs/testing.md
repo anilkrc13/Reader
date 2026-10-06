@@ -221,6 +221,6 @@ The numbered-list regressions use two-space sub-bullets under ordered steps
 in both viewers. They check the hierarchy, continued numbering, standard
 three-space nesting, unchanged source text, and fenced-code preservation.
 
-The loose-task regression checks wrapped-text alignment, removed bullet markers,
+The loose-task regression checks wrapped-text alignment, preserved bullet and number markers,
 paragraph preservation, completed state, and read-only controls in the iframe.
 The local task round-trip also checks clicking and saving a loose task.

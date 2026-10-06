@@ -643,7 +643,7 @@ html[data-mode=split] .prose{padding:28px 34px 28vh;font-size:calc(var(--fs-body
    nest, so a sub-point arrived as a hollow ring and a sub-sub-point as a square,
    reading as three unrelated kinds of thing rather than one list indented. The
    indent already carries the nesting. Ordered lists keep their numbering, and
-   task lists keep their own rule, which drops the marker entirely. */
+   task lists retain their markers beside the checkboxes. */
 .prose ul{list-style-type:disc}
 .prose li{margin:var(--list-gap) 0}
 .prose li::marker{color:var(--text-3)}
@@ -653,8 +653,7 @@ html[data-mode=split] .prose{padding:28px 34px 28vh;font-size:calc(var(--fs-body
    under the text instead of under the box, and a nested list starts from the
    text edge rather than landing on it. Before this, a sub-list indented to
    exactly where its parent's text began, so the hierarchy read as flat. */
-.prose ul.contains-task-list{list-style:none;padding-left:0}
-.prose .task-list-item{display:block;position:relative;padding-left:1.7em}
+.prose .task-list-item{display:list-item;position:relative;padding-left:1.7em}
 .prose .task-list-item>input[type=checkbox]{
   position:absolute;left:0;top:calc((var(--lh-body) - 1.02) * .5em);margin:0;cursor:pointer;
   transition:background-color .16s ease,border-color .16s ease,transform .12s ease;

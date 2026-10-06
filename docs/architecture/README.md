@@ -92,4 +92,5 @@ standalone lists, and fenced code keep their existing interpretation.
 
 Task rendering recognizes both direct checkboxes and first-paragraph checkboxes
 in loose Markdown lists. It lifts the latter into the task item while preserving
-paragraphs and nested lists. Checkbox position follows the body line height.
+paragraphs and nested lists. Checkbox position follows the body line height. Task items retain the bullet
+or number supplied by their list.

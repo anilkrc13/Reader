@@ -675,12 +675,22 @@ test('two-space sub-bullets stay under their numbered steps', async ({page},test
   await page.screenshot({path:testInfo.outputPath('embedded-numbered-sub-bullets.png')});
 });
 
-test('loose task checkboxes align with wrapped text without duplicate bullets', async ({page},testInfo) => {
-  const {frame}=await host(page,{paneSize:{width:600,height:700},documentText:'# AWS\n\n- [ ] **Finish the account inventory and agree on what will go offline.** Check all regions and global services, including other environments, Amplify scheduled jobs, subscriptions and commitments. Confirm the API, website, extension, and GPT callers affected by shutdown.\n\n  - Nested detail stays separate\n\n- [x] Finished task\n\n  A second paragraph stays with the finished task.'});
+test('task lists keep bullet and number markers with aligned checkboxes', async ({page},testInfo) => {
+  const {frame}=await host(page,{paneSize:{width:600,height:700},documentText:'# AWS\n\n- [ ] **Finish the account inventory and agree on what will go offline.** Check all regions and global services, including other environments, Amplify scheduled jobs, subscriptions and commitments. Confirm the API, website, extension, and GPT callers affected by shutdown.\n\n  - Nested detail stays separate\n\n- [x] Finished task\n\n  A second paragraph stays with the finished task.\n\n- **An ordinary bullet in the same list.** This item has no checkbox.\n\n## Numbered tasks\n\n1. [ ] Numbered task\n2. [x] Done numbered task'});
   const items=frame.locator('#preview > ul > li');
-  await expect(items).toHaveCount(2);
+  await expect(items).toHaveCount(3);
+  await expect(items.nth(2)).toHaveCSS('display','list-item');
+  await expect(items.nth(2)).toHaveCSS('list-style-type','disc');
+  await expect(items.nth(2).locator('input')).toHaveCount(0);
   await expect(items.first().locator(':scope > input[type=checkbox]')).toHaveCount(1);
-  await expect(frame.locator('#preview > ul')).toHaveCSS('list-style-type','none');
+  await expect(frame.locator('#preview > ul')).toHaveCSS('list-style-type','disc');
+  await expect(items.first()).toHaveCSS('display','list-item');
+  await expect(items.nth(1)).toHaveCSS('display','list-item');
+  await expect(frame.locator('#preview > ol > li')).toHaveCount(2);
+  for (const item of await frame.locator('#preview > ol > li').all()) {
+    await expect(item).toHaveCSS('display','list-item');
+    await expect(item).toHaveCSS('list-style-type','decimal');
+  }
   await expect(items.first().locator('input')).toBeDisabled();
   await expect(items.nth(1)).toHaveClass(/done/);
   await expect(items.nth(1).locator(':scope > p.task-text')).toHaveCount(2);

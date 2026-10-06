@@ -1424,8 +1424,6 @@ function render(text) {
       item.insertBefore(own, box.nextSibling);
     }
     item.classList.toggle("done", box.checked);
-    const list = item.parentElement;
-    if (list) list.classList.add("contains-task-list");
   });
   el.preview.querySelectorAll("pre code:not(.language-mermaid)").forEach((block) => {
     try { hljs.highlightElement(block); } catch (_) {}
