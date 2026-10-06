@@ -216,3 +216,7 @@ After producing all release archives, `python3 -m scripts.release_artifacts chec
 The release workflow runs this gate before publication. Mac signature verification
 and read-only DMG validation remain separate native checks. A valid self-signed
 signature does not establish Apple notarization or live desktop rendering.
+
+The numbered-list regressions use two-space sub-bullets under ordered steps
+in both viewers. They check the hierarchy, continued numbering, standard
+three-space nesting, unchanged source text, and fenced-code preservation.

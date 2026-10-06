@@ -660,3 +660,17 @@ test('local SVG diagrams render without network requests and refresh from the ho
   expect(requests.filter(url=>url!=='http://reader.test/')).toEqual([]);
   expect(errors).toEqual([]);
 });
+
+test('two-space sub-bullets stay under their numbered steps', async ({page},testInfo) => {
+  const source="## Anil's Shutdown Tracker\n\n### AWS\n1. Shutdown the server:\n  - EC2: Server that runs the backend server\n  - BeanStack: Server that manages EC2\n\n2. Backup data\n  - Copy S3 data to local. What's worth keeping vs. what can be deleted\n  - Are there configurations worth remembering or storing for each environment?\n\n### Other\n\n- Separate top-level bullet\n\n```markdown\n1. Code example\n  - Do not change code\n```";
+  const {frame}=await host(page,{documentText:source});
+  const steps=frame.locator('#preview > ol > li');
+  await expect(steps).toHaveCount(2);
+  await expect(steps.nth(0).locator(':scope > ul > li')).toHaveText(['EC2: Server that runs the backend server','BeanStack: Server that manages EC2']);
+  await expect(steps.nth(1).locator(':scope > ul > li')).toHaveText(["Copy S3 data to local. What's worth keeping vs. what can be deleted",'Are there configurations worth remembering or storing for each environment?']);
+  await expect(steps.nth(0)).toHaveCSS('list-style-type','decimal');
+  await expect(steps.nth(0).locator('ul')).toHaveCSS('list-style-type','disc');
+  await expect(frame.locator('#preview > ul > li')).toHaveText(['Separate top-level bullet']);
+  await expect(frame.locator('#preview pre code')).toHaveText('1. Code example\n  - Do not change code\n');
+  await page.screenshot({path:testInfo.outputPath('embedded-numbered-sub-bullets.png')});
+});

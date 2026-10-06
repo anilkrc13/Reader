@@ -1480,3 +1480,22 @@ test("native installed font choices survive reload, removal, and comparison pane
   const side=page.frameLocator("#side-pane iframe");
   await expect(side.locator('#sel-body option[value="font:Georgia"]')).toHaveCount(1);
 });
+
+test('two-space numbered sub-bullets render without rewriting the document', async ({page},testInfo) => {
+  const file=path.join(workspace,'numbered.md');
+  const source='# Numbered steps\n\n1. Shutdown the server:\n  - EC2: Backend server\n  - BeanStack: Manages EC2\n\n2. Backup data\n  - Copy S3 data\n  - Keep configurations\n\n## Standard Markdown\n\n5. Later step\n   - Three-space child\n6. Final step\n';
+  await fs.writeFile(file,source);
+  await open(page,file);
+  const lists=page.locator('#preview > ol');
+  await expect(lists).toHaveCount(2);
+  await expect(lists.first().locator(':scope > li')).toHaveCount(2);
+  await expect(lists.first().locator(':scope > li > ul > li')).toHaveText(['EC2: Backend server','BeanStack: Manages EC2','Copy S3 data','Keep configurations']);
+  await expect(lists.nth(1)).toHaveAttribute('start','5');
+  await expect(lists.nth(1).locator('ul > li')).toHaveText(['Three-space child']);
+  const parent=await lists.first().locator(':scope > li').first().boundingBox();
+  const child=await lists.first().locator('ul > li').first().boundingBox();
+  expect(child.x).toBeGreaterThan(parent.x);
+  expect((await state(page)).sourceText).toBe(source);
+  expect(await fs.readFile(file,'utf8')).toBe(source);
+  await page.screenshot({path:testInfo.outputPath('numbered-sub-bullets.png')});
+});

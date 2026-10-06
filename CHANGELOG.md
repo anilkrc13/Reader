@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Numbered steps now keep two-space sub-bullets nested in both viewers.
+  The Markdown file stays unchanged.
+
 - The conversation viewer now loads relative SVG, PNG, JPEG, GIF, and WebP
   images inside the opened Markdown folder. Refresh rereads image files.
   Files outside that folder and images over 8 MiB remain unavailable.

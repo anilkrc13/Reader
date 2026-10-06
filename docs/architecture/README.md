@@ -84,3 +84,8 @@ Installed choices are saved as `font:` followed by the exact family name; legacy
 keys resolve when installed. Missing choices remain saved and show their fallback.
 The family list refreshes at boot and when Settings opens. A failed refresh keeps
 the previous list. CSS names are quoted and selector labels are text.
+
+The shared Markdown renderer accepts two-space sub-bullets directly under
+numbered items. It changes the parsed list hierarchy and retains exact raw
+source bytes for scroll sync and quick edits. Standard Markdown nesting,
+standalone lists, and fenced code keep their existing interpretation.

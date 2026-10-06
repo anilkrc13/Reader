@@ -6904,10 +6904,41 @@ function splitTrailingBlankLines(tok) {
   return [tok, {type: "space", raw: m[0]}];
 }
 
+/* Accept two-space sub-bullets under numbered items. Work on parsed list
+   tokens so code, tables, and prose are untouched. Keep raw source bytes for
+   scroll sync and quick edits; only the preview's hierarchy changes. */
+function nestCompactNumberedLists(tokens) {
+  const out = [];
+  const repaired = new Set();
+  for (const tok of tokens) {
+    const last = out.at(-1);
+    const gap = last?.type === "space" ? last : null;
+    const parent = gap ? out.at(-2) : last;
+    const orderedParent = parent?.type === "list" && parent.ordered && /^\d+[.)]\s/.test(parent.raw);
+    const shortGap = !gap || /^\n{1,2}$/.test(gap.raw);
+    if (orderedParent && shortGap && tok.type === "list" && !tok.ordered &&
+        tok.items.every(item => /^ {2}[-*+]\s/.test(item.raw))) {
+      if (gap) out.pop();
+      const item = parent.items.at(-1);
+      item.tokens.push(tok);
+      item.raw += "\n" + (gap?.raw || "") + tok.raw;
+      parent.raw += (gap?.raw || "") + tok.raw;
+      repaired.add(parent);
+    } else if (orderedParent && shortGap && repaired.has(parent) && tok.type === "list" && tok.ordered &&
+               /^\d+[.)]\s/.test(tok.raw) && tok.start === parent.start + parent.items.length) {
+      if (gap) out.pop();
+      parent.raw += (gap?.raw || "") + tok.raw;
+      parent.items.push(...tok.items);
+      parent.loose ||= tok.loose;
+    } else out.push(tok);
+  }
+  return out;
+}
+
 function normalizeBlankLineTokens(tokens) {
   if (!Array.isArray(tokens)) return tokens;
   const out = [];
-  tokens.forEach((tok) => {
+  nestCompactNumberedLists(tokens).forEach((tok) => {
     if (Array.isArray(tok?.tokens)) tok.tokens = normalizeBlankLineTokens(tok.tokens);
     if (Array.isArray(tok?.items)) {
       tok.items.forEach((item) => {
