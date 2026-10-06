@@ -70,3 +70,12 @@ The full repository cleanup was reviewed at `d9f8838`. All 159 checks, focused
 lint, the one-command build, legal/resource comparisons, and local release
 verification passed. Source/tests/output ownership was checked against the actual
 tree. This evidence does not replace the installed-app and real-host checks above.
+
+## Local image acceptance
+
+The 2026-10-06 image fix passes the simulated iframe rendering and refresh check
+and the real stdio containment check. The real tool also reads the reported CRM
+SVG using its document context. The actual ChatGPT host still needs the rebuilt
+package and a reopened `deployment-pipeline.md` panel to verify host metadata
+and image display. The installed production plugin currently comes from GitHub;
+a local commit does not update that installation.

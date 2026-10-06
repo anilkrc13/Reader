@@ -23,6 +23,10 @@ async function host(page, {resources = true, storage = true, links = false, loca
       } else if (message.method === 'resources/read') {
         if (window.host.fail) event.source.postMessage({jsonrpc:'2.0',id:message.id,error:{code:-32000,message:'temporary failure'}},'*');
         else reply({contents:[{uri:message.params.uri,text:window.host.text,_meta:{'openai/resource':{writable:true,etag:'v1'}}}]});
+      } else if (message.method === 'tools/call' && message.params.name === 'reader_read_local_image') {
+        const result=window.host.image ? {content:[],_meta:{'reader/local-image':{dataUrl:window.host.image}}} : {isError:true,content:[]};
+        if (window.host.deferImages) (window.host.pendingImages ??= []).push({id:message.id,source:event.source,result});
+        else reply(result);
       } else if (message.method === 'tools/call' && message.params.name === 'reader_font_catalog') {
         reply({content:[],_meta:{'reader/font-catalog':window.host.fontCatalog ?? {version:1,platform:'unsupported',provenance:'backend-machine',rendering:'viewer-verification-required',available:false,families:[]}}});
       } else if (message.method === 'tools/call') {
@@ -79,7 +83,7 @@ test('bundled SDK viewer reads, sanitizes, refreshes and never calls local APIs 
   expect(calls.some(call=>call.method==='resources/subscribe')).toBeTruthy();
   expect(calls.filter(call=>call.method==='resources/read').every(call=>call.params._meta['openai/resource'].representation==='text')).toBeTruthy();
   expect(calls.some(call=>/write/.test(call.method||''))).toBeFalsy();
-  expect(calls.filter(call=>call.method==='tools/call').every(call=>call.params.name==='reader_font_catalog')).toBeTruthy();
+  expect(calls.filter(call=>call.method==='tools/call').every(call=>['reader_font_catalog','reader_read_local_image'].includes(call.params.name))).toBeTruthy();
   expect(requests.filter(url=>url!== 'http://reader.test/')).toEqual([]);
   expect(errors).toEqual([]);
 });
@@ -623,4 +627,81 @@ test('backend catalog offers only fonts rendered in the iframe and recovers save
   await expect(frame.locator('#sel-body option:checked')).toHaveText(/Lora.*unavailable/);
   await expect(frame.locator('.font-source').first()).toContainText('cannot be verified');
   expect(errors).toEqual([]);
+});
+
+
+test('local SVG diagrams render without network requests and refresh from the host', async ({page}, testInfo) => {
+  const {frame,requests,errors}=await host(page,{documentText:'# Diagram\n\n![Deployment flow](diagrams/flow.svg)'});
+  await page.evaluate(() => {
+    window.host.image='data:image/svg+xml;base64,'+btoa('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="80"><rect width="320" height="80" fill="lavender"/><text x="10" y="45">Deployment flow</text></svg>');
+    window.host.frames[0].contentWindow.postMessage({jsonrpc:'2.0',method:'notifications/resources/updated',params:{uri:'host:demo'}},'*');
+  });
+  const image=frame.getByRole('img',{name:'Deployment flow'});
+  await expect(image).toBeVisible();
+  await expect.poll(()=>image.evaluate(n=>n.naturalWidth)).toBe(320);
+  await page.screenshot({path:testInfo.outputPath('embedded-local-svg.png')});
+  await page.evaluate(()=>{
+    window.host.image='data:image/svg+xml;base64,'+btoa('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="80"><rect width="400" height="80" fill="pink"/></svg>');
+  });
+  await frame.getByRole('button',{name:'Refresh',exact:true}).click();
+  await expect.poll(()=>image.evaluate(n=>n.naturalWidth)).toBe(400);
+  await page.evaluate(()=>{window.host.deferImages=true;});
+  await frame.getByRole('button',{name:'Refresh',exact:true}).click();
+  await expect.poll(()=>page.evaluate(()=>window.host.pendingImages?.length ?? 0)).toBeGreaterThan(0);
+  await page.evaluate(()=>{
+    window.host.text='# Other document';
+    window.host.frames[0].contentWindow.postMessage({jsonrpc:'2.0',method:'ui/notifications/tool-input',params:{arguments:{file:{name:'other.md',resourceUri:'host:other'}}}},'*');
+  });
+  await expect(frame.locator('#preview h1')).toHaveText('Other document');
+  await page.evaluate(()=>{
+    for (const {id,source,result} of window.host.pendingImages) source.postMessage({jsonrpc:'2.0',id,result},'*');
+  });
+  await expect(frame.locator('#preview img')).toHaveCount(0);
+  expect(requests.filter(url=>url!=='http://reader.test/')).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test('two-space sub-bullets stay under their numbered steps', async ({page},testInfo) => {
+  const source="## Anil's Shutdown Tracker\n\n### AWS\n1. Shutdown the server:\n  - EC2: Server that runs the backend server\n  - BeanStack: Server that manages EC2\n\n2. Backup data\n  - Copy S3 data to local. What's worth keeping vs. what can be deleted\n  - Are there configurations worth remembering or storing for each environment?\n\n### Other\n\n- Separate top-level bullet\n\n```markdown\n1. Code example\n  - Do not change code\n```";
+  const {frame}=await host(page,{documentText:source});
+  const steps=frame.locator('#preview > ol > li');
+  await expect(steps).toHaveCount(2);
+  await expect(steps.nth(0).locator(':scope > ul > li')).toHaveText(['EC2: Server that runs the backend server','BeanStack: Server that manages EC2']);
+  await expect(steps.nth(1).locator(':scope > ul > li')).toHaveText(["Copy S3 data to local. What's worth keeping vs. what can be deleted",'Are there configurations worth remembering or storing for each environment?']);
+  await expect(steps.nth(0)).toHaveCSS('list-style-type','decimal');
+  await expect(steps.nth(0).locator('ul')).toHaveCSS('list-style-type','disc');
+  await expect(frame.locator('#preview > ul > li')).toHaveText(['Separate top-level bullet']);
+  await expect(frame.locator('#preview pre code')).toHaveText('1. Code example\n  - Do not change code\n');
+  await page.screenshot({path:testInfo.outputPath('embedded-numbered-sub-bullets.png')});
+});
+
+test('task lists keep bullet and number markers with aligned checkboxes', async ({page},testInfo) => {
+  const {frame}=await host(page,{paneSize:{width:600,height:700},documentText:'# AWS\n\n- [ ] **Finish the account inventory and agree on what will go offline.** Check all regions and global services, including other environments, Amplify scheduled jobs, subscriptions and commitments. Confirm the API, website, extension, and GPT callers affected by shutdown.\n\n  - Nested detail stays separate\n\n- [x] Finished task\n\n  A second paragraph stays with the finished task.\n\n- **An ordinary bullet in the same list.** This item has no checkbox.\n\n## Numbered tasks\n\n1. [ ] Numbered task\n2. [x] Done numbered task'});
+  const items=frame.locator('#preview > ul > li');
+  await expect(items).toHaveCount(3);
+  await expect(items.nth(2)).toHaveCSS('display','list-item');
+  await expect(items.nth(2)).toHaveCSS('list-style-type','disc');
+  await expect(items.nth(2).locator('input')).toHaveCount(0);
+  await expect(items.first().locator(':scope > input[type=checkbox]')).toHaveCount(1);
+  await expect(frame.locator('#preview > ul')).toHaveCSS('list-style-type','disc');
+  await expect(items.first()).toHaveCSS('display','list-item');
+  await expect(items.nth(1)).toHaveCSS('display','list-item');
+  await expect(frame.locator('#preview > ol > li')).toHaveCount(2);
+  for (const item of await frame.locator('#preview > ol > li').all()) {
+    await expect(item).toHaveCSS('display','list-item');
+    await expect(item).toHaveCSS('list-style-type','decimal');
+  }
+  await expect(items.first().locator('input')).toBeDisabled();
+  await expect(items.nth(1)).toHaveClass(/done/);
+  await expect(items.nth(1).locator(':scope > p.task-text')).toHaveCount(2);
+  await expect(items.first().locator('ul li')).not.toHaveClass(/done/);
+  const geometry=await items.first().evaluate(item=>{
+    const box=item.querySelector('input').getBoundingClientRect();
+    const paragraph=item.querySelector('p').getBoundingClientRect();
+    const line=parseFloat(getComputedStyle(item).lineHeight);
+    return {boxCenter:box.y+box.height/2,lineCenter:paragraph.y+line/2,boxRight:box.right,textLeft:paragraph.left};
+  });
+  expect(Math.abs(geometry.boxCenter-geometry.lineCenter)).toBeLessThan(1);
+  expect(geometry.textLeft).toBeGreaterThan(geometry.boxRight);
+  await page.screenshot({path:testInfo.outputPath('embedded-loose-checkboxes.png')});
 });

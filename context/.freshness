@@ -1,7 +1,7 @@
 # owned by skills/repository-context/scripts/context_freshness.py -- do not hand-edit
 {
-  "aggregate": "e84424797e8d36758731d2048a12297de3409f56cd3ac685b62336acc9bfca4d",
-  "commit": "4451d40abbbe92daa900a3398b40b81d758d0baf",
+  "aggregate": "757cb5cbf47d0feaf9f1eb3926a8891d269baf5c6b0d9da43a73193422fc05af",
+  "commit": "9476f12cbdaf3aacc458fadec6b00d7ff509aa45",
   "exclude": [],
   "files": {
     ".agents/plugins/marketplace.json": {
@@ -49,8 +49,8 @@
     "CHANGELOG.md": {
       "executable": false,
       "kind": "file",
-      "length": 19717,
-      "sha256": "516961c79f24134e56ed8c08a2229225dc2650d2d2c2fadbd6b508d110072ad0"
+      "length": 20201,
+      "sha256": "cf06e0164229d0cdd0a8b534f170a68037993597a372154fc2c14b2b5f953e1e"
     },
     "CONTRIBUTING.md": {
       "executable": false,
@@ -181,8 +181,8 @@
     "plugins/reader-markdown/server.mjs": {
       "executable": false,
       "kind": "file",
-      "length": 1279694,
-      "sha256": "3af685316d6665ac147943ffb3b868406e4ab8553c9d45b1ecb4c97328aaf653"
+      "length": 1282072,
+      "sha256": "8862454de747ff5d636f8a1362d1cfb5f7404bca6a2e3dbee33fc2d89660fb55"
     },
     "plugins/reader-markdown/session.mjs": {
       "executable": false,
@@ -193,14 +193,14 @@
     "plugins/reader-markdown/viewer.html": {
       "executable": false,
       "kind": "file",
-      "length": 5212355,
-      "sha256": "b600bded8f2a6118814e1f0ba489074953278d3bd9eb0c2059135a18b90bd0c2"
+      "length": 5215552,
+      "sha256": "9452cc28cda164403ca5eb5bbb96d7e57e9f6e47c8530453196989be474253eb"
     },
     "plugins/release.json": {
       "executable": false,
       "kind": "file",
       "length": 1397,
-      "sha256": "77badc962345ff6d210a6eb72544b30fb0fcd97e15d8f5cb03bc609a2665a7f7"
+      "sha256": "f9bc0d4215c1eff7bfca56bae9b6c3dc41351bdb701dd5faff2fe1d943fab859"
     },
     "requirements-dev.txt": {
       "executable": false,
@@ -265,14 +265,14 @@
     "src/reader/chatgpt/README.md": {
       "executable": false,
       "kind": "file",
-      "length": 10641,
-      "sha256": "d90712bc272929b8be277258d9353d5b00ea822adfd3435f5d684df7723e125d"
+      "length": 11015,
+      "sha256": "ae1c9ea3368b72167a56ea86316f74d42e26dfcdbf3c8007a24c41fb8aad88b3"
     },
     "src/reader/chatgpt/app.ts": {
       "executable": false,
       "kind": "file",
-      "length": 12646,
-      "sha256": "8ba287ec396fa3b59e5f0c1d25dca8fcfeb7a2e7d1a4f70c6b281db43530186a"
+      "length": 13281,
+      "sha256": "e4cda22da5c7b834695820be44c2693b28bcdc16cca0f016658fca0a4b2e2f0d"
     },
     "src/reader/chatgpt/build.mjs": {
       "executable": false,
@@ -298,11 +298,17 @@
       "length": 1172,
       "sha256": "dae4ad3a8bc937b6b47e1f5f7d605fff85821bcf38bd45eb20ba6eff19885454"
     },
+    "src/reader/chatgpt/local-images.ts": {
+      "executable": false,
+      "kind": "file",
+      "length": 1745,
+      "sha256": "67ca92fc7ffaebf695b9c2611e066742a65f7bc72405d371a71df482a0a5f1bb"
+    },
     "src/reader/chatgpt/local-links.ts": {
       "executable": false,
       "kind": "file",
-      "length": 2133,
-      "sha256": "cea50e82768c558ea9029459bf17501d9e41547439a75b49d905d17995871d18"
+      "length": 2215,
+      "sha256": "709645a683e184866698e1a27c364e34e3510977dfbf625383aaa716bd4abff7"
     },
     "src/reader/chatgpt/package.json": {
       "executable": false,
@@ -313,8 +319,8 @@
     "src/reader/chatgpt/server.ts": {
       "executable": false,
       "kind": "file",
-      "length": 2915,
-      "sha256": "54dc8ffd4b20eb967351fd8764bf604483d2b0cf0d027a016f1b3e3b3b2578e6"
+      "length": 3717,
+      "sha256": "0574e5f37c1e5615cbfdb813f48c42269a7db336ce1746c68da8acce85f79356"
     },
     "src/reader/chatgpt/session.ts": {
       "executable": false,
@@ -457,14 +463,14 @@
     "src/reader/web/app.css": {
       "executable": false,
       "kind": "file",
-      "length": 82167,
-      "sha256": "916d4d1491cbbc5e2edc171ca0e30dbad75cc8988e91ace5bb3a81b8e175e095"
+      "length": 82131,
+      "sha256": "348e78b787bb1d3950e2982e77e83daf933307369f03a5d98be76e056de9e6d7"
     },
     "src/reader/web/app.js": {
       "executable": false,
       "kind": "file",
-      "length": 275691,
-      "sha256": "250aa0edda98a88b0f428765bd908975422ac784fa9d9d47adda3b79f5611b5c"
+      "length": 278366,
+      "sha256": "b562ab998e2af67548a8142581ce9b66c50fc1d391e6b16446c9f0926d27cab6"
     },
     "src/reader/web/assets/app-icon.png": {
       "executable": false,
@@ -571,14 +577,14 @@
     "tests/browser/webmcp.spec.js": {
       "executable": false,
       "kind": "file",
-      "length": 79331,
-      "sha256": "dd3b7ce58647f9e9c66aa75498f7f38f497562e61df579e5ac107e0baa3dec2b"
+      "length": 81634,
+      "sha256": "c67688b35af2f48b95e3a96148a0ae076396f7de7fcd8a555263f85171d58336"
     },
     "tests/chatgpt/browser/embedded.spec.mjs": {
       "executable": false,
       "kind": "file",
-      "length": 46420,
-      "sha256": "cd70e288a7999f180baea72de6a4b07df9f648255580db4270684c4e18efc7ed"
+      "length": 52896,
+      "sha256": "30051bf59eab3941bb0ceabf90162fbeaa907bf91bdffd735013fd3638529646"
     },
     "tests/chatgpt/playwright.config.cjs": {
       "executable": false,
@@ -589,8 +595,8 @@
     "tests/chatgpt/server.integration.test.mjs": {
       "executable": false,
       "kind": "file",
-      "length": 6370,
-      "sha256": "9d654cba043b05b24aff02aed86dc0048f8d66b344f41e3914f772e1c32a6ccb"
+      "length": 9143,
+      "sha256": "2559185a33b10e29c2ad26c73319775a64ddb3bcbd68eeddff051db32e3635eb"
     },
     "tests/chatgpt/session.test.mjs": {
       "executable": false,
@@ -667,8 +673,8 @@
     "tests/server/test_markdown_tasks.py": {
       "executable": false,
       "kind": "file",
-      "length": 2773,
-      "sha256": "d31b143937dbbc303026efa46520ae1b86c9387b57d6b2c71ab76aa644924862"
+      "length": 2795,
+      "sha256": "8c8ecf08c330497e560a4fac1412238f85e85cc5fef143a9aa7f647fa2ae7d3e"
     },
     "tests/server/test_mermaid.py": {
       "executable": false,

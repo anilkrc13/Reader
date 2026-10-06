@@ -5,6 +5,7 @@ import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from "@model
 import { OpenAIExtensions, type OpenAIUiToolMetadata } from "@openai/mcp-extensions/server";
 import { z } from "zod";
 import { fontCatalog } from "./fonts.js";
+import { readLocalImage } from "./local-images.js";
 import { resolveLocalLink } from "./local-links.js";
 
 const uri = "ui://reader/markdown";
@@ -37,6 +38,19 @@ registerAppTool(server, "reader_resolve_local_link", {
   } catch {
     // Do not disclose filesystem paths or distinguish existence outside the scope.
     return {isError: true, content: [{type: "text", text: "This local link is unavailable. It needs host-owned opened-file context and a Markdown target inside that document's directory."}]};
+  }
+});
+registerAppTool(server, "reader_read_local_image", {
+  title: "Read a related image",
+  description: "Read a relative image inside the host-opened Markdown directory, up to 8 MiB. Returns image data only to the viewer.",
+  inputSchema: {href: z.string().min(1).max(4096)},
+  annotations: {readOnlyHint: true, destructiveHint: false, openWorldHint: false},
+  _meta: {ui: {visibility: ["app"]}},
+}, async ({href}, extra) => {
+  try {
+    return {content: [], _meta: {"reader/local-image": {dataUrl: await readLocalImage(href, extra._meta)}}};
+  } catch {
+    return {isError: true, content: [{type: "text", text: "This image is unavailable. It needs host-owned document context and an image inside that document's directory (up to 8 MiB)."}]};
   }
 });
 registerAppTool(server, "reader_font_catalog", {

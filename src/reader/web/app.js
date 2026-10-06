@@ -783,10 +783,41 @@ function splitTrailingBlankLines(tok) {
   return [tok, {type: "space", raw: m[0]}];
 }
 
+/* Accept two-space sub-bullets under numbered items. Work on parsed list
+   tokens so code, tables, and prose are untouched. Keep raw source bytes for
+   scroll sync and quick edits; only the preview's hierarchy changes. */
+function nestCompactNumberedLists(tokens) {
+  const out = [];
+  const repaired = new Set();
+  for (const tok of tokens) {
+    const last = out.at(-1);
+    const gap = last?.type === "space" ? last : null;
+    const parent = gap ? out.at(-2) : last;
+    const orderedParent = parent?.type === "list" && parent.ordered && /^\d+[.)]\s/.test(parent.raw);
+    const shortGap = !gap || /^\n{1,2}$/.test(gap.raw);
+    if (orderedParent && shortGap && tok.type === "list" && !tok.ordered &&
+        tok.items.every(item => /^ {2}[-*+]\s/.test(item.raw))) {
+      if (gap) out.pop();
+      const item = parent.items.at(-1);
+      item.tokens.push(tok);
+      item.raw += "\n" + (gap?.raw || "") + tok.raw;
+      parent.raw += (gap?.raw || "") + tok.raw;
+      repaired.add(parent);
+    } else if (orderedParent && shortGap && repaired.has(parent) && tok.type === "list" && tok.ordered &&
+               /^\d+[.)]\s/.test(tok.raw) && tok.start === parent.start + parent.items.length) {
+      if (gap) out.pop();
+      parent.raw += (gap?.raw || "") + tok.raw;
+      parent.items.push(...tok.items);
+      parent.loose ||= tok.loose;
+    } else out.push(tok);
+  }
+  return out;
+}
+
 function normalizeBlankLineTokens(tokens) {
   if (!Array.isArray(tokens)) return tokens;
   const out = [];
-  tokens.forEach((tok) => {
+  nestCompactNumberedLists(tokens).forEach((tok) => {
     if (Array.isArray(tok?.tokens)) tok.tokens = normalizeBlankLineTokens(tok.tokens);
     if (Array.isArray(tok?.items)) {
       tok.items.forEach((item) => {
@@ -1283,11 +1314,26 @@ function render(text) {
     const fragment = document.createElement("template");
     fragment.innerHTML = html;
     fragment.content.querySelectorAll("img").forEach(img => {
+      img.removeAttribute("srcset");
       if (/^data:image\/(?:png|jpeg|gif|webp);base64,/i.test(img.getAttribute("src") || "")) return;
       const note = document.createElement("span");
       note.className = "embedded-unavailable";
       note.textContent = "Image unavailable: " + (img.alt || img.getAttribute("src") || "image");
+      const href = img.getAttribute("src");
       img.replaceWith(note);
+      // Keep unresolved sources out of the live DOM. Only host-scoped data can
+      // become an image; a late response must not alter a newer render.
+      if (href && !/^(?:[a-z][a-z0-9+.-]*:|\/|\\)/i.test(href)) {
+        const imageHost = window.readerEmbeddedHost;
+        if (imageHost?.image) void imageHost.image(href).then(dataUrl => {
+          if (mermaidGeneration !== state.mermaidGeneration || !note.isConnected) return;
+          img.removeAttribute("srcset");
+          img.src = dataUrl;
+          img.onerror = () => { if (img.isConnected) img.replaceWith(note); };
+          img.onload = () => syncPreviewLayout(paging.anchor);
+          note.replaceWith(img);
+        }).catch(() => { /* keep the unavailable label */ });
+      }
     });
     fragment.content.querySelectorAll("a[href]").forEach(a => {
       const href = a.getAttribute("href");
@@ -1348,8 +1394,9 @@ function render(text) {
              (fragment === undefined ? "" : "#" + fragment);
   });
   el.preview.querySelectorAll("table:not(.frontmatter)").forEach(shapeTable);
-  el.preview.querySelectorAll("li > input[type=checkbox]").forEach((box) => {
-    const item = box.parentElement;
+  el.preview.querySelectorAll("li > input[type=checkbox], li > p:first-child > input[type=checkbox]:first-child").forEach((box) => {
+    const paragraph = box.parentElement.tagName === "P" ? box.parentElement : null;
+    const item = paragraph ? paragraph.parentElement : box.parentElement;
     item.classList.add("task-list-item");
     /* marked ships task checkboxes with `disabled` set, so clearing the
        attribute is what actually makes them clickable -- simply not disabling
@@ -1363,15 +1410,20 @@ function render(text) {
     /* The item's own words are gathered into one span, stopping at any list
        nested beneath it, so a finished task can be dimmed and struck through
        without dragging its sub-items into the same treatment. */
-    const own = document.createElement("span");
-    own.className = "task-text";
-    while (box.nextSibling && !/^(?:UL|OL)$/.test(box.nextSibling.nodeName)) {
-      own.appendChild(box.nextSibling);
+    if (paragraph) {
+      // Loose lists wrap the checkbox in a paragraph. Lift only the checkbox
+      // so the same alignment and task controls work without flattening prose.
+      item.insertBefore(box, paragraph);
+      item.querySelectorAll(":scope > p").forEach(p => p.classList.add("task-text"));
+    } else {
+      const own = document.createElement("span");
+      own.className = "task-text";
+      while (box.nextSibling && !/^(?:UL|OL)$/.test(box.nextSibling.nodeName)) {
+        own.appendChild(box.nextSibling);
+      }
+      item.insertBefore(own, box.nextSibling);
     }
-    item.insertBefore(own, box.nextSibling);
     item.classList.toggle("done", box.checked);
-    const list = item.parentElement;
-    if (list) list.classList.add("contains-task-list");
   });
   el.preview.querySelectorAll("pre code:not(.language-mermaid)").forEach((block) => {
     try { hljs.highlightElement(block); } catch (_) {}

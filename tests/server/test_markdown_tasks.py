@@ -11,7 +11,7 @@ class MarkdownTaskRenderingTests(unittest.TestCase):
         task_rule = re.search(r"\.prose \.task-list-item\s*\{([^}]*)\}", css)
         self.assertIsNotNone(task_rule)
         declarations = task_rule.group(1)
-        self.assertIn("display:block", declarations)
+        self.assertIn("display:list-item", declarations)
 
     def test_task_list_renderer_marks_checked_and_unchecked_items(self):
         js = (ROOT / "src/reader/web/vendor/marked.min.js").read_text()
@@ -52,13 +52,13 @@ class ListMarkerTests(unittest.TestCase):
         self.assertIsNotNone(rule, "nothing pins the bullet at every depth")
         self.assertIn("list-style-type:disc", rule.group(1).replace(" ", ""))
 
-    def test_task_lists_still_drop_their_marker(self):
-        """A task list draws a checkbox instead, and must not gain a disc."""
+    def test_task_lists_do_not_hide_markers_on_ordinary_siblings(self):
+        """Task formatting must not hide bullets for an entire mixed list."""
         css = (ROOT / "src/reader/web/app.css").read_text()
         rule = re.search(r"\.prose ul\.contains-task-list\{([^}]*)\}", css)
 
-        self.assertIsNotNone(rule)
-        self.assertIn("list-style:none", rule.group(1).replace(" ", ""))
+        if rule is not None:
+            self.assertNotIn("list-style:none", rule.group(1).replace(" ", ""))
 
 
 if __name__ == "__main__":
