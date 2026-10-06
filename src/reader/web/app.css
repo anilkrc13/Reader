@@ -656,7 +656,7 @@ html[data-mode=split] .prose{padding:28px 34px 28vh;font-size:calc(var(--fs-body
 .prose ul.contains-task-list{list-style:none;padding-left:0}
 .prose .task-list-item{display:block;position:relative;padding-left:1.7em}
 .prose .task-list-item>input[type=checkbox]{
-  position:absolute;left:0;top:.28em;margin:0;cursor:pointer;
+  position:absolute;left:0;top:calc((var(--lh-body) - 1.02) * .5em);margin:0;cursor:pointer;
   transition:background-color .16s ease,border-color .16s ease,transform .12s ease;
 }
 /* A forgiving target. The box sits at left:0 and the text begins at 1.7em, so

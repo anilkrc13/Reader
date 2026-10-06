@@ -89,3 +89,7 @@ The shared Markdown renderer accepts two-space sub-bullets directly under
 numbered items. It changes the parsed list hierarchy and retains exact raw
 source bytes for scroll sync and quick edits. Standard Markdown nesting,
 standalone lists, and fenced code keep their existing interpretation.
+
+Task rendering recognizes both direct checkboxes and first-paragraph checkboxes
+in loose Markdown lists. It lifts the latter into the task item while preserving
+paragraphs and nested lists. Checkbox position follows the body line height.

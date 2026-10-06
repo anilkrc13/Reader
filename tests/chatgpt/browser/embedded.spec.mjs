@@ -674,3 +674,24 @@ test('two-space sub-bullets stay under their numbered steps', async ({page},test
   await expect(frame.locator('#preview pre code')).toHaveText('1. Code example\n  - Do not change code\n');
   await page.screenshot({path:testInfo.outputPath('embedded-numbered-sub-bullets.png')});
 });
+
+test('loose task checkboxes align with wrapped text without duplicate bullets', async ({page},testInfo) => {
+  const {frame}=await host(page,{paneSize:{width:600,height:700},documentText:'# AWS\n\n- [ ] **Finish the account inventory and agree on what will go offline.** Check all regions and global services, including other environments, Amplify scheduled jobs, subscriptions and commitments. Confirm the API, website, extension, and GPT callers affected by shutdown.\n\n  - Nested detail stays separate\n\n- [x] Finished task\n\n  A second paragraph stays with the finished task.'});
+  const items=frame.locator('#preview > ul > li');
+  await expect(items).toHaveCount(2);
+  await expect(items.first().locator(':scope > input[type=checkbox]')).toHaveCount(1);
+  await expect(frame.locator('#preview > ul')).toHaveCSS('list-style-type','none');
+  await expect(items.first().locator('input')).toBeDisabled();
+  await expect(items.nth(1)).toHaveClass(/done/);
+  await expect(items.nth(1).locator(':scope > p.task-text')).toHaveCount(2);
+  await expect(items.first().locator('ul li')).not.toHaveClass(/done/);
+  const geometry=await items.first().evaluate(item=>{
+    const box=item.querySelector('input').getBoundingClientRect();
+    const paragraph=item.querySelector('p').getBoundingClientRect();
+    const line=parseFloat(getComputedStyle(item).lineHeight);
+    return {boxCenter:box.y+box.height/2,lineCenter:paragraph.y+line/2,boxRight:box.right,textLeft:paragraph.left};
+  });
+  expect(Math.abs(geometry.boxCenter-geometry.lineCenter)).toBeLessThan(1);
+  expect(geometry.textLeft).toBeGreaterThan(geometry.boxRight);
+  await page.screenshot({path:testInfo.outputPath('embedded-loose-checkboxes.png')});
+});

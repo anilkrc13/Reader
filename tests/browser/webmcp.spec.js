@@ -994,6 +994,16 @@ test("round-trips a task and constrains file moves to the temporary workspace", 
   })).rejects.toThrow(/resolves outside/);
   expect((await state(page)).activeDocument.path).toBe(moved);
   expect(await fs.readFile(moved, "utf8")).toContain("Ship it");
+
+  // Loose tasks have paragraph wrappers. They must remain real task controls.
+  const loose = path.join(workspace, "loose-tasks.md");
+  await fs.writeFile(loose, "# Loose tasks\n\n- [ ] Pending task\n\n- [x] Finished task\n");
+  await open(page, loose);
+  expect((await state(page)).tasks).toHaveLength(2);
+  await page.locator('#preview input[type=checkbox]').first().check();
+  await expect(page.locator('#preview li').first()).toHaveClass(/done/);
+  await invoke(page, "reader_save_document");
+  expect(await fs.readFile(loose, "utf8")).toContain("- [x] Pending task");
 });
 
 test("keeps one representative formatting control keyboard-operable", async ({page}) => {

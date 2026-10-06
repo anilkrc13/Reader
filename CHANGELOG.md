@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Task checkboxes align with wrapped text in lists with paragraphs. They no
+  longer show an extra bullet. Local task controls also work for those lists.
+
 - Numbered steps now keep two-space sub-bullets nested in both viewers.
   The Markdown file stays unchanged.
 

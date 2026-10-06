@@ -1394,8 +1394,9 @@ function render(text) {
              (fragment === undefined ? "" : "#" + fragment);
   });
   el.preview.querySelectorAll("table:not(.frontmatter)").forEach(shapeTable);
-  el.preview.querySelectorAll("li > input[type=checkbox]").forEach((box) => {
-    const item = box.parentElement;
+  el.preview.querySelectorAll("li > input[type=checkbox], li > p:first-child > input[type=checkbox]:first-child").forEach((box) => {
+    const paragraph = box.parentElement.tagName === "P" ? box.parentElement : null;
+    const item = paragraph ? paragraph.parentElement : box.parentElement;
     item.classList.add("task-list-item");
     /* marked ships task checkboxes with `disabled` set, so clearing the
        attribute is what actually makes them clickable -- simply not disabling
@@ -1409,12 +1410,19 @@ function render(text) {
     /* The item's own words are gathered into one span, stopping at any list
        nested beneath it, so a finished task can be dimmed and struck through
        without dragging its sub-items into the same treatment. */
-    const own = document.createElement("span");
-    own.className = "task-text";
-    while (box.nextSibling && !/^(?:UL|OL)$/.test(box.nextSibling.nodeName)) {
-      own.appendChild(box.nextSibling);
+    if (paragraph) {
+      // Loose lists wrap the checkbox in a paragraph. Lift only the checkbox
+      // so the same alignment and task controls work without flattening prose.
+      item.insertBefore(box, paragraph);
+      item.querySelectorAll(":scope > p").forEach(p => p.classList.add("task-text"));
+    } else {
+      const own = document.createElement("span");
+      own.className = "task-text";
+      while (box.nextSibling && !/^(?:UL|OL)$/.test(box.nextSibling.nodeName)) {
+        own.appendChild(box.nextSibling);
+      }
+      item.insertBefore(own, box.nextSibling);
     }
-    item.insertBefore(own, box.nextSibling);
     item.classList.toggle("done", box.checked);
     const list = item.parentElement;
     if (list) list.classList.add("contains-task-list");
