@@ -1283,11 +1283,26 @@ function render(text) {
     const fragment = document.createElement("template");
     fragment.innerHTML = html;
     fragment.content.querySelectorAll("img").forEach(img => {
+      img.removeAttribute("srcset");
       if (/^data:image\/(?:png|jpeg|gif|webp);base64,/i.test(img.getAttribute("src") || "")) return;
       const note = document.createElement("span");
       note.className = "embedded-unavailable";
       note.textContent = "Image unavailable: " + (img.alt || img.getAttribute("src") || "image");
+      const href = img.getAttribute("src");
       img.replaceWith(note);
+      // Keep unresolved sources out of the live DOM. Only host-scoped data can
+      // become an image; a late response must not alter a newer render.
+      if (href && !/^(?:[a-z][a-z0-9+.-]*:|\/|\\)/i.test(href)) {
+        const imageHost = window.readerEmbeddedHost;
+        if (imageHost?.image) void imageHost.image(href).then(dataUrl => {
+          if (mermaidGeneration !== state.mermaidGeneration || !note.isConnected) return;
+          img.removeAttribute("srcset");
+          img.src = dataUrl;
+          img.onerror = () => { if (img.isConnected) img.replaceWith(note); };
+          img.onload = () => syncPreviewLayout(paging.anchor);
+          note.replaceWith(img);
+        }).catch(() => { /* keep the unavailable label */ });
+      }
     });
     fragment.content.querySelectorAll("a[href]").forEach(a => {
       const href = a.getAttribute("href");

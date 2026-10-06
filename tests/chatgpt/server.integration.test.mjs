@@ -17,7 +17,7 @@ test('the bundled stdio server advertises only Markdown and serves its self-cont
   try {
     await client.connect(transport);
     const {tools}=await client.listTools();
-    assert.equal(tools.length,3);
+    assert.equal(tools.length,4);
     const fontTool=tools.find(tool=>tool.name==='reader_font_catalog');
     assert.deepEqual(fontTool._meta.ui,{visibility:['app']});
     const catalog=(await client.callTool({name:'reader_font_catalog',arguments:{}}))._meta['reader/font-catalog'];
@@ -90,4 +90,44 @@ test('packaged branding uses existing Reader artwork and both manifest assets ex
   const icon=await readFile(new URL('../../build/chatgpt/'+ui.logo,import.meta.url));
   const original=await readFile(new URL('../../src/reader/common/ReaderIcon-1024.png',import.meta.url));
   assert.deepEqual(icon,original);
+});
+
+
+test('image tool reads scoped SVG and raster bytes but rejects untrusted context and escapes', async (t) => {
+  const root=await mkdtemp(join(tmpdir(),'reader-image-security-'));
+  t.after(()=>rm(root,{recursive:true,force:true}));
+  const base=join(root,'docs'); await mkdir(base); await mkdir(join(base,'images'));
+  const opened=join(base,'index.md'); await writeFile(opened,'# Diagram');
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" width="30" height="20"><rect width="30" height="20"/></svg>';
+  await writeFile(join(base,'images','flow.svg'),svg);
+  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aRZkAAAAASUVORK5CYII=','base64');
+  await writeFile(join(base,'plot.png'),png);
+  await writeFile(join(root,'outside.svg'),svg);
+  await writeFile(join(base,'secret.txt'),'private data');
+  await writeFile(join(base,'large.png'),Buffer.alloc(8*1024*1024+1));
+  await symlink(join(root,'outside.svg'),join(base,'escape.svg'));
+  await symlink(join(base,'secret.txt'),join(base,'alias.svg'));
+  const client=new Client({name:'Reader image test',version:'1'},{});
+  const transport=new StdioClientTransport({command:process.execPath,args:[fileURLToPath(new URL('../../build/chatgpt/server.mjs',import.meta.url))]});
+  const meta={'openai/resource':{path:opened}};
+  const call=(href,_meta=meta)=>client.callTool({name:'reader_read_local_image',arguments:{href},_meta});
+  try {
+    await client.connect(transport);
+    const tool=(await client.listTools()).tools.find(t=>t.name==='reader_read_local_image');
+    assert.deepEqual(tool._meta.ui,{visibility:['app']});
+    assert.equal(tool.annotations.readOnlyHint,true);
+    for (const [href,mime,bytes] of [['images/flow.svg','image/svg+xml',Buffer.from(svg)],['plot.png','image/png',png]]) {
+      const result=await call(href); assert.equal(result.isError,undefined);
+      assert.deepEqual(result.content,[]);
+      assert.equal(result._meta['reader/local-image'].dataUrl,`data:${mime};base64,${bytes.toString('base64')}`);
+      assert.doesNotMatch(JSON.stringify(result),new RegExp(root));
+    }
+    for (const href of ['../outside.svg','%2e%2e/outside.svg','escape.svg','alias.svg','secret.txt','large.png','missing.svg','images/flow.svg?x','images/flow.svg#x','file://'+opened,'https://example.com/flow.svg',join(base,'plot.png')]) {
+      const result=await call(href); assert.equal(result.isError,true,href);
+      assert.equal(result._meta,undefined); assert.doesNotMatch(JSON.stringify(result),new RegExp(root));
+    }
+    for (const context of [{},{'openai/resource':{path:'index.md'}},{'openai/resource':{path:join(base,'missing.md')}}]) {
+      assert.equal((await call('plot.png',context)).isError,true);
+    }
+  } finally {await client.close();}
 });

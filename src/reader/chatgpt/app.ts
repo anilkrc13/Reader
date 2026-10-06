@@ -13,7 +13,7 @@ declare global {
       refreshFonts(): Promise<void>;
       find(): void; settings(): void; error(message: string): void;
     };
-    readerEmbeddedHost: {fontCatalog(): Promise<unknown>; openLink(href: string): Promise<void>};
+    readerEmbeddedHost: {fontCatalog(): Promise<unknown>; image(href: string): Promise<string>; openLink(href: string): Promise<void>};
   }
 }
 const reader = window.readerEmbedded;
@@ -48,6 +48,15 @@ app.addEventListener("toolinput", ({arguments: args}) => {
 app.onteardown = async () => { stopped = true; await session?.dispose(); return {}; };
 window.addEventListener("pagehide", () => { stopped = true; void session?.dispose(); });
 window.readerEmbeddedHost = {
+  async image(href) {
+    const fileUri = currentUri;
+    if (!connected || stopped || !fileUri) throw new Error("No open document.");
+    const result = await app.callServerTool({name: "reader_read_local_image", arguments: {href}});
+    const image = result._meta?.["reader/local-image"] as {dataUrl?: unknown} | undefined;
+    if (stopped || currentUri !== fileUri || result.isError || typeof image?.dataUrl !== "string" ||
+        !/^data:image\/(?:svg\+xml|png|jpeg|gif|webp);base64,[A-Za-z0-9+/]+=*$/.test(image.dataUrl)) throw new Error("Image unavailable.");
+    return image.dataUrl;
+  },
   async fontCatalog() {
     if (!connected || stopped) throw new Error("Font catalog is not connected.");
     const result = await app.callServerTool({name: "reader_font_catalog", arguments: {}});

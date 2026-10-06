@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- The conversation viewer now loads relative SVG, PNG, JPEG, GIF, and WebP
+  images inside the opened Markdown folder. Refresh rereads image files.
+  Files outside that folder and images over 8 MiB remain unavailable.
+
 - Mac and embedded viewers now share a backend font-catalog service. The macOS
   adapter uses AppKit; other platforms report unavailable until supported.
   Embedded choices are checked for local rendering and preserve saved fallbacks.
